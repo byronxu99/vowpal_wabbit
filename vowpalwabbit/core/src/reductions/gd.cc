@@ -661,9 +661,7 @@ void update(gd& g, base_learner&, VW::example& ec)
   float update;
   if ((update = compute_update<sparse_l2, invariant, sqrt_rate, feature_mask_off, adax, adaptive, normalized, spare>(
            g, ec)) != 0.)
-  {
-    train<sqrt_rate, feature_mask_off, adaptive, normalized, spare>(g, ec, update);
-  }
+  { train<sqrt_rate, feature_mask_off, adaptive, normalized, spare>(g, ec, update); }
 
   if (g.all->sd->contraction < 1e-9 || g.all->sd->gravity > 1e3)
   {  // updating weights now to avoid numerical instability
