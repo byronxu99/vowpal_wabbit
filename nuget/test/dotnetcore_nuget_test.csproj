@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="VowpalWabbitNetCore" />
+    <PackageReference Include="VowpalWabbit" />
   </ItemGroup>
 
 </Project>
