@@ -5,7 +5,7 @@ on:
     branches:
       - master
       - 'releases/**'
-      - 'dev/DotNetCore'
+      - 'dev/DotNet**'
   pull_request:
     branches:
       - '*'
@@ -99,13 +99,14 @@ jobs:
           .\bin\x64\Release\test-${{ matrix.toolset }}.exe
           .\bin\x64\Debug\test-${{ matrix.toolset }}.exe
 
-  build_nuget_dotnetcore:
+  build_nuget_dotnet:
     strategy:
       fail-fast: false
       matrix:
         os: ["windows-latest", "ubuntu-latest", "macos-latest"]
     runs-on: ${{matrix.os}}
     steps:
+      # Setup for build
       - uses: actions/checkout@v2
         with:
           submodules: 'recursive'
@@ -116,7 +117,9 @@ jobs:
         uses: seanmiddleditch/gha-setup-ninja@master
       - name: Install dotnet t4
         run: dotnet tool install --global dotnet-t4
-      - name: Configure
+
+      # Build .NET Core, all platforms
+      - name: Configure .NET Core
         run: >
           cmake -S . -B build -G Ninja
           -Dvw_BUILD_NET_CORE=On
@@ -130,17 +133,44 @@ jobs:
           -DVW_BUILD_VW_C_WRAPPER=Off
           -DBUILD_TESTING=Off
           -DBUILD_SHARED_LIBS=Off
-      - name: Build
+      - name: Build .NET Core
         run: cmake --build build --config Release
-      - name: Install
+      - name: Install .NET Core
         run: cmake --install build --prefix ./nuget_staging
+
+      # Build .NET Framework on Windows
+      - name: Reset build directory
+        if: ${{ startsWith(matrix.os, 'windows') }}
+        run: Remove-Item -Recurse -Force .\build
+      - name: Configure .NET Framework
+        if: ${{ startsWith(matrix.os, 'windows') }}
+        run: >
+          cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+          -Dvw_BUILD_NET_FRAMEWORK=On
+          -DBUILD_FLATBUFFERS=Off
+          -DRAPIDJSON_SYS_DEP=Off
+          -DFMT_SYS_DEP=Off
+          -DSPDLOG_SYS_DEP=Off
+          -DVW_ZLIB_SYS_DEP=Off
+          -DVW_BOOST_MATH_SYS_DEP=Off
+          -DVW_BUILD_VW_C_WRAPPER=Off
+          -DBUILD_TESTING=Off
+          -DBUILD_SHARED_LIBS=Off
+      - name: Build .NET Framework
+        if: ${{ startsWith(matrix.os, 'windows') }}
+        run: cmake --build build --config Release
+      - name: Install .NET Framework
+        if: ${{ startsWith(matrix.os, 'windows') }}
+        run: cmake --install build --prefix ./nuget_staging
+
+      # Create the combined package on Windows
       - name: Package
         if: ${{ startsWith(matrix.os, 'windows') }}
         shell: powershell
         id: generate-nuget
         run: |
           cd nuget_staging
-          nuget pack dotnetcore.nuspec
+          nuget pack dotnet.nuspec
           $NugetFileName = Get-ChildItem *.nupkg -name
           echo "::set-output name=NugetFileName::$NugetFileName"
       - name: Upload
@@ -149,6 +179,8 @@ jobs:
         with:
           name: ${{ steps.generate-nuget.outputs.NugetFileName }}
           path: nuget_staging/${{ steps.generate-nuget.outputs.NugetFileName }}
+
+      # Create the .NET Core runtime package, all platforms
       - name: Package Runtime
         shell: bash
         id: generate-runtime-nuget
@@ -164,7 +196,7 @@ jobs:
           path: nuget_staging/${{ steps.generate-runtime-nuget.outputs.NugetFileName }}
 
   test_nuget_dotnetcore:
-    needs: [build_nuget_dotnetcore]
+    needs: [build_nuget_dotnet]
     strategy:
       fail-fast: false
       matrix:
@@ -172,6 +204,7 @@ jobs:
           - { os: "windows-latest", runtime_id: "win-x64" }
           - { os: "ubuntu-latest", runtime_id: "linux-x64" }
           - { os: "macos-latest", runtime_id: "osx-x64" }
+        package_name: ["VowpalWabbit"]
     runs-on: ${{matrix.config.os}}
     steps:
       - uses: actions/checkout@v2
@@ -187,11 +220,11 @@ jobs:
           echo "::set-output name=VWVersion::$version"
       - uses: actions/download-artifact@v1
         with:
-          name: VowpalWabbitNetCore.${{steps.fetch-vw-version.outputs.VWVersion}}.nupkg
+          name: ${{matrix.package_name}}.${{steps.fetch-vw-version.outputs.VWVersion}}.nupkg
           path: downloaded_nugets
       - uses: actions/download-artifact@v1
         with:
-          name: VowpalWabbitNetCore.runtime.${{matrix.config.runtime_id}}.${{steps.fetch-vw-version.outputs.VWVersion}}.nupkg
+          name: ${{matrix.package_name}}.runtime.${{matrix.config.runtime_id}}.${{steps.fetch-vw-version.outputs.VWVersion}}.nupkg
           path: downloaded_nugets
       - name: List downloaded packages
         run: ls downloaded_nugets
