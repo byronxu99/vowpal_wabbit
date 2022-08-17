@@ -218,6 +218,10 @@ jobs:
         run: |
           version=$(cat version.txt)
           echo "::set-output name=VWVersion::$version"
+
+      # Download the previously built Nuget packages
+      - name: Clear nuget cache
+        run: dotnet nuget locals all --clear
       - uses: actions/download-artifact@v1
         with:
           name: ${{matrix.package_name}}.${{steps.fetch-vw-version.outputs.VWVersion}}.nupkg
@@ -228,11 +232,16 @@ jobs:
           path: downloaded_nugets
       - name: List downloaded packages
         run: ls downloaded_nugets
-      - name: Clear nuget cache
-        run: dotnet nuget locals all --clear
+
+        # Some of these commands may generate an error message because we are installing packages from local source with remote dependencies
+        # The missing dependencies are installed in later steps
+      - name: Add VW package to project
+        run: |
+          set +e
+          cd nuget/test
+          dotnet add dotnetcore_nuget_test.csproj package ${{matrix.package_name}} --version ${{steps.fetch-vw-version.outputs.VWVersion}} --source "${{github.workspace}}/downloaded_nugets"
+          exit 0
       - name: Install package
-        # this may generate an error because we are installing packages from local source with remote dependencies
-        # the missing dependencies are installed in the next step
         run: |
           set +e
           cd nuget/test
@@ -247,3 +256,61 @@ jobs:
           cd nuget/test
           dotnet build dotnetcore_nuget_test.csproj --runtime ${{matrix.config.runtime_id}} --output build --no-restore --self-contained
           ./build/dotnetcore_nuget_test
+
+  test_nuget_dotnetframework:
+    needs: [build_nuget_dotnet]
+    strategy:
+      fail-fast: false
+      matrix:
+        package_name: ["VowpalWabbit"]
+    runs-on: "windows-latest"
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: 'recursive'
+      - if: ${{ startsWith(matrix.config.os, 'windows') }}
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Get version of VW
+        id: fetch-vw-version
+        shell: bash
+        run: |
+          version=$(cat version.txt)
+          echo "::set-output name=VWVersion::$version"
+
+      # Download the previously built Nuget packages
+      - name: Clear nuget cache
+        run: dotnet nuget locals all --clear
+      - uses: actions/download-artifact@v1
+        with:
+          name: ${{matrix.package_name}}.${{steps.fetch-vw-version.outputs.VWVersion}}.nupkg
+          path: downloaded_nugets
+      - uses: actions/download-artifact@v1
+        with:
+          name: ${{matrix.package_name}}.runtime.win-x64.${{steps.fetch-vw-version.outputs.VWVersion}}.nupkg
+          path: downloaded_nugets
+      - name: List downloaded packages
+        run: ls downloaded_nugets
+
+        # Some of these commands may generate an error message because we are installing packages from local source with remote dependencies
+        # The missing dependencies are installed in later steps
+      - name: Add VW package to project
+        run: |
+          set +e
+          cd nuget/test
+          dotnet add dotnetframework_nuget_test.csproj package ${{matrix.package_name}} --version ${{steps.fetch-vw-version.outputs.VWVersion}} --source "${{github.workspace}}/downloaded_nugets"
+          exit 0
+      - name: Install package
+        run: |
+          set +e
+          cd nuget/test
+          dotnet restore dotnetframework_nuget_test.csproj --runtime win-x64 --source "${{github.workspace}}/downloaded_nugets"
+          exit 0
+      - name: Install remaining dependencies
+        run: |
+          cd nuget/test
+          dotnet restore dotnetframework_nuget_test.csproj --runtime win-x64
+      - name: Build and run test
+        run: |
+          cd nuget/test
+          dotnet build dotnetframework_nuget_test.csproj --runtime win-x64 --output build --no-restore --self-contained
+          ./build/dotnetframework_nuget_test
