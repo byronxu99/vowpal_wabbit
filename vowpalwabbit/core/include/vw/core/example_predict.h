@@ -53,7 +53,11 @@ public:
 
   VW::v_array<namespace_index> indices;
   std::array<features, NUM_NAMESPACES> feature_space;  // Groups of feature values.
-  uint64_t ft_offset = 0;                              // An offset for all feature values.
+
+  // Weight index = feature_index * ft_index_scale + ft_index_offset
+  uint64_t ft_index_scale = 1; // Scaling factor for feature indices
+  uint64_t ft_index_offset = 0; // Offset for feature indices
+
   uint64_t feature_space_hash = 0;  // A unique hash of the feature space and namespaces of the example.
   bool is_set_feature_space_hash = false;
 

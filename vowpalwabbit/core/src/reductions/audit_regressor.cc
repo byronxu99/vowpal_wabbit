@@ -131,7 +131,7 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
   else
   {
     rd.cur_class = 0;
-    const uint64_t old_offset = ec.ft_offset;
+    const uint64_t old_offset = ec.ft_index_offset;
 
     while (rd.cur_class < rd.total_class_cnt)
     {
@@ -143,7 +143,7 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
           for (size_t j = 0; j < fs.size(); ++j)
           {
             audit_regressor_interaction(rd, &fs.space_names[j]);
-            audit_regressor_feature(rd, fs.values[j], static_cast<uint32_t>(fs.indices[j]) + ec.ft_offset);
+            audit_regressor_feature(rd, fs.values[j], static_cast<uint32_t>(fs.indices[j]) + ec.ft_index_offset);
             audit_regressor_interaction(rd, nullptr);
           }
         }
@@ -151,7 +151,7 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
         {
           for (size_t j = 0; j < fs.size(); ++j)
           {
-            audit_regressor_feature(rd, fs.values[j], static_cast<uint32_t>(fs.indices[j]) + ec.ft_offset);
+            audit_regressor_feature(rd, fs.values[j], static_cast<uint32_t>(fs.indices[j]) + ec.ft_index_offset);
           }
         }
       }
@@ -174,11 +174,11 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
             rd.all->runtime_state.generate_interactions_object_cache_state);
       }
 
-      ec.ft_offset += rd.feature_width_below;
+      ec.ft_index_offset += rd.feature_width_below;
       ++rd.cur_class;
     }
 
-    ec.ft_offset = old_offset;  // make sure example is not changed.
+    ec.ft_index_offset = old_offset;  // make sure example is not changed.
   }
 }
 

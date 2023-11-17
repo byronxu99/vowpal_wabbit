@@ -199,7 +199,7 @@ void cb_explore_adf_squarecb::predict(learner& base, VW::multi_ex& examples)
     red_features.squarecb_gamma = gamma;
   }
 
-  multiline_learn_or_predict<false>(base, examples, examples[0]->ft_offset);
+  multiline_learn_or_predict<false>(base, examples, examples[0]->ft_index_offset);
 
   VW::v_array<VW::action_score>& preds = examples[0]->pred.a_s;
   uint32_t num_actions = static_cast<uint32_t>(preds.size());
@@ -291,7 +291,7 @@ void cb_explore_adf_squarecb::learn(learner& base, VW::multi_ex& examples)
     }
   }
 
-  multiline_learn_or_predict<true>(base, examples, examples[0]->ft_offset);
+  multiline_learn_or_predict<true>(base, examples, examples[0]->ft_index_offset);
   ++_counter;
   examples[0]->pred.a_s = std::move(preds);
 }

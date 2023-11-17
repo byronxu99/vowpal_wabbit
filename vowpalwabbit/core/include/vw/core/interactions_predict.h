@@ -421,7 +421,7 @@ inline void generate_interactions(const std::vector<std::vector<VW::namespace_in
                                      VW::feature_value value, VW::feature_index index)
   {
     details::inner_kernel<DataT, WeightOrIndexT, FuncT, audit, audit_func>(
-        dat, begin, end, ec.ft_offset, weights, value, index);
+        dat, begin, end, ec.ft_index_offset, weights, value, index);
   };
 
   const auto depth_audit_func = [&](const VW::audit_strings* audit_str) { audit_func(dat, audit_str); };

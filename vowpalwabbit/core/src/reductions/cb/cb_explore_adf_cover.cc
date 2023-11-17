@@ -112,16 +112,16 @@ void cb_explore_adf_cover::predict_or_learn_impl(VW::LEARNER::learner& base, VW:
       VW_DBG(examples) << "cb_explore_adf_cover: "
                           "LEARNER::multiline_learn_or_predict<false>()"
                        << std::endl;
-      VW::LEARNER::multiline_learn_or_predict<false>(base, examples, examples[0]->ft_offset);
+      VW::LEARNER::multiline_learn_or_predict<false>(base, examples, examples[0]->ft_index_offset);
     }
 
     VW_DBG(examples) << "cb_explore_adf_cover: LEARNER::multiline_learn_or_predict<true>()" << std::endl;
-    VW::LEARNER::multiline_learn_or_predict<true>(base, examples, examples[0]->ft_offset);
+    VW::LEARNER::multiline_learn_or_predict<true>(base, examples, examples[0]->ft_index_offset);
   }
   else
   {
     VW::details::gen_cs_example_ips(examples, _cs_labels, _logger);
-    VW::LEARNER::multiline_learn_or_predict<false>(base, examples, examples[0]->ft_offset);
+    VW::LEARNER::multiline_learn_or_predict<false>(base, examples, examples[0]->ft_index_offset);
   }
   VW::v_array<VW::action_score>& preds = examples[0]->pred.a_s;
   const uint32_t num_actions = static_cast<uint32_t>(preds.size());
@@ -167,12 +167,12 @@ void cb_explore_adf_cover::predict_or_learn_impl(VW::LEARNER::learner& base, VW:
       }
 
       VW::details::cs_ldf_learn_or_predict<true>(*(_cs_ldf_learner), examples, _cb_labels, _cs_labels_2,
-          _prepped_cs_labels, true, examples[0]->ft_offset, i + 1);
+          _prepped_cs_labels, true, examples[0]->ft_index_offset, i + 1);
     }
     else
     {
       VW::details::cs_ldf_learn_or_predict<false>(*(_cs_ldf_learner), examples, _cb_labels, _cs_labels,
-          _prepped_cs_labels, false, examples[0]->ft_offset, i + 1);
+          _prepped_cs_labels, false, examples[0]->ft_index_offset, i + 1);
     }
 
     for (uint32_t j = 0; j < num_actions; j++) { _scores[j] += preds[j].score; }

@@ -260,7 +260,7 @@ void cs_ldf_learn_or_predict(VW::LEARNER::learner& base, VW::multi_ex& examples,
 
   // 1st: save cb_label (into mydata) and store cs_label for each example, which will be passed into base.learn.
   // also save offsets
-  uint64_t saved_offset = examples[0]->ft_offset;
+  uint64_t saved_offset = examples[0]->ft_index_offset;
 
   // Guard example state restore against throws
   auto restore_guard = VW::scope_exit(
@@ -274,7 +274,7 @@ void cs_ldf_learn_or_predict(VW::LEARNER::learner& base, VW::multi_ex& examples,
           prepped_cs_labels[i] = std::move(examples[i]->l.cs);
           examples[i]->l.cs.costs.clear();
           examples[i]->l.cb = std::move(cb_labels[i]);
-          examples[i]->ft_offset = saved_offset;
+          examples[i]->ft_index_offset = saved_offset;
         }
       });
 

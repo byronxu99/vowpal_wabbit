@@ -967,7 +967,8 @@ void VW::copy_example_metadata(example* dst, const example* src)
   dst->tag = src->tag;
   dst->example_counter = src->example_counter;
 
-  dst->ft_offset = src->ft_offset;
+  dst->ft_index_scale = src->ft_index_scale;
+  dst->ft_index_offset = src->ft_index_offset;
 
   dst->partial_prediction = src->partial_prediction;
   if (src->passthrough == nullptr) { dst->passthrough = nullptr; }

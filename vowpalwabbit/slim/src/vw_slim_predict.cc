@@ -32,13 +32,13 @@ void namespace_copy_guard::feature_push_back(VW::feature_value v, VW::feature_in
   _ex.feature_space[_ns].push_back(v, idx);
 }
 
-feature_offset_guard::feature_offset_guard(VW::example_predict& ex, uint64_t ft_offset)
-    : _ex(ex), _old_ft_offset(ex.ft_offset)
+feature_offset_guard::feature_offset_guard(VW::example_predict& ex, uint64_t ft_index_offset)
+    : _ex(ex), _old_ft_index_offset(ex.ft_index_offset)
 {
-  _ex.ft_offset = ft_offset;
+  _ex.ft_index_offset = ft_index_offset;
 }
 
-feature_offset_guard::~feature_offset_guard() { _ex.ft_offset = _old_ft_offset; }
+feature_offset_guard::~feature_offset_guard() { _ex.ft_index_offset = _old_ft_index_offset; }
 
 stride_shift_guard::stride_shift_guard(VW::example_predict& ex, uint64_t shift) : _ex(ex), _shift(shift)
 {

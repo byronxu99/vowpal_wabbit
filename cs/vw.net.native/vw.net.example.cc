@@ -257,13 +257,13 @@ API VW::feature_index GetShiftedWeightIndex(
     vw_net_native::workspace_context* workspace, VW::example* example, VW::feature_index feature_index)
 {
   VW::workspace* vw = workspace->vw;
-  return ((feature_index + example->ft_offset) >> vw->weights.stride_shift()) & vw->runtime_state.parse_mask;
+  return ((feature_index + example->ft_index_offset) >> vw->weights.stride_shift()) & vw->runtime_state.parse_mask;
 }
 
 API float GetWeight(vw_net_native::workspace_context* workspace, VW::example* example, VW::feature_index feature_index)
 {
   // TODO: Is this calculation right? Why are we not shifting this?
-  uint64_t weightIndex = feature_index + example->ft_offset;
+  uint64_t weightIndex = feature_index + example->ft_index_offset;
   return workspace->vw->weights[weightIndex];
 }
 

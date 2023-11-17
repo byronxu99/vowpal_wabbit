@@ -180,6 +180,6 @@ void VW::details::cs_prep_labels(VW::multi_ex& examples, std::vector<VW::cb_labe
     prepped_cs_labels[index].costs.clear();
     prepped_cs_labels[index].costs.push_back(cs_labels.costs[index]);
     ec->l.cs = std::move(prepped_cs_labels[index++]);
-    ec->ft_offset = offset;
+    ec->ft_index_offset = offset;
   }
 }

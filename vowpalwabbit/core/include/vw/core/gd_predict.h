@@ -72,7 +72,7 @@ inline void foreach_feature(WeightsT& weights, bool ignore_some_linear,
     const std::vector<std::vector<VW::extent_term>>& extent_interactions, bool permutations, VW::example_predict& ec,
     DataT& dat, size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache)
 {
-  uint64_t offset = ec.ft_offset;
+  uint64_t offset = ec.ft_index_offset;
   if (ignore_some_linear)
   {
     for (VW::example_predict::iterator i = ec.begin(); i != ec.end(); ++i)

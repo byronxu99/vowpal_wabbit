@@ -58,7 +58,7 @@ std::string VW::debug::prob_dist_pred_to_string(const example& ec)
 std::string VW::debug::features_to_string(const example_predict& ec)
 {
   std::stringstream strstream;
-  strstream << "[off=" << ec.ft_offset << "]";
+  strstream << "[off=" << ec.ft_index_offset << "]";
   for (auto& f : ec.feature_space)
   {
     auto ind_iter = f.indices.cbegin();

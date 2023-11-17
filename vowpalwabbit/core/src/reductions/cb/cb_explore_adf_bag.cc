@@ -91,7 +91,7 @@ void cb_explore_adf_bag::predict(VW::LEARNER::learner& base, VW::multi_ex& examp
 
   for (uint32_t i = 0; i < _bag_size; i++)
   {
-    VW::LEARNER::multiline_learn_or_predict<false>(base, examples, examples[0]->ft_offset, i);
+    VW::LEARNER::multiline_learn_or_predict<false>(base, examples, examples[0]->ft_index_offset, i);
 
     assert(preds.size() == num_actions);
     for (auto e : preds) { _scores[e.action] += e.score; }
@@ -129,7 +129,7 @@ void cb_explore_adf_bag::learn(VW::LEARNER::learner& base, VW::multi_ex& example
 
     for (uint32_t j = 0; j < learn_count; j++)
     {
-      VW::LEARNER::multiline_learn_or_predict<true>(base, examples, examples[0]->ft_offset, i);
+      VW::LEARNER::multiline_learn_or_predict<true>(base, examples, examples[0]->ft_index_offset, i);
     }
   }
 }

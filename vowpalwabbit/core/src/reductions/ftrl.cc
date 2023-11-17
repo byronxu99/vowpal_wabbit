@@ -141,9 +141,9 @@ void multipredict(
     {
       ec.pred.scalar = pred[c].scalar;
       VW::details::print_audit_features(all, ec);
-      ec.ft_offset += static_cast<uint64_t>(step);
+      ec.ft_index_offset += static_cast<uint64_t>(step);
     }
-    ec.ft_offset -= static_cast<uint64_t>(step * count);
+    ec.ft_index_offset -= static_cast<uint64_t>(step * count);
   }
 }
 

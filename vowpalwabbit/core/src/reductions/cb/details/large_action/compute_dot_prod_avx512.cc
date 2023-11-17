@@ -58,7 +58,7 @@ inline void compute16(const __m512& feature_values, const __m512i& feature_indic
 float compute_dot_prod_avx512(uint64_t column_index, VW::workspace* _all, uint64_t seed, VW::example* ex)
 {
   float sum = 0.f;
-  const uint64_t offset = ex->ft_offset;
+  const uint64_t offset = ex->ft_index_offset;
   const uint64_t weights_mask = _all->weights.mask();
 
   __m512 sums = _mm512_setzero_ps();

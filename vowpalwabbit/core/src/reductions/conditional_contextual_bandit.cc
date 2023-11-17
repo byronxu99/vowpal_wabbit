@@ -479,8 +479,8 @@ void learn_or_predict(ccb_data& data, learner& base, VW::multi_ex& examples)
         // The right thing to do here is to detect library mode and not have to
         // call predict if prediction is
         // not needed for learn.  This will be part of a future PR
-        if (!is_learn) { multiline_learn_or_predict<false>(base, data.cb_ex, examples[0]->ft_offset); }
-        else { multiline_learn_or_predict<true>(base, data.cb_ex, examples[0]->ft_offset); }
+        if (!is_learn) { multiline_learn_or_predict<false>(base, data.cb_ex, examples[0]->ft_index_offset); }
+        else { multiline_learn_or_predict<true>(base, data.cb_ex, examples[0]->ft_index_offset); }
 
         if (!data.no_pred) { save_action_scores_and_exclude_top_action(data, decision_scores); }
         else { exclude_chosen_action(data, examples); }

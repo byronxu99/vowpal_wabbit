@@ -1393,7 +1393,7 @@ public:
 
     new_ex->indices = stored_ex->indices;
     for (auto& ns : new_ex->indices) { new_ex->feature_space[ns] = stored_ex->feature_space[ns]; }
-    new_ex->ft_offset = stored_ex->ft_offset;
+    new_ex->ft_index_offset = stored_ex->ft_index_offset;
     return return_state;
   }
 };

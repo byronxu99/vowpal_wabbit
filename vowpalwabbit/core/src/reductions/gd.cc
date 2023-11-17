@@ -432,7 +432,7 @@ void VW::details::print_features(VW::workspace& all, VW::example& ec)
   if (all.reduction_state.lda > 0) { print_lda_features(all, ec); }
   else
   {
-    audit_results dat(all, ec.ft_offset);
+    audit_results dat(all, ec.ft_index_offset);
 
     for (VW::features& fs : ec)
     {
@@ -441,13 +441,13 @@ void VW::details::print_features(VW::workspace& all, VW::example& ec)
         for (const auto& f : fs.audit_range())
         {
           audit_interaction(dat, f.audit());
-          audit_feature(dat, f.value(), f.index() + ec.ft_offset);
+          audit_feature(dat, f.value(), f.index() + ec.ft_index_offset);
           audit_interaction(dat, nullptr);
         }
       }
       else
       {
-        for (const auto& f : fs) { audit_feature(dat, f.value(), f.index() + ec.ft_offset); }
+        for (const auto& f : fs) { audit_feature(dat, f.value(), f.index() + ec.ft_index_offset); }
       }
     }
     size_t num_interacted_features = 0;
@@ -515,7 +515,7 @@ inline float trunc_predict(VW::workspace& all, VW::example& ec, double gravity, 
 template <bool l1, bool audit>
 void predict(VW::reductions::gd& g, VW::example& ec)
 {
-  VW_DBG(ec) << "gd.predict(): ex#=" << ec.example_counter << ", offset=" << ec.ft_offset << std::endl;
+  VW_DBG(ec) << "gd.predict(): ex#=" << ec.example_counter << ", offset=" << ec.ft_index_offset << std::endl;
 
   VW::workspace& all = *g.all;
   size_t num_interacted_features = 0;
@@ -603,9 +603,9 @@ void multipredict(VW::reductions::gd& g, VW::example& ec, size_t count, size_t s
     {
       ec.pred.scalar = pred[c].scalar;
       VW::details::print_audit_features(all, ec);
-      ec.ft_offset += static_cast<uint64_t>(step);
+      ec.ft_index_offset += static_cast<uint64_t>(step);
     }
-    ec.ft_offset -= static_cast<uint64_t>(step * count);
+    ec.ft_index_offset -= static_cast<uint64_t>(step * count);
   }
 }
 
@@ -781,7 +781,7 @@ float sensitivity(VW::reductions::gd& g, VW::example& ec)
 {
   if (g.current_model_state == nullptr)
   {
-    g.current_model_state = &(g.gd_per_model_states[ec.ft_offset / g.all->weights.stride()]);
+    g.current_model_state = &(g.gd_per_model_states[ec.ft_index_offset / g.all->weights.stride()]);
   }
   return get_scale<adaptive>(g, ec, 1.) *
       sensitivity<sqrt_rate, feature_mask_off, adax, adaptive, normalized, spare, true>(g, ec);
@@ -837,7 +837,7 @@ void update(VW::reductions::gd& g, VW::example& ec)
 {
   if (g.current_model_state == nullptr)
   {
-    g.current_model_state = &(g.gd_per_model_states[ec.ft_offset / g.all->weights.stride()]);
+    g.current_model_state = &(g.gd_per_model_states[ec.ft_index_offset / g.all->weights.stride()]);
   }
   // invariant: not a test label, importance weight > 0
   float update;
@@ -862,7 +862,7 @@ void learn(VW::reductions::gd& g, VW::example& ec)
   assert(ec.l.simple.label != FLT_MAX);
   assert(ec.weight > 0.);
   g.predict(g, ec);
-  g.current_model_state = &(g.gd_per_model_states[ec.ft_offset / g.all->weights.stride()]);
+  g.current_model_state = &(g.gd_per_model_states[ec.ft_index_offset / g.all->weights.stride()]);
   update<sparse_l2, invariant, sqrt_rate, feature_mask_off, adax, adaptive, normalized, spare>(g, ec);
   assert(g.current_model_state == nullptr);  // update clears this pointer
   // this state should only matter on learn and not predict

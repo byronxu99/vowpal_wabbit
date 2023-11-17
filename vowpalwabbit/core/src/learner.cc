@@ -745,9 +745,9 @@ void VW::LEARNER::details::increment_offset(polymorphic_ex ex, const size_t feat
 {
   if (ex.is_multiline())
   {
-    for (auto& ec : static_cast<VW::multi_ex&>(ex)) { ec->ft_offset += static_cast<uint32_t>(feature_width_below * i); }
+    for (auto& ec : static_cast<VW::multi_ex&>(ex)) { ec->ft_index_offset += static_cast<uint32_t>(feature_width_below * i); }
   }
-  else { static_cast<VW::example&>(ex).ft_offset += static_cast<uint32_t>(feature_width_below * i); }
+  else { static_cast<VW::example&>(ex).ft_index_offset += static_cast<uint32_t>(feature_width_below * i); }
   debug_increment_depth(ex);
 }
 
@@ -757,14 +757,14 @@ void VW::LEARNER::details::decrement_offset(polymorphic_ex ex, const size_t feat
   {
     for (auto ec : static_cast<VW::multi_ex&>(ex))
     {
-      assert(ec->ft_offset >= feature_width_below * i);
-      ec->ft_offset -= static_cast<uint32_t>(feature_width_below * i);
+      assert(ec->ft_index_offset >= feature_width_below * i);
+      ec->ft_index_offset -= static_cast<uint32_t>(feature_width_below * i);
     }
   }
   else
   {
-    assert(static_cast<VW::example&>(ex).ft_offset >= feature_width_below * i);
-    static_cast<VW::example&>(ex).ft_offset -= static_cast<uint32_t>(feature_width_below * i);
+    assert(static_cast<VW::example&>(ex).ft_index_offset >= feature_width_below * i);
+    static_cast<VW::example&>(ex).ft_index_offset -= static_cast<uint32_t>(feature_width_below * i);
   }
   debug_decrement_depth(ex);
 }

@@ -49,12 +49,12 @@ private:
 class feature_offset_guard
 {
 public:
-  feature_offset_guard(VW::example_predict& ex, uint64_t ft_offset);
+  feature_offset_guard(VW::example_predict& ex, uint64_t ft_index_offset);
   ~feature_offset_guard();
 
 private:
   VW::example_predict& _ex;
-  uint64_t _old_ft_offset;
+  uint64_t _old_ft_index_offset;
 };
 
 class stride_shift_guard
@@ -261,7 +261,7 @@ public:
       // add constant feature
       ns_copy_guard =
           std::unique_ptr<namespace_copy_guard>(new namespace_copy_guard(ex, VW::details::CONSTANT_NAMESPACE));
-      ns_copy_guard->feature_push_back(1.f, (VW::details::CONSTANT << _stride_shift) + ex.ft_offset);
+      ns_copy_guard->feature_push_back(1.f, (VW::details::CONSTANT << _stride_shift) + ex.ft_index_offset);
     }
 
     if (_contains_wildcard)

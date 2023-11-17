@@ -1111,7 +1111,7 @@ py::list ex_get_multilabel_labels(example_ptr ec)
 
 // example_counter is being overriden by lableType!
 size_t get_example_counter(example_ptr ec) { return ec->example_counter; }
-uint64_t get_ft_offset(example_ptr ec) { return ec->ft_offset; }
+uint64_t get_ft_offset(example_ptr ec) { return ec->ft_index_offset; }
 size_t get_num_features(example_ptr ec) { return ec->get_num_features(); }
 float get_partial_prediction(example_ptr ec) { return ec->partial_prediction; }
 float get_updated_prediction(example_ptr ec) { return ec->updated_prediction; }

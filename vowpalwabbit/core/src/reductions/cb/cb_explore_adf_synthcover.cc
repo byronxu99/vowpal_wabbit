@@ -71,7 +71,7 @@ cb_explore_adf_synthcover::cb_explore_adf_synthcover(float epsilon, float psi, s
 template <bool is_learn>
 void cb_explore_adf_synthcover::predict_or_learn_impl(VW::LEARNER::learner& base, VW::multi_ex& examples)
 {
-  VW::LEARNER::multiline_learn_or_predict<is_learn>(base, examples, examples[0]->ft_offset);
+  VW::LEARNER::multiline_learn_or_predict<is_learn>(base, examples, examples[0]->ft_index_offset);
 
   const auto it =
       std::find_if(examples.begin(), examples.end(), [](VW::example* item) { return !item->l.cb.costs.empty(); });

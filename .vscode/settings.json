@@ -6,5 +6,15 @@
             ],
             "url": "./test/vwtest.schema.json"
         }
-    ]
+    ],
+    "files.associations": {
+        "*.rmd": "markdown",
+        "tensorsymmetry": "cpp",
+        "barrier": "cpp",
+        "functional": "cpp",
+        "tuple": "cpp",
+        "utility": "cpp",
+        "valarray": "cpp",
+        "variant": "cpp"
+    }
 }

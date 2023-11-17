@@ -181,11 +181,11 @@ void predict_or_learn_multi(nn& n, learner& base, VW::example& ec)
     save_max_label = n.all->sd->max_label;
     n.all->sd->max_label = HIDDEN_MAX_ACTIVATION;
 
-    uint64_t save_ft_offset = ec.ft_offset;
+    uint64_t save_ft_index_offset = ec.ft_index_offset;
 
-    if (n.multitask) { ec.ft_offset = 0; }
+    if (n.multitask) { ec.ft_index_offset = 0; }
 
-    n.hiddenbias.ft_offset = ec.ft_offset;
+    n.hiddenbias.ft_index_offset = ec.ft_index_offset;
 
     if (recompute_hidden)
     {
@@ -230,7 +230,7 @@ void predict_or_learn_multi(nn& n, learner& base, VW::example& ec)
     n.all->set_minmax = save_set_minmax;
     n.all->sd->min_label = save_min_label;
     n.all->sd->max_label = save_max_label;
-    ec.ft_offset = save_ft_offset;
+    ec.ft_index_offset = save_ft_index_offset;
 
     bool converse = false;
     float save_partial_prediction = 0;
@@ -242,7 +242,7 @@ void predict_or_learn_multi(nn& n, learner& base, VW::example& ec)
     n.output_layer.reset_total_sum_feat_sq();
     n.output_layer.feature_space[VW::details::NN_OUTPUT_NAMESPACE].sum_feat_sq = 1;
 
-    n.outputweight.ft_offset = ec.ft_offset;
+    n.outputweight.ft_index_offset = ec.ft_index_offset;
 
     n.all->set_minmax = nullptr;
     auto loss_function_swap_guard_converse_block = VW::swap_guard(n.all->loss_config.loss, n.squared_loss);
@@ -307,7 +307,7 @@ void predict_or_learn_multi(nn& n, learner& base, VW::example& ec)
     }
     else
     {
-      n.output_layer.ft_offset = ec.ft_offset;
+      n.output_layer.ft_index_offset = ec.ft_index_offset;
       n.output_layer.l.simple = ec.l.simple;
       n.output_layer.ex_reduction_features.template get<VW::simple_label_reduction_features>().initial =
           ec.ex_reduction_features.template get<VW::simple_label_reduction_features>().initial;
@@ -340,9 +340,9 @@ void predict_or_learn_multi(nn& n, learner& base, VW::example& ec)
           n.all->sd->min_label = HIDDEN_MIN_ACTIVATION;
           save_max_label = n.all->sd->max_label;
           n.all->sd->max_label = HIDDEN_MAX_ACTIVATION;
-          save_ft_offset = ec.ft_offset;
+          save_ft_index_offset = ec.ft_index_offset;
 
-          if (n.multitask) { ec.ft_offset = 0; }
+          if (n.multitask) { ec.ft_index_offset = 0; }
 
           for (unsigned int i = 0; i < n.k; ++i)
           {
@@ -367,7 +367,7 @@ void predict_or_learn_multi(nn& n, learner& base, VW::example& ec)
           n.all->set_minmax = save_set_minmax;
           n.all->sd->min_label = save_min_label;
           n.all->sd->max_label = save_max_label;
-          ec.ft_offset = save_ft_offset;
+          ec.ft_index_offset = save_ft_index_offset;
         }
       }
     }
@@ -413,9 +413,9 @@ void multipredict(nn& n, learner& base, VW::example& ec, size_t count, size_t st
                                      // "fix" this by moving)
     }
     else { pred[c].scalar = ec.partial_prediction; }
-    ec.ft_offset += static_cast<uint64_t>(step);
+    ec.ft_index_offset += static_cast<uint64_t>(step);
   }
-  ec.ft_offset -= static_cast<uint64_t>(step * count);
+  ec.ft_index_offset -= static_cast<uint64_t>(step * count);
 }
 
 // This differs from the simple label based version because nn does not output a raw prediction.

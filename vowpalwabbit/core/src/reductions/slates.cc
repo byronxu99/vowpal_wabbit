@@ -85,7 +85,7 @@ void VW::reductions::slates_data::learn_or_predict(VW::LEARNER::learner& base, m
     ccb_label.weight = slates_label.weight;
     examples[i]->l.conditional_contextual_bandit = ccb_label;
   }
-  VW::LEARNER::multiline_learn_or_predict<is_learn>(base, examples, examples[0]->ft_offset);
+  VW::LEARNER::multiline_learn_or_predict<is_learn>(base, examples, examples[0]->ft_index_offset);
 
   // Need to convert decision scores to the original index space. This can be
   // done by going through the prediction for each slots and subtracting the

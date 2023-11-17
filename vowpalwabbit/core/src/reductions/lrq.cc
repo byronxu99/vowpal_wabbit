@@ -106,7 +106,7 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
       for (unsigned int lfn = 0; lfn < lrq.orig_size[left]; ++lfn)
       {
         float lfx = left_fs.values[lfn];
-        uint64_t lindex = left_fs.indices[lfn] + ec.ft_offset;
+        uint64_t lindex = left_fs.indices[lfn] + ec.ft_index_offset;
         for (unsigned int n = 1; n <= k; ++n)
         {
           if (!do_dropout || cheesyrbit(lrq.seed))
@@ -126,7 +126,7 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
             auto& right_fs = ec.feature_space[right];
             for (unsigned int rfn = 0; rfn < lrq.orig_size[right]; ++rfn)
             {
-              // NB: ec.ft_offset added by base learner
+              // NB: ec.ft_index_offset added by base learner
               float rfx = right_fs.values[rfn];
               uint64_t rindex = right_fs.indices[rfn];
               uint64_t rwindex = (rindex + (static_cast<uint64_t>(n) << stride_shift));

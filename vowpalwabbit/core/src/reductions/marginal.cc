@@ -118,7 +118,7 @@ void make_marginal(data& sm, VW::example& ec)
           sm.m_all->logger.out_warn("Bad id features, must have value 1.");
           continue;
         }
-        const uint64_t key = second_index + ec.ft_offset;
+        const uint64_t key = second_index + ec.ft_index_offset;
         if (sm.marginals.find(key) == sm.marginals.end())  // need to initialize things.
         {
           sm.marginals.insert(std::make_pair(key, std::make_pair(sm.initial_numerator, sm.initial_denominator)));
@@ -207,7 +207,7 @@ void update_marginal(data& sm, VW::example& ec)
         if (++j == sm.temp[n].end()) { break; }
 
         const uint64_t second_index = j.index() & mask;
-        uint64_t key = second_index + ec.ft_offset;
+        uint64_t key = second_index + ec.ft_index_offset;
         marginal& m = sm.marginals[key];
 
         if (sm.compete)  // now update weights, before updating marginals

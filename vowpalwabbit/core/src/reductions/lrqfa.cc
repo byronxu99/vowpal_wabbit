@@ -96,7 +96,7 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
             {
               auto& rfs = ec.feature_space[right];
               //                    feature* rf = ec.atomics[right].begin + rfn;
-              // NB: ec.ft_offset added by base learner
+              // NB: ec.ft_index_offset added by base learner
               float rfx = rfs.values[rfn];
               uint64_t rindex = rfs.indices[rfn];
               uint64_t rwindex = (rindex + (static_cast<uint64_t>(lfd_id * k + n) << stride_shift));

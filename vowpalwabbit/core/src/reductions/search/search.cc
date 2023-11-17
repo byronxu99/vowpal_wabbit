@@ -652,7 +652,7 @@ void add_neighbor_features(search_private& priv, VW::multi_ex& ec_seq)
       else  // this is actually a neighbor
       {
         VW::example& other = *ec_seq[n + offset];
-        VW::foreach_feature<search_private, add_new_feature>(priv.all, other.feature_space[ns], priv, me.ft_offset);
+        VW::foreach_feature<search_private, add_new_feature>(priv.all, other.feature_space[ns], priv, me.ft_index_offset);
       }
     }
 
@@ -1327,13 +1327,13 @@ action single_prediction_ldf(search_private& priv, VW::example* ecs, size_t ec_c
     ecs[a].l.cs = priv.ldf_test_label;
 
     VW::multi_ex tmp;
-    uint64_t old_offset = ecs[a].ft_offset;
-    ecs[a].ft_offset = priv.offset;
+    uint64_t old_offset = ecs[a].ft_index_offset;
+    ecs[a].ft_index_offset = priv.offset;
     tmp.push_back(&ecs[a]);
 
     require_multiline(priv.learner)->predict(tmp, policy);
 
-    ecs[a].ft_offset = old_offset;
+    ecs[a].ft_index_offset = old_offset;
     cdbg << "partial_prediction[" << a << "] = " << ecs[a].partial_prediction << endl;
 
     if (override_action != static_cast<action>(-1))
@@ -1554,7 +1554,7 @@ void generate_training_example(search_private& priv, VW::polylabel& losses, floa
 
       VW::multi_ex tmp;
       uint64_t tmp_offset = 0;
-      if (priv.learn_ec_ref_cnt > start_K) { tmp_offset = priv.learn_ec_ref[start_K].ft_offset; }
+      if (priv.learn_ec_ref_cnt > start_K) { tmp_offset = priv.learn_ec_ref[start_K].ft_index_offset; }
       for (action a = static_cast<uint32_t>(start_K); a < priv.learn_ec_ref_cnt; a++)
       {
         VW::example& ec = priv.learn_ec_ref[a];
@@ -1566,7 +1566,7 @@ void generate_training_example(search_private& priv, VW::polylabel& losses, floa
         }
         lab.costs[0].x = losses.cs.costs[a - start_K].x;
         // store the offset to restore it later
-        ec.ft_offset = priv.offset;
+        ec.ft_index_offset = priv.offset;
         // create the example collection used to learn
         tmp.push_back(&ec);
         cdbg << "generate_training_example called learn on action a=" << a << ", costs.size=" << lab.costs.size()
@@ -1581,7 +1581,7 @@ void generate_training_example(search_private& priv, VW::polylabel& losses, floa
       int i = 0;
       for (action a = static_cast<uint32_t>(start_K); a < priv.learn_ec_ref_cnt; a++, i++)
       {
-        priv.learn_ec_ref[a].ft_offset = tmp_offset;
+        priv.learn_ec_ref[a].ft_index_offset = tmp_offset;
       }
     }
 
@@ -2379,7 +2379,7 @@ void do_actual_learning(search& sch, learner& base, VW::multi_ex& ec_seq)
   bool is_holdout_ex = false;
 
   search_private& priv = *sch.priv;
-  priv.offset = ec_seq[0]->ft_offset;
+  priv.offset = ec_seq[0]->ft_index_offset;
   priv.learner = &base;
 
   adjust_auto_condition(priv);
