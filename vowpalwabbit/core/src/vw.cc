@@ -781,15 +781,10 @@ void VW::setup_example(VW::workspace& all, VW::example* ae)
 
   if (!all.feature_tweaks_config.limit_strings.empty()) { feature_limit(all, ae); }
 
-  uint64_t multiplier = static_cast<uint64_t>(all.reduction_state.total_feature_width) << all.weights.stride_shift();
+  // Set ft_index_scale
+  ae->ft_index_scale = static_cast<uint64_t>(all.reduction_state.total_feature_width) << all.weights.stride_shift();
 
-  if (multiplier != 1)
-  {  // make room for per-feature information.
-    for (features& fs : *ae)
-    {
-      for (auto& j : fs.indices) { j *= multiplier; }
-    }
-  }
+  // Calculate num_features
   ae->num_features = 0;
   for (const features& fs : *ae) { ae->num_features += fs.size(); }
 

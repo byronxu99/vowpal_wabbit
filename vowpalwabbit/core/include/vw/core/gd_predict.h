@@ -23,20 +23,21 @@ inline void dummy_func(DataT&, const VW::audit_strings*)
 inline void vec_add(float& p, float fx, float fw) { p += fw * fx; }
 
 }  // namespace details
+
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_index)
 template <class DataT, void (*FuncT)(DataT&, float feature_value, uint64_t feature_index), class WeightsT>
-void foreach_feature(WeightsT& /*weights*/, const VW::features& fs, DataT& dat, uint64_t offset = 0, float mult = 1.)
+void foreach_feature(WeightsT& /*weights*/, const VW::features& fs, DataT& dat, uint64_t scale = 1, uint64_t offset = 0, float mult = 1.)
 {
-  for (const auto& f : fs) { FuncT(dat, mult * f.value(), f.index() + offset); }
+  for (const auto& f : fs) { FuncT(dat, mult * f.value(), scale * f.index() + offset); }
 }
 
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_weight)
 template <class DataT, void (*FuncT)(DataT&, const float feature_value, float& weight_reference), class WeightsT>
-inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, uint64_t offset = 0, float mult = 1.)
+inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, uint64_t scale = 1, uint64_t offset = 0, float mult = 1.)
 {
   for (const auto& f : fs)
   {
-    VW::weight& w = weights[f.index() + offset];
+    VW::weight& w = weights[scale * f.index() + offset];
     FuncT(dat, mult * f.value(), w);
   }
 }
@@ -44,9 +45,12 @@ inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& da
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_weight)
 template <class DataT, void (*FuncT)(DataT&, float, float), class WeightsT>
 inline void foreach_feature(
-    const WeightsT& weights, const VW::features& fs, DataT& dat, uint64_t offset = 0, float mult = 1.)
+    const WeightsT& weights, const VW::features& fs, DataT& dat, uint64_t scale = 1, uint64_t offset = 0, float mult = 1.)
 {
-  for (const auto& f : fs) { FuncT(dat, mult * f.value(), weights.get(static_cast<size_t>(f.index() + offset))); }
+  for (const auto& f : fs)
+  {
+    FuncT(dat, mult * f.value(), weights.get(static_cast<size_t>(scale * f.index() + offset)));
+  }
 }
 
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, float, WeightOrIndexT),
@@ -72,7 +76,9 @@ inline void foreach_feature(WeightsT& weights, bool ignore_some_linear,
     const std::vector<std::vector<VW::extent_term>>& extent_interactions, bool permutations, VW::example_predict& ec,
     DataT& dat, size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache)
 {
+  uint64_t scale = ec.ft_index_scale;
   uint64_t offset = ec.ft_index_offset;
+
   if (ignore_some_linear)
   {
     for (VW::example_predict::iterator i = ec.begin(); i != ec.end(); ++i)
@@ -80,13 +86,16 @@ inline void foreach_feature(WeightsT& weights, bool ignore_some_linear,
       if (!ignore_linear[i.index()])
       {
         VW::features& f = *i;
-        foreach_feature<DataT, FuncT, WeightsT>(weights, f, dat, offset);
+        foreach_feature<DataT, FuncT, WeightsT>(weights, f, dat, scale, offset);
       }
     }
   }
   else
   {
-    for (VW::features& f : ec) { foreach_feature<DataT, FuncT, WeightsT>(weights, f, dat, offset); }
+    for (VW::features& f : ec)
+    {
+      foreach_feature<DataT, FuncT, WeightsT>(weights, f, dat, scale, offset);
+    }
   }
 
   generate_interactions<DataT, WeightOrIndexT, FuncT, WeightsT>(
@@ -136,26 +145,26 @@ namespace GD
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_index)
 template <class DataT, void (*FuncT)(DataT&, float feature_value, uint64_t feature_index), class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, uint64_t offset = 0, float mult = 1.)
+void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, uint64_t scale = 1, uint64_t offset = 0, float mult = 1.)
 {
-  VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, offset, mult);
+  VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, scale, offset, mult);
 }
 
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_weight)
 template <class DataT, void (*FuncT)(DataT&, const float feature_value, float& weight_reference), class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, uint64_t offset = 0, float mult = 1.)
+inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, uint64_t scale = 1, uint64_t offset = 0, float mult = 1.)
 {
-  VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, offset, mult);
+  VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, scale, offset, mult);
 }
 
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_weight)
 template <class DataT, void (*FuncT)(DataT&, float, float), class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
 inline void foreach_feature(
-    const WeightsT& weights, const VW::features& fs, DataT& dat, uint64_t offset = 0, float mult = 1.)
+    const WeightsT& weights, const VW::features& fs, DataT& dat, uint64_t scale = 1, uint64_t offset = 0, float mult = 1.)
 {
-  VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, offset, mult);
+  VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, scale, offset, mult);
 }
 
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, float, WeightOrIndexT),
