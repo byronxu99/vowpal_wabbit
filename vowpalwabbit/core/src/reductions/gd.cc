@@ -322,10 +322,10 @@ inline void audit_interaction(audit_results& dat, const VW::audit_strings* f)
   if (!f->is_empty()) { dat.components.push_back(*f); }
 }
 
-inline void audit_feature(audit_results& dat, const float ft_weight, const uint64_t ft_idx)
+inline void audit_feature(audit_results& dat, const VW::feature_value ft_value, const VW::feature_index wt_idx)
 {
   auto& weights = dat.all.weights;
-  uint64_t index = ft_idx & weights.mask();
+  VW::feature_index index = wt_idx & weights.mask();
   size_t stride_shift = weights.stride_shift();
 
   std::ostringstream tempstream;
@@ -337,7 +337,7 @@ inline void audit_feature(audit_results& dat, const float ft_weight, const uint6
 
   if (dat.all.output_config.audit)
   {
-    tempstream << ':' << (index >> stride_shift) << ':' << ft_weight << ':'
+    tempstream << ':' << (index >> stride_shift) << ':' << ft_value << ':'
                << VW::trunc_weight(weights[index], static_cast<float>(dat.all.sd->gravity)) *
             static_cast<float>(dat.all.sd->contraction);
 
@@ -346,7 +346,7 @@ inline void audit_feature(audit_results& dat, const float ft_weight, const uint6
       tempstream << '@' << (&weights[index])[1];
     }
 
-    string_value sv = {weights[index] * ft_weight, tempstream.str()};
+    string_value sv = {weights[index] * ft_value, tempstream.str()};
     dat.results.push_back(sv);
   }
 
@@ -364,22 +364,31 @@ inline void audit_feature(audit_results& dat, const float ft_weight, const uint6
     }
   }
 }
+
 void print_lda_features(VW::workspace& all, VW::example& ec)
 {
   VW::parameters& weights = all.weights;
   uint32_t stride_shift = weights.stride_shift();
+
   size_t count = 0;
   for (VW::features& fs : ec) { count += fs.size(); }
+
   // TODO: Where should audit stuff output to?
   for (VW::features& fs : ec)
   {
     for (const auto& f : fs.audit_range())
     {
       std::cout << '\t' << VW::to_string(*f.audit()) << ':'
-                << ((f.index() >> stride_shift) & all.runtime_state.parse_mask) << ':' << f.value();
-      for (size_t k = 0; k < all.reduction_state.lda; k++) { std::cout << ':' << (&weights[f.index()])[k]; }
+                << (((ec.ft_index_scale * f.index()) >> stride_shift) & all.runtime_state.parse_mask)
+                << ':' << f.value();
+
+      for (size_t k = 0; k < all.reduction_state.lda; k++)
+      {
+        std::cout << ':' << (&weights[VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, 0)])[k];
+      }
     }
   }
+
   std::cout << " total of " << count << " features." << std::endl;
 }
 }  // namespace
@@ -398,17 +407,20 @@ void VW::details::print_features(VW::workspace& all, VW::example& ec)
         for (const auto& f : fs.audit_range())
         {
           audit_interaction(dat, f.audit());
-          audit_feature(dat, f.value(), f.index() + ec.ft_index_offset);
+          audit_feature(dat, f.value(), VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset));
           audit_interaction(dat, nullptr);
         }
       }
       else
       {
-        for (const auto& f : fs) { audit_feature(dat, f.value(), f.index() + ec.ft_index_offset); }
+        for (const auto& f : fs)
+        {
+          audit_feature(dat, f.value(), VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset));
+        }
       }
     }
     size_t num_interacted_features = 0;
-    VW::generate_interactions<audit_results, const uint64_t, audit_feature, true, audit_interaction>(
+    VW::generate_interactions<audit_results, const VW::feature_index, audit_feature, true, audit_interaction>(
         all, ec, dat, num_interacted_features);
 
     stable_sort(dat.results.begin(), dat.results.end());

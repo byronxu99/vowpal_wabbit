@@ -32,24 +32,23 @@ const static VW::audit_strings EMPTY_AUDIT_STRINGS;
  *
  */
 
-// 3 template functions to pass FuncT() proper argument (feature idx in regressor, or its coefficient)
-
-template <class DataT, void (*FuncT)(DataT&, const float, float&), class WeightsT>
-inline void call_func_t(DataT& dat, WeightsT& weights, const float ft_value, const uint64_t ft_idx)
+// 3 template functions to pass FuncT() proper argument (weight index in regressor, or its coefficient)
+template <class DataT, void (*FuncT)(DataT&, const VW::feature_value, VW::feature_value&), class WeightsT>
+inline void call_func_t(DataT& dat, WeightsT& weights, const VW::feature_value ft_value, const VW::feature_index wt_idx)
 {
-  FuncT(dat, ft_value, weights[ft_idx]);
+  FuncT(dat, ft_value, weights[wt_idx]);
 }
 
-template <class DataT, void (*FuncT)(DataT&, const float, float), class WeightsT>
-inline void call_func_t(DataT& dat, const WeightsT& weights, const float ft_value, const uint64_t ft_idx)
+template <class DataT, void (*FuncT)(DataT&, const VW::feature_value, VW::feature_value), class WeightsT>
+inline void call_func_t(DataT& dat, const WeightsT& weights, const VW::feature_value ft_value, const VW::feature_index wt_idx)
 {
-  FuncT(dat, ft_value, weights.get(static_cast<size_t>(ft_idx)));
+  FuncT(dat, ft_value, weights.get(static_cast<size_t>(wt_idx)));
 }
 
-template <class DataT, void (*FuncT)(DataT&, float, uint64_t), class WeightsT>
-inline void call_func_t(DataT& dat, WeightsT& /*weights*/, const float ft_value, const uint64_t ft_idx)
+template <class DataT, void (*FuncT)(DataT&, VW::feature_value, VW::feature_index), class WeightsT>
+inline void call_func_t(DataT& dat, WeightsT& /*weights*/, const VW::feature_value ft_value, const VW::feature_index wt_idx)
 {
-  FuncT(dat, ft_value, ft_idx);
+  FuncT(dat, ft_value, wt_idx);
 }
 
 inline bool term_is_empty(VW::namespace_index term, const std::array<VW::features, VW::NUM_NAMESPACES>& feature_groups)
@@ -97,7 +96,13 @@ inline bool has_empty_interaction(const std::array<VW::features, VW::NUM_NAMESPA
 // synthetic (interaction) features' values are calculated, e.g.,
 // fabs(value1-value2) or even value1>value2?1.0:-1.0
 // Beware - its result must be non-zero.
-constexpr inline float interaction_value(float value1, float value2) { return value1 * value2; }
+constexpr inline VW::feature_value interaction_value(VW::feature_value value1, VW::feature_value value2) { return value1 * value2; }
+
+// This function maps feature index (from example object) to weight index (in regressor)
+constexpr inline VW::feature_index feature_to_weight_index(VW::feature_index ft_idx, VW::feature_index ft_scale, VW::feature_index ft_offset)
+{
+  return ft_idx * ft_scale + ft_offset;
+}
 
 // uncomment line below to disable usage of inner 'for' loops for pair and triple interactions
 // end switch to usage of non-recursive feature generation algorithm for interactions of any length
@@ -201,18 +206,19 @@ std::vector<VW::details::features_range_t> inline generate_generic_char_combinat
   return inter;
 }
 
-template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, float, WeightOrIndexT), bool audit,
+template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), bool audit,
     void (*audit_func)(DataT&, const VW::audit_strings*), class WeightsT>
 void inner_kernel(DataT& dat, VW::features::const_audit_iterator& begin, VW::features::const_audit_iterator& end,
-    const uint64_t offset, WeightsT& weights, VW::feature_value ft_value, VW::feature_index halfhash)
+    const VW::feature_index scale, const VW::feature_index offset, WeightsT& weights, VW::feature_value ft_value, VW::feature_index halfhash)
 {
   if (audit)
   {
     for (; begin != end; ++begin)
     {
       audit_func(dat, begin.audit() == nullptr ? &EMPTY_AUDIT_STRINGS : begin.audit());
+      VW::feature_index interaction_index = begin.index() ^ halfhash;
       call_func_t<DataT, FuncT>(
-          dat, weights, interaction_value(ft_value, begin.value()), (begin.index() ^ halfhash) + offset);
+          dat, weights, interaction_value(ft_value, begin.value()), feature_to_weight_index(interaction_index, scale, offset));
       audit_func(dat, nullptr);
     }
   }
@@ -220,8 +226,9 @@ void inner_kernel(DataT& dat, VW::features::const_audit_iterator& begin, VW::fea
   {
     for (; begin != end; ++begin)
     {
+      VW::feature_index interaction_index = begin.index() ^ halfhash;
       call_func_t<DataT, FuncT>(
-          dat, weights, interaction_value(ft_value, begin.value()), (begin.index() ^ halfhash) + offset);
+          dat, weights, interaction_value(ft_value, begin.value()), feature_to_weight_index(interaction_index, scale, offset));
     }
   }
 }
@@ -277,8 +284,8 @@ size_t process_cubic_interaction(
   {
     if (Audit) { audit_func(first_begin.audit() != nullptr ? first_begin.audit() : &EMPTY_AUDIT_STRINGS); }
 
-    const uint64_t halfhash1 = VW::details::FNV_PRIME * first_begin.index();
-    const float first_ft_value = first_begin.value();
+    const VW::feature_index halfhash1 = VW::details::FNV_PRIME * first_begin.index();
+    const VW::feature_value first_ft_value = first_begin.value();
     size_t j = 0;
     if (same_namespace1)  // next index differs for permutations and simple combinations
     {
@@ -406,7 +413,7 @@ size_t process_generic_interaction(const std::vector<VW::details::features_range
 // this templated function generates new features for given example and set of interactions
 // and passes each of them to given function FuncT()
 // it must be in header file to avoid compilation problems
-template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, float, WeightOrIndexT), bool audit,
+template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), bool audit,
     void (*audit_func)(DataT&, const VW::audit_strings*),
     class WeightsT>  // nullptr func can't be used as template param in old compilers
 inline void generate_interactions(const std::vector<std::vector<VW::namespace_index>>& interactions,
@@ -421,7 +428,7 @@ inline void generate_interactions(const std::vector<std::vector<VW::namespace_in
                                      VW::feature_value value, VW::feature_index index)
   {
     details::inner_kernel<DataT, WeightOrIndexT, FuncT, audit, audit_func>(
-        dat, begin, end, ec.ft_index_offset, weights, value, index);
+        dat, begin, end, ec.ft_index_scale, ec.ft_index_offset, weights, value, index);
   };
 
   const auto depth_audit_func = [&](const VW::audit_strings* audit_str) { audit_func(dat, audit_str); };
@@ -502,7 +509,7 @@ inline void generate_interactions(const std::vector<std::vector<VW::namespace_in
 namespace INTERACTIONS  // NOLINT
 {
 
-template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, float, WeightOrIndexT), bool audit,
+template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), bool audit,
     void (*audit_func)(DataT&, const VW::audit_strings*),
     class WeightsT>  // nullptr func can't be used as template param in old compilers
 VW_DEPRECATED("Moved into VW namespace") inline void generate_interactions(

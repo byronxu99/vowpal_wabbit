@@ -55,6 +55,7 @@ public:
   std::array<features, NUM_NAMESPACES> feature_space;  // Groups of feature values.
 
   // Weight index = feature_index * ft_index_scale + ft_index_offset
+  // Computed by the function feature_to_weight_index in interactions_predict.h
   uint64_t ft_index_scale = 1; // Scaling factor for feature indices
   uint64_t ft_index_offset = 0; // Offset for feature indices
 
