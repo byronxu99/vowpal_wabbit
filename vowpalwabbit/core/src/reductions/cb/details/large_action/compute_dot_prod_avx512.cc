@@ -31,12 +31,10 @@ inline void compute16(const __m512& feature_values, const __m512i& feature_indic
   const __m512i perm_idx = _mm512_setr_epi32(0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30);
   const __m512i all_ones = _mm512_set1_epi32(1);
 
-  // apply scale and offset to feature indices
+  // apply scale and offset to feature indices with AVX-512 FMA
   // this is equivalent to VW::details::feature_to_weight_index()
-  __m512i feature_indices1_scaled = _mm512_mullo_epi64(feature_indices1, scales);
-  __m512i feature_indices2_scaled = _mm512_mullo_epi64(feature_indices2, scales);
-  __m512i indices1 = _mm512_add_epi64(feature_indices1_scaled, offsets);
-  __m512i indices2 = _mm512_add_epi64(feature_indices2_scaled, offsets);
+  __m512i indices1 = _mm512_madd52lo_epu64(offsets, feature_indices1, scales);
+  __m512i indices2 = _mm512_madd52lo_epu64(offsets, feature_indices2, scales);
 
   indices1 = _mm512_add_epi64(_mm512_and_epi64(indices1, weights_masks), column_indices);
   __m512i popcounts1 = _mm512_popcnt_epi64(indices1);
