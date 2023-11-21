@@ -6,6 +6,7 @@
 
 #  include "compute_dot_prod_simd.h"
 #  include "kernel_impl.h"
+#  include "vw/core/interactions_predict.h"
 
 #  include <x86intrin.h>
 
@@ -48,26 +49,59 @@ inline float horizontal_sum(const __m256& x)
   return _mm_cvtss_f32(x32);
 }
 
+// Multiply 64 bit integers in AVX2
+inline __m256i mul64(const __m256i& a, const __m256i& b)
+{
+  const __m256i mask_lo = _mm256_set1_epi64x(0x00000000FFFFFFFF);
+
+  // Split a and b into 32-bit parts
+  const __m256i a_hi = _mm256_srli_epi64(a, 32);
+  const __m256i b_hi = _mm256_srli_epi64(b, 32);
+  const __m256i a_lo = _mm256_and_si256(a, mask_lo);
+  const __m256i b_lo = _mm256_and_si256(b, mask_lo);
+
+  // Lowest 32 bits of product
+  const __m256i prod_lo = _mm256_mul_epu32(a_lo, b_lo);
+
+  // Middle bits of product
+  const __m256i prod_mid1 = _mm256_mul_epu32(a_lo, b_hi);
+  const __m256i prod_mid2 = _mm256_mul_epu32(a_hi, b_lo);
+  const __m256i prod_mid = _mm256_add_epi64(prod_mid1, prod_mid2);
+  const __m256i prod_mid_shift = _mm256_slli_epi64(prod_mid, 32);
+
+  // Highest 32 bits (a_hi * b_hi) will always overflow 64-bit result
+  // No need to compute it
+  // const __m256i prod_hi = _mm256_mul_epu32(a_hi, b_hi);
+  // const __m256i prod_hi_shift = _mm256_slli_epi64(prod_hi, 64);
+
+  const __m256i result = _mm256_add_epi64(prod_lo, prod_mid_shift);
+  return result;
+}
+
 }  // namespace
 
-inline void compute1(float feature_value, uint64_t feature_index, uint64_t offset, uint64_t weights_mask,
+inline void compute1(float feature_value, uint64_t feature_index, uint64_t scale, uint64_t offset, uint64_t weights_mask,
     uint64_t column_index, uint64_t seed, float& sum)
 {
-  uint64_t index = feature_index + offset;
+  uint64_t index = VW::details::feature_to_weight_index(feature_index, scale, offset);
   kernel_impl(feature_value, index, weights_mask, column_index, seed, sum);
 }
 
 // Process 8 features in parallel using AVX2, resulting in the same output of 8 compute1() executions.
 inline void compute8(const __m256& feature_values, const __m256i& feature_indices1, const __m256i& feature_indices2,
-    const __m256i& offsets, const __m256i& weights_masks, const __m256i& column_indices, const __m256i& seeds,
+    const __m256i& scales, const __m256i& offsets, const __m256i& weights_masks, const __m256i& column_indices, const __m256i& seeds,
     __m256& sums)
 {
   // value_maps must be the same as the scalar VALUE_MAP.
   const __m256 value_maps = _mm256_setr_ps(0, 0, 1.f, -1.f, 0, 0, 1.f, -1.f);
   const __m256i all_ones = _mm256_set1_epi32(1);
 
-  __m256i indices1 = _mm256_add_epi64(feature_indices1, offsets);
-  __m256i indices2 = _mm256_add_epi64(feature_indices2, offsets);
+  // apply scale and offset to feature indices
+  // this is equivalent to VW::details::feature_to_weight_index()
+  __m256i feature_indices1_scaled = mul64(feature_indices1, scales);
+  __m256i feature_indices2_scaled = mul64(feature_indices2, scales);
+  __m256i indices1 = _mm256_add_epi64(feature_indices1_scaled, offsets);
+  __m256i indices2 = _mm256_add_epi64(feature_indices2_scaled, offsets);
 
   indices1 = _mm256_add_epi64(_mm256_and_si256(indices1, weights_masks), column_indices);
   __m256i popcounts1 = popcount64(indices1);
@@ -94,6 +128,7 @@ inline void compute8(const __m256& feature_values, const __m256i& feature_indice
 float compute_dot_prod_avx2(uint64_t column_index, VW::workspace* _all, uint64_t seed, VW::example* ex)
 {
   float sum = 0.f;
+  const uint64_t scale = ex->ft_index_scale;
   const uint64_t offset = ex->ft_index_offset;
   const uint64_t weights_mask = _all->weights.mask();
 
@@ -101,6 +136,7 @@ float compute_dot_prod_avx2(uint64_t column_index, VW::workspace* _all, uint64_t
   const __m256i column_indices = _mm256_set1_epi64x(column_index);
   const __m256i seeds = _mm256_set1_epi64x(seed);
   const __m256i weights_masks = _mm256_set1_epi64x(weights_mask);
+  const __m256i scales = _mm256_set1_epi64x(scale);
   const __m256i offsets = _mm256_set1_epi64x(offset);
 
   const bool ignore_some_linear = _all->feature_tweaks_config.ignore_some_linear;
@@ -119,12 +155,12 @@ float compute_dot_prod_avx2(uint64_t column_index, VW::workspace* _all, uint64_t
       // If indices fit into 32 bits, convert indices to 32-bit here can speed up further.
 
       __m256 values = _mm256_loadu_ps(&features.values[j]);
-      compute8(values, indices1, indices2, offsets, weights_masks, column_indices, seeds, sums);
+      compute8(values, indices1, indices2, scales, offsets, weights_masks, column_indices, seeds, sums);
     }
     for (; j < num_features; ++j)
     {
       // Handle tail of the loop using scalar implementation.
-      compute1(features.values[j], features.indices[j], offset, weights_mask, column_index, seed, sum);
+      compute1(features.values[j], features.indices[j], scale, offset, weights_mask, column_index, seed, sum);
     }
   }
 
@@ -177,13 +213,13 @@ float compute_dot_prod_avx2(uint64_t column_index, VW::workspace* _all, uint64_t
         __m256 values = _mm256_loadu_ps(&ns1_values[j]);
         values = _mm256_mul_ps(vals, values);
 
-        compute8(values, indices1, indices2, offsets, weights_masks, column_indices, seeds, sums);
+        compute8(values, indices1, indices2, scales, offsets, weights_masks, column_indices, seeds, sums);
       }
       for (; j < num_features_ns1; ++j)
       {
         float feature_value = val * ns1_values[j];
         auto index = (ns1_indices[j] ^ halfhash);
-        compute1(feature_value, index, offset, weights_mask, column_index, seed, sum);
+        compute1(feature_value, index, scale, offset, weights_mask, column_index, seed, sum);
       }
     }
   }

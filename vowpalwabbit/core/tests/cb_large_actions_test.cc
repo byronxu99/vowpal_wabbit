@@ -7,6 +7,7 @@
 #include "vw/common/future_compat.h"
 #include "vw/common/random.h"
 #include "vw/core/constant.h"
+#include "vw/core/interactions_predict.h"
 #include "vw/core/numeric_casts.h"
 #include "vw/core/reductions/cb/cb_explore_adf_common.h"
 #include "vw/core/reductions/cb/cb_explore_adf_large_action_space.h"
@@ -74,7 +75,7 @@ TEST(Las, CreationOfTheOgAMatrix)
         else if (ns == VW::details::CONSTANT_NAMESPACE) { EXPECT_FLOAT_EQ(ft_value, 1.f); }
 
         EXPECT_EQ(
-            action_space->explore._A.coeffRef(action_index, (ft_index & vw->weights.dense_weights.mask())), ft_value);
+            action_space->explore._A.coeffRef(action_index, (VW::details::feature_to_weight_index(ft_index, ex->ft_index_scale, ex->ft_index_offset) & vw->weights.dense_weights.mask())), ft_value);
       }
     }
 

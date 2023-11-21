@@ -19,7 +19,7 @@ inline bool cpu_supports_avx2() { return __builtin_cpu_supports("avx2") && __bui
 
 inline bool cpu_supports_avx512()
 {
-  return __builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512bw") &&
+  return __builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512bw") && __builtin_cpu_supports("avx512dq") &&
       __builtin_cpu_supports("avx512vl") && __builtin_cpu_supports("avx512vpopcntdq");
 }
 
