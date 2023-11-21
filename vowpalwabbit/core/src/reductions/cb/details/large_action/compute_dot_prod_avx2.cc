@@ -80,8 +80,8 @@ inline __m256i mul64(const __m256i& a, const __m256i& b)
 
 }  // namespace
 
-inline void compute1(float feature_value, uint64_t feature_index, uint64_t scale, uint64_t offset, uint64_t weights_mask,
-    uint64_t column_index, uint64_t seed, float& sum)
+inline void compute1(float feature_value, uint64_t feature_index, uint64_t scale, uint64_t offset,
+    uint64_t weights_mask, uint64_t column_index, uint64_t seed, float& sum)
 {
   uint64_t index = VW::details::feature_to_weight_index(feature_index, scale, offset);
   kernel_impl(feature_value, index, weights_mask, column_index, seed, sum);
@@ -89,8 +89,8 @@ inline void compute1(float feature_value, uint64_t feature_index, uint64_t scale
 
 // Process 8 features in parallel using AVX2, resulting in the same output of 8 compute1() executions.
 inline void compute8(const __m256& feature_values, const __m256i& feature_indices1, const __m256i& feature_indices2,
-    const __m256i& scales, const __m256i& offsets, const __m256i& weights_masks, const __m256i& column_indices, const __m256i& seeds,
-    __m256& sums)
+    const __m256i& scales, const __m256i& offsets, const __m256i& weights_masks, const __m256i& column_indices,
+    const __m256i& seeds, __m256& sums)
 {
   // value_maps must be the same as the scalar VALUE_MAP.
   const __m256 value_maps = _mm256_setr_ps(0, 0, 1.f, -1.f, 0, 0, 1.f, -1.f);

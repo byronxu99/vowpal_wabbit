@@ -246,10 +246,7 @@ void learn(VW::reductions::igl::igl_data& igl, learner& base, VW::multi_ex& ec_s
     ex->l.cb.reset_to_default();
   }
 
-  if (observation_ex != nullptr)
-  {
-    ec_seq.push_back(observation_ex);
-  }
+  if (observation_ex != nullptr) { ec_seq.push_back(observation_ex); }
   ec_seq[0]->pred.a_s = std::move(stashed_prediction);
 }
 

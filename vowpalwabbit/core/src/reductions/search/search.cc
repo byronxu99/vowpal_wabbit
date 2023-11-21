@@ -189,7 +189,7 @@ public:
   auto_condition_settings acset;           // settings for auto-conditioning
   size_t history_length = 0;               // value of --search_history_length, used by some tasks, default 1
 
-  size_t A = 0;             // NOLINT total number of actions, [1..A]; 0 means ldf
+  size_t A = 0;              // NOLINT total number of actions, [1..A]; 0 means ldf
   size_t feature_width = 0;  // total number of learners;
   bool cb_learner = false;  // do contextual bandit learning on action (was "! rollout_all_actions" which was confusing)
   search_state state;       // current state of learning
@@ -652,7 +652,8 @@ void add_neighbor_features(search_private& priv, VW::multi_ex& ec_seq)
       else  // this is actually a neighbor
       {
         VW::example& other = *ec_seq[n + offset];
-        VW::foreach_feature<search_private, add_new_feature>(priv.all, other.feature_space[ns], priv, me.ft_index_offset);
+        VW::foreach_feature<search_private, add_new_feature>(
+            priv.all, other.feature_space[ns], priv, me.ft_index_offset);
       }
     }
 

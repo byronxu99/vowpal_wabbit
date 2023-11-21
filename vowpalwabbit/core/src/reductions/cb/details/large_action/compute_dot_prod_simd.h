@@ -19,8 +19,9 @@ inline bool cpu_supports_avx2() { return __builtin_cpu_supports("avx2") && __bui
 
 inline bool cpu_supports_avx512()
 {
-  return __builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512bw") && __builtin_cpu_supports("avx512ifma") &&
-      __builtin_cpu_supports("avx512vl") && __builtin_cpu_supports("avx512vpopcntdq");
+  return __builtin_cpu_supports("avx512f") && __builtin_cpu_supports("avx512bw") &&
+      __builtin_cpu_supports("avx512ifma") && __builtin_cpu_supports("avx512vl") &&
+      __builtin_cpu_supports("avx512vpopcntdq");
 }
 
 // A data parallel implementation of the foreach_feature that processes 8 features at once.

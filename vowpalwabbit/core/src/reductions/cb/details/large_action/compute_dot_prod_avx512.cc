@@ -14,8 +14,8 @@ namespace VW
 {
 namespace cb_explore_adf
 {
-inline void compute1(float feature_value, uint64_t feature_index, uint64_t scale, uint64_t offset, uint64_t weights_mask,
-    uint64_t column_index, uint64_t seed, float& sum)
+inline void compute1(float feature_value, uint64_t feature_index, uint64_t scale, uint64_t offset,
+    uint64_t weights_mask, uint64_t column_index, uint64_t seed, float& sum)
 {
   uint64_t index = VW::details::feature_to_weight_index(feature_index, scale, offset);
   kernel_impl(feature_value, index, weights_mask, column_index, seed, sum);
@@ -23,8 +23,8 @@ inline void compute1(float feature_value, uint64_t feature_index, uint64_t scale
 
 // Process 16 features in parallel using AVX-512, resulting in the same output of 16 compute1() executions.
 inline void compute16(const __m512& feature_values, const __m512i& feature_indices1, const __m512i& feature_indices2,
-    const __m512i& scales, const __m512i& offsets, const __m512i& weights_masks, const __m512i& column_indices, const __m512i& seeds,
-    __m512& sums)
+    const __m512i& scales, const __m512i& offsets, const __m512i& weights_masks, const __m512i& column_indices,
+    const __m512i& seeds, __m512& sums)
 {
   // value_maps must be the same as the scalar VALUE_MAP.
   const __m512 value_maps = _mm512_setr4_ps(0, 0, 1.f, -1.f);

@@ -40,13 +40,15 @@ inline void call_func_t(DataT& dat, WeightsT& weights, const VW::feature_value f
 }
 
 template <class DataT, void (*FuncT)(DataT&, const VW::feature_value, VW::feature_value), class WeightsT>
-inline void call_func_t(DataT& dat, const WeightsT& weights, const VW::feature_value ft_value, const VW::feature_index wt_idx)
+inline void call_func_t(
+    DataT& dat, const WeightsT& weights, const VW::feature_value ft_value, const VW::feature_index wt_idx)
 {
   FuncT(dat, ft_value, weights.get(static_cast<size_t>(wt_idx)));
 }
 
 template <class DataT, void (*FuncT)(DataT&, VW::feature_value, VW::feature_index), class WeightsT>
-inline void call_func_t(DataT& dat, WeightsT& /*weights*/, const VW::feature_value ft_value, const VW::feature_index wt_idx)
+inline void call_func_t(
+    DataT& dat, WeightsT& /*weights*/, const VW::feature_value ft_value, const VW::feature_index wt_idx)
 {
   FuncT(dat, ft_value, wt_idx);
 }
@@ -96,10 +98,14 @@ inline bool has_empty_interaction(const std::array<VW::features, VW::NUM_NAMESPA
 // synthetic (interaction) features' values are calculated, e.g.,
 // fabs(value1-value2) or even value1>value2?1.0:-1.0
 // Beware - its result must be non-zero.
-constexpr inline VW::feature_value interaction_value(VW::feature_value value1, VW::feature_value value2) { return value1 * value2; }
+constexpr inline VW::feature_value interaction_value(VW::feature_value value1, VW::feature_value value2)
+{
+  return value1 * value2;
+}
 
 // This function maps feature index (from example object) to weight index (in regressor)
-constexpr inline VW::feature_index feature_to_weight_index(VW::feature_index ft_idx, VW::feature_index ft_scale, VW::feature_index ft_offset)
+constexpr inline VW::feature_index feature_to_weight_index(
+    VW::feature_index ft_idx, VW::feature_index ft_scale, VW::feature_index ft_offset)
 {
   return ft_idx * ft_scale + ft_offset;
 }
@@ -209,7 +215,8 @@ std::vector<VW::details::features_range_t> inline generate_generic_char_combinat
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), bool audit,
     void (*audit_func)(DataT&, const VW::audit_strings*), class WeightsT>
 void inner_kernel(DataT& dat, VW::features::const_audit_iterator& begin, VW::features::const_audit_iterator& end,
-    const VW::feature_index scale, const VW::feature_index offset, WeightsT& weights, VW::feature_value ft_value, VW::feature_index halfhash)
+    const VW::feature_index scale, const VW::feature_index offset, WeightsT& weights, VW::feature_value ft_value,
+    VW::feature_index halfhash)
 {
   if (audit)
   {
@@ -217,8 +224,8 @@ void inner_kernel(DataT& dat, VW::features::const_audit_iterator& begin, VW::fea
     {
       audit_func(dat, begin.audit() == nullptr ? &EMPTY_AUDIT_STRINGS : begin.audit());
       VW::feature_index interaction_index = begin.index() ^ halfhash;
-      call_func_t<DataT, FuncT>(
-          dat, weights, interaction_value(ft_value, begin.value()), feature_to_weight_index(interaction_index, scale, offset));
+      call_func_t<DataT, FuncT>(dat, weights, interaction_value(ft_value, begin.value()),
+          feature_to_weight_index(interaction_index, scale, offset));
       audit_func(dat, nullptr);
     }
   }
@@ -227,8 +234,8 @@ void inner_kernel(DataT& dat, VW::features::const_audit_iterator& begin, VW::fea
     for (; begin != end; ++begin)
     {
       VW::feature_index interaction_index = begin.index() ^ halfhash;
-      call_func_t<DataT, FuncT>(
-          dat, weights, interaction_value(ft_value, begin.value()), feature_to_weight_index(interaction_index, scale, offset));
+      call_func_t<DataT, FuncT>(dat, weights, interaction_value(ft_value, begin.value()),
+          feature_to_weight_index(interaction_index, scale, offset));
     }
   }
 }

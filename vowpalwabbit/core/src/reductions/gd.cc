@@ -379,8 +379,8 @@ void print_lda_features(VW::workspace& all, VW::example& ec)
     for (const auto& f : fs.audit_range())
     {
       std::cout << '\t' << VW::to_string(*f.audit()) << ':'
-                << (((ec.ft_index_scale * f.index()) >> stride_shift) & all.runtime_state.parse_mask)
-                << ':' << f.value();
+                << (((ec.ft_index_scale * f.index()) >> stride_shift) & all.runtime_state.parse_mask) << ':'
+                << f.value();
 
       for (size_t k = 0; k < all.reduction_state.lda; k++)
       {
@@ -407,7 +407,8 @@ void VW::details::print_features(VW::workspace& all, VW::example& ec)
         for (const auto& f : fs.audit_range())
         {
           audit_interaction(dat, f.audit());
-          audit_feature(dat, f.value(), VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset));
+          audit_feature(
+              dat, f.value(), VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset));
           audit_interaction(dat, nullptr);
         }
       }
@@ -415,7 +416,8 @@ void VW::details::print_features(VW::workspace& all, VW::example& ec)
       {
         for (const auto& f : fs)
         {
-          audit_feature(dat, f.value(), VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset));
+          audit_feature(
+              dat, f.value(), VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset));
         }
       }
     }

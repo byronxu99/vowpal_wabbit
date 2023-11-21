@@ -4,8 +4,8 @@
 #pragma once
 
 #include "vw/core/debug_log.h"
-#include "vw/core/feature_group.h"
 #include "vw/core/example_predict.h"
+#include "vw/core/feature_group.h"
 #include "vw/core/interactions_predict.h"
 #include "vw/core/v_array.h"
 
@@ -26,15 +26,22 @@ inline void vec_add(VW::feature_value& p, VW::feature_value fx, VW::feature_valu
 }  // namespace details
 
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_index)
-template <class DataT, void (*FuncT)(DataT&, VW::feature_value feature_value, VW::feature_index feature_index), class WeightsT>
-void foreach_feature(WeightsT& /*weights*/, const VW::features& fs, DataT& dat, VW::feature_index scale = 1, VW::feature_index offset = 0, VW::feature_value mult = 1.)
+template <class DataT, void (*FuncT)(DataT&, VW::feature_value feature_value, VW::feature_index feature_index),
+    class WeightsT>
+void foreach_feature(WeightsT& /*weights*/, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
+    VW::feature_index offset = 0, VW::feature_value mult = 1.)
 {
-  for (const auto& f : fs) { FuncT(dat, mult * f.value(), VW::details::feature_to_weight_index(f.index(), scale, offset)); }
+  for (const auto& f : fs)
+  {
+    FuncT(dat, mult * f.value(), VW::details::feature_to_weight_index(f.index(), scale, offset));
+  }
 }
 
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_weight)
-template <class DataT, void (*FuncT)(DataT&, const VW::feature_value feature_value, VW::feature_value& weight_reference), class WeightsT>
-inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1, VW::feature_index offset = 0, VW::feature_value mult = 1.)
+template <class DataT,
+    void (*FuncT)(DataT&, const VW::feature_value feature_value, VW::feature_value& weight_reference), class WeightsT>
+inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
+    VW::feature_index offset = 0, VW::feature_value mult = 1.)
 {
   for (const auto& f : fs)
   {
@@ -45,12 +52,13 @@ inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& da
 
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_weight)
 template <class DataT, void (*FuncT)(DataT&, VW::feature_value, VW::feature_value), class WeightsT>
-inline void foreach_feature(
-    const WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1, VW::feature_index offset = 0, VW::feature_value mult = 1.)
+inline void foreach_feature(const WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
+    VW::feature_index offset = 0, VW::feature_value mult = 1.)
 {
   for (const auto& f : fs)
   {
-    FuncT(dat, mult * f.value(), weights.get(static_cast<size_t>(VW::details::feature_to_weight_index(f.index(), scale, offset))));
+    FuncT(dat, mult * f.value(),
+        weights.get(static_cast<size_t>(VW::details::feature_to_weight_index(f.index(), scale, offset))));
   }
 }
 
@@ -93,10 +101,7 @@ inline void foreach_feature(WeightsT& weights, bool ignore_some_linear,
   }
   else
   {
-    for (VW::features& f : ec)
-    {
-      foreach_feature<DataT, FuncT, WeightsT>(weights, f, dat, scale, offset);
-    }
+    for (VW::features& f : ec) { foreach_feature<DataT, FuncT, WeightsT>(weights, f, dat, scale, offset); }
   }
 
   generate_interactions<DataT, WeightOrIndexT, FuncT, WeightsT>(
@@ -132,10 +137,11 @@ inline VW::feature_value inline_predict(WeightsT& weights, bool ignore_some_line
     std::array<bool, VW::NUM_NAMESPACES>& ignore_linear,
     const std::vector<std::vector<VW::namespace_index>>& interactions,
     const std::vector<std::vector<VW::extent_term>>& extent_interactions, bool permutations, VW::example_predict& ec,
-    size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache, VW::feature_value initial = 0.f)
+    size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache,
+    VW::feature_value initial = 0.f)
 {
-  foreach_feature<VW::feature_value, VW::feature_value, details::vec_add, WeightsT>(weights, ignore_some_linear, ignore_linear, interactions,
-      extent_interactions, permutations, ec, initial, num_interacted_features, cache);
+  foreach_feature<VW::feature_value, VW::feature_value, details::vec_add, WeightsT>(weights, ignore_some_linear,
+      ignore_linear, interactions, extent_interactions, permutations, ec, initial, num_interacted_features, cache);
   return initial;
 }
 }  // namespace VW
@@ -144,17 +150,21 @@ namespace GD
 {
 
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_index)
-template <class DataT, void (*FuncT)(DataT&, VW::feature_value feature_value, VW::feature_index feature_index), class WeightsT>
+template <class DataT, void (*FuncT)(DataT&, VW::feature_value feature_value, VW::feature_index feature_index),
+    class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1, VW::feature_index offset = 0, VW::feature_value mult = 1.)
+void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
+    VW::feature_index offset = 0, VW::feature_value mult = 1.)
 {
   VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, scale, offset, mult);
 }
 
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_weight)
-template <class DataT, void (*FuncT)(DataT&, const VW::feature_value feature_value, VW::feature_value& weight_reference), class WeightsT>
+template <class DataT,
+    void (*FuncT)(DataT&, const VW::feature_value feature_value, VW::feature_value& weight_reference), class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1, VW::feature_index offset = 0, VW::feature_value mult = 1.)
+inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
+    VW::feature_index offset = 0, VW::feature_value mult = 1.)
 {
   VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, scale, offset, mult);
 }
@@ -162,8 +172,8 @@ inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& da
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_weight)
 template <class DataT, void (*FuncT)(DataT&, VW::feature_value, VW::feature_value), class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline void foreach_feature(
-    const WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1, VW::feature_index offset = 0, VW::feature_value mult = 1.)
+inline void foreach_feature(const WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
+    VW::feature_index offset = 0, VW::feature_value mult = 1.)
 {
   VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, scale, offset, mult);
 }
@@ -222,11 +232,12 @@ inline VW::feature_value inline_predict(WeightsT& weights, bool ignore_some_line
 
 template <class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline VW::feature_value inline_predict(WeightsT& weights, bool ignore_some_linear,
-    std::array<bool, VW::NUM_NAMESPACES>& ignore_linear,
-    const std::vector<std::vector<VW::namespace_index>>& interactions,
-    const std::vector<std::vector<VW::extent_term>>& extent_interactions, bool permutations, VW::example_predict& ec,
-    size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache, VW::feature_value initial = 0.f)
+inline VW::feature_value
+    inline_predict(WeightsT& weights, bool ignore_some_linear, std::array<bool, VW::NUM_NAMESPACES>& ignore_linear,
+        const std::vector<std::vector<VW::namespace_index>>& interactions,
+        const std::vector<std::vector<VW::extent_term>>& extent_interactions, bool permutations,
+        VW::example_predict& ec, size_t& num_interacted_features,
+        VW::details::generate_interactions_object_cache& cache, VW::feature_value initial = 0.f)
 {
   return VW::inline_predict(weights, ignore_some_linear, ignore_linear, interactions, extent_interactions, permutations,
       ec, num_interacted_features, cache, initial);

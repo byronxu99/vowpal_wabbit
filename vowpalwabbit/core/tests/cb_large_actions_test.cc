@@ -74,8 +74,10 @@ TEST(Las, CreationOfTheOgAMatrix)
         if (ns == VW::details::DEFAULT_NAMESPACE) { EXPECT_FLOAT_EQ(ft_value, ft_values[i]); }
         else if (ns == VW::details::CONSTANT_NAMESPACE) { EXPECT_FLOAT_EQ(ft_value, 1.f); }
 
-        EXPECT_EQ(
-            action_space->explore._A.coeffRef(action_index, (VW::details::feature_to_weight_index(ft_index, ex->ft_index_scale, ex->ft_index_offset) & vw->weights.dense_weights.mask())), ft_value);
+        EXPECT_EQ(action_space->explore._A.coeffRef(action_index,
+                      (VW::details::feature_to_weight_index(ft_index, ex->ft_index_scale, ex->ft_index_offset) &
+                          vw->weights.dense_weights.mask())),
+            ft_value);
       }
     }
 
