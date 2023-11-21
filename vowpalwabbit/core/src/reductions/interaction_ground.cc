@@ -185,6 +185,7 @@ void learn(VW::reductions::igl::igl_data& igl, learner& base, VW::multi_ex& ec_s
   {
     auto action_ex = ec_seq[i];
     VW::empty_example(*igl.ik_ftrl->all, igl.ik_ex);
+    VW::copy_example_metadata(&igl.ik_ex, action_ex);
 
     // TODO: Do we need constant feature here? If so, VW::add_constant_feature
     VW::details::append_example_namespaces_from_example(igl.ik_ex, *action_ex);
@@ -245,7 +246,10 @@ void learn(VW::reductions::igl::igl_data& igl, learner& base, VW::multi_ex& ec_s
     ex->l.cb.reset_to_default();
   }
 
-  ec_seq.push_back(observation_ex);
+  if (observation_ex != nullptr)
+  {
+    ec_seq.push_back(observation_ex);
+  }
   ec_seq[0]->pred.a_s = std::move(stashed_prediction);
 }
 
