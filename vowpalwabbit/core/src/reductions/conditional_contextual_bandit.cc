@@ -78,7 +78,6 @@ public:
   std::string id_namespace_str;
   std::string id_namespace_audit_str;
 
-  size_t base_learner_stride_shift = 0;
   bool all_slots_loss_report = false;
   bool no_pred = false;
 
@@ -247,9 +246,6 @@ void inject_slot_id(ccb_data& data, VW::example* shared, size_t id)
   {
     const auto current_index_str = "index" + std::to_string(id);
     index = VW::hash_feature(*data.all, current_index_str, data.id_namespace_hash);
-
-    // To maintain indices consistent with what the parser does we must scale.
-    index *= static_cast<uint64_t>(data.all->reduction_state.total_feature_width) << data.base_learner_stride_shift;
     data.slot_id_hashes[id] = index;
   }
   else { index = data.slot_id_hashes[id]; }
@@ -690,10 +686,6 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::ccb_explore_adf_setup(VW::
   }
 
   auto base = require_multiline(stack_builder.setup_base_learner());
-
-  // Stash the base learners stride_shift so we can properly add a feature
-  // later.
-  data->base_learner_stride_shift = all.weights.stride_shift();
 
   // Extract from lower level reductions
   data->shared = nullptr;

@@ -71,17 +71,17 @@ inline void audit_regressor_interaction(audit_regressor_data& dat, const VW::aud
   }
 }
 
-inline void audit_regressor_feature(audit_regressor_data& dat, const float, const uint64_t ft_idx)
+inline void audit_regressor_feature(audit_regressor_data& dat, const float, const uint64_t wt_idx)
 {
   auto& weights = dat.all->weights;
-  if (weights[ft_idx] != 0) { ++dat.values_audited; }
+  if (weights[wt_idx] != 0) { ++dat.values_audited; }
   else { return; }
 
   std::string ns_pre;
   for (const auto& s : dat.ns_pre) { ns_pre += s; }
 
   std::ostringstream tempstream;
-  tempstream << ':' << ((ft_idx & weights.mask()) >> weights.stride_shift()) << ':' << weights[ft_idx];
+  tempstream << ':' << ((wt_idx & weights.mask()) >> weights.stride_shift()) << ':' << weights[wt_idx];
 
   std::string temp = ns_pre + tempstream.str() + '\n';
   if (dat.total_class_cnt > 1)
@@ -91,7 +91,7 @@ inline void audit_regressor_feature(audit_regressor_data& dat, const float, cons
 
   dat.out_file.bin_write_fixed(temp.c_str(), static_cast<uint32_t>(temp.size()));
 
-  weights[ft_idx] = 0.;  // mark value audited
+  weights[wt_idx] = 0.;  // mark value audited
 }
 
 void audit_regressor_lda(audit_regressor_data& rd, VW::LEARNER::learner& /* base */, VW::example& ec)
@@ -143,7 +143,7 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
           for (size_t j = 0; j < fs.size(); ++j)
           {
             audit_regressor_interaction(rd, &fs.space_names[j]);
-            audit_regressor_feature(rd, fs.values[j], static_cast<uint32_t>(fs.indices[j]) + ec.ft_index_offset);
+            audit_regressor_feature(rd, fs.values[j], VW::details::feature_to_weight_index(fs.indices[j], ec.ft_index_scale, ec.ft_index_offset));
             audit_regressor_interaction(rd, nullptr);
           }
         }
@@ -151,7 +151,7 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
         {
           for (size_t j = 0; j < fs.size(); ++j)
           {
-            audit_regressor_feature(rd, fs.values[j], static_cast<uint32_t>(fs.indices[j]) + ec.ft_index_offset);
+            audit_regressor_feature(rd, fs.values[j], VW::details::feature_to_weight_index(fs.indices[j], ec.ft_index_scale, ec.ft_index_offset));
           }
         }
       }

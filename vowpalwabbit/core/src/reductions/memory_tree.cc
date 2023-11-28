@@ -1062,6 +1062,7 @@ void save_load_example(
   DEPRECATED_WRITEIT(ec->total_sum_feat_sq, "total_sum_features");
   DEPRECATED_WRITEIT(ec->weight, "example_weight");
   DEPRECATED_WRITEIT(ec->loss, "loss");
+  DEPRECATED_WRITEIT(ec->ft_index_scale, "ft_scale");
   DEPRECATED_WRITEIT(ec->ft_index_offset, "ft_offset");
   if (oas == false)
   {  // multi-class

@@ -719,7 +719,8 @@ float lda_loop(lda& l, VW::v_array<float>& Elogtheta, float* v, VW::example* ec,
     {
       for (VW::features::iterator& f : fs)
       {
-        float* u_for_w = &(weights[f.index()]) + l.topics + 1;
+        VW::feature_index weight_index = VW::details::feature_to_weight_index(f.index(), ec->ft_index_scale, ec->ft_index_offset);
+        float* u_for_w = &(weights[weight_index & weights.mask()]) + l.topics + 1;
         float c_w = find_cw(l, u_for_w, v);
         xc_w = c_w * f.value();
         score += -f.value() * std::log(c_w);
@@ -983,7 +984,8 @@ void learn(lda& l, VW::example& ec)
   {
     for (const auto& f : fs)
     {
-      index_feature temp = {new_example_batch_index, VW::feature(f.value(), f.index())};
+      auto weight_index = VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset);
+      index_feature temp = {new_example_batch_index, VW::feature(f.value(), weight_index & l.all->weights.mask())};
       l.sorted_features.push_back(temp);
       l.doc_lengths[new_example_batch_index] += static_cast<int>(f.value());
     }
@@ -1003,7 +1005,8 @@ void learn_with_metrics(lda& l, VW::example& ec)
     {
       for (VW::features::iterator& f : fs)
       {
-        uint64_t idx = (f.index() & weight_mask) >> stride_shift;
+        auto weight_index = VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset);
+        auto idx = (weight_index & weight_mask) >> stride_shift;
         l.feature_counts[idx] += static_cast<uint32_t>(f.value());
         l.feature_to_example_map[idx].push_back(ec.example_counter);
       }

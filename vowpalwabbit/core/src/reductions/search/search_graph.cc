@@ -75,12 +75,6 @@ public:
   bool separate_learners;
   bool directed;
 
-  // for adding new features
-  uint64_t mask;        // all->reg.weight_mask
-  uint64_t multiplier;  // all.reduction_state.total_feature_width << all.stride_shift
-  size_t ss;            // stride_shift
-  size_t total_feature_width;
-
   // per-example data
   uint32_t N;                               // NOLINT number of nodes
   uint32_t E;                               // NOLINT number of edges
@@ -188,10 +182,6 @@ void run_bfs(task_data& D, VW::multi_ex& ec)
 void setup(Search::search& sch, VW::multi_ex& ec)
 {
   task_data& D = *sch.get_task_data<task_data>();  // NOLINT
-  D.multiplier = D.total_feature_width << D.ss;
-  D.total_feature_width = sch.get_vw_pointer_unsafe().reduction_state.total_feature_width;
-  D.mask = sch.get_vw_pointer_unsafe().weights.mask();
-  D.ss = sch.get_vw_pointer_unsafe().weights.stride_shift();
   D.N = 0;
   D.E = 0;
   for (size_t i = 0; i < ec.size(); i++)
@@ -250,12 +240,11 @@ void takedown(Search::search& sch, VW::multi_ex& /*ec*/)
 void add_edge_features_group_fn(task_data& D, float fv, uint64_t fx)
 {
   VW::example* node = D.cur_node;
-  uint64_t fx2 = fx / D.multiplier;
   for (size_t k = 0; k < D.numN; k++)
   {
     if (D.neighbor_predictions[k] == 0.) { continue; }
     node->feature_space[VW::details::NEIGHBOR_NAMESPACE].push_back(
-        fv * D.neighbor_predictions[k], static_cast<uint64_t>((fx2 + 348919043 * k) * D.multiplier) & D.mask);
+        fv * D.neighbor_predictions[k], static_cast<uint64_t>(fx + 348919043 * k));
   }
 }
 
@@ -263,9 +252,8 @@ void add_edge_features_single_fn(task_data& D, float fv, uint64_t fx)
 {
   VW::example* node = D.cur_node;
   auto& fs = node->feature_space[VW::details::NEIGHBOR_NAMESPACE];
-  uint64_t fx2 = fx / D.multiplier;
   size_t k = static_cast<size_t>(D.neighbor_predictions[0]);
-  fs.push_back(fv, static_cast<uint32_t>((fx2 + 348919043 * k) * D.multiplier) & D.mask);
+  fs.push_back(fv, static_cast<uint32_t>(fx + 348919043 * k));
 }
 
 void add_edge_features(Search::search& sch, task_data& D, size_t n, VW::multi_ex& ec)

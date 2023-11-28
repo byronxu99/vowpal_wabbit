@@ -8,6 +8,7 @@
 #include "vw/config/options.h"
 #include "vw/core/example.h"
 #include "vw/core/global_data.h"
+#include "vw/core/interactions_predict.h"
 #include "vw/core/learner.h"
 #include "vw/core/memory.h"
 #include "vw/core/parse_args.h"  // for spoof_hex_encoded_namespaces
@@ -88,7 +89,7 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
   bool do_dropout = lrq.dropout && is_learn && !example_is_test(ec);
   float scale = (!lrq.dropout || do_dropout) ? 1.f : 0.5f;
 
-  uint32_t stride_shift = lrq.all->weights.stride_shift();
+  uint64_t weight_mask = lrq.all->weights.mask();
   for (unsigned int iter = 0; iter < maxiter; ++iter, ++which)
   {
     // Add left LRQ features, holding right LRQ features fixed
@@ -106,13 +107,12 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
       for (unsigned int lfn = 0; lfn < lrq.orig_size[left]; ++lfn)
       {
         float lfx = left_fs.values[lfn];
-        uint64_t lindex = left_fs.indices[lfn] + ec.ft_index_offset;
         for (unsigned int n = 1; n <= k; ++n)
         {
           if (!do_dropout || cheesyrbit(lrq.seed))
           {
-            uint64_t lwindex = (lindex + (static_cast<uint64_t>(n) << stride_shift));
-            VW::weight* lw = &lrq.all->weights[lwindex];
+            auto lwindex = VW::details::feature_to_weight_index(left_fs.indices[lfn] + n, ec.ft_index_scale, ec.ft_index_offset);
+            VW::weight* lw = &lrq.all->weights[lwindex & weight_mask];
 
             // perturb away from saddle point at (0, 0)
             if (is_learn)
@@ -128,10 +128,7 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
             {
               // NB: ec.ft_index_offset added by base learner
               float rfx = right_fs.values[rfn];
-              uint64_t rindex = right_fs.indices[rfn];
-              uint64_t rwindex = (rindex + (static_cast<uint64_t>(n) << stride_shift));
-
-              right_fs.push_back(scale * *lw * lfx * rfx, rwindex);
+              right_fs.push_back(scale * *lw * lfx * rfx, right_fs.indices[rfn] + n);
 
               if (all.output_config.audit || all.output_config.hash_inv)
               {

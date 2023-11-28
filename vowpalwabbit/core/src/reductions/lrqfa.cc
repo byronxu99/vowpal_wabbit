@@ -8,6 +8,7 @@
 #include "vw/config/options.h"
 #include "vw/core/example.h"
 #include "vw/core/global_data.h"
+#include "vw/core/interactions_predict.h"
 #include "vw/core/learner.h"
 #include "vw/core/parse_args.h"  // for spoof_hex_encoded_namespaces
 #include "vw/core/setup_base.h"
@@ -78,13 +79,14 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
         unsigned int rfd_id = lrq.field_id[right];
         for (unsigned int lfn = 0; lfn < lrq.orig_size[left]; ++lfn)
         {
-          auto& fs = ec.feature_space[left];
-          float lfx = fs.values[lfn];
-          uint64_t lindex = fs.indices[lfn];
+          auto& lfs = ec.feature_space[left];
+          float lfx = lfs.values[lfn];
+          //uint64_t lindex = VW::details::feature_to_weight_index(lfs.indices[lfn], ec.ft_index_scale, 0);
           for (unsigned int n = 1; n <= k; ++n)
           {
-            uint64_t lwindex = (lindex +
-                (static_cast<uint64_t>(rfd_id * k + n) << stride_shift));  // a feature has k weights in each field
+            //uint64_t lwindex = (lindex +
+            //    (static_cast<uint64_t>(rfd_id * k + n) << stride_shift));  // a feature has k weights in each field
+            auto lwindex = VW::details::feature_to_weight_index(lfs.indices[lfn] + rfd_id * k + n, ec.ft_index_scale, ec.ft_index_offset);
             float* lw = &all.weights[lwindex & weight_mask];
             // perturb away from saddle point at (0, 0)
             if (is_learn)
@@ -98,10 +100,10 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
               //                    feature* rf = ec.atomics[right].begin + rfn;
               // NB: ec.ft_index_offset added by base learner
               float rfx = rfs.values[rfn];
-              uint64_t rindex = rfs.indices[rfn];
-              uint64_t rwindex = (rindex + (static_cast<uint64_t>(lfd_id * k + n) << stride_shift));
+              //uint64_t rindex = VW::details::feature_to_weight_index(rfs.indices[rfn], ec.ft_index_scale, 0);
+              //uint64_t rwindex = (rindex + (static_cast<uint64_t>(lfd_id * k + n) << stride_shift));
 
-              rfs.push_back(*lw * lfx * rfx, rwindex);
+              rfs.push_back(*lw * lfx * rfx, rfs.indices[rfn] + lfd_id * k + n);
               if (all.output_config.audit || all.output_config.hash_inv)
               {
                 std::stringstream new_feature_buffer;
@@ -164,8 +166,10 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::lrqfa_setup(VW::setup_base
   int fd_id = 0;
   for (char i : lrq->field_name) { lrq->field_id[static_cast<int>(i)] = fd_id++; }
 
-  all.reduction_state.total_feature_width = all.reduction_state.total_feature_width * static_cast<uint64_t>(1 + lrq->k);
-  size_t feature_width = 1 + lrq->field_name.size() * lrq->k;
+  //all.reduction_state.total_feature_width = all.reduction_state.total_feature_width * static_cast<uint64_t>(1 + lrq->k);
+  //size_t feature_width = 1 + lrq->field_name.size() * lrq->k;
+  size_t feature_width = 1;
+  all.reduction_state.total_feature_width = all.reduction_state.total_feature_width * feature_width;
   auto base = stack_builder.setup_base_learner(feature_width);
 
   auto l = make_reduction_learner(std::move(lrq), require_singleline(base), predict_or_learn<true>,

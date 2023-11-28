@@ -13,16 +13,24 @@ void add_grams(size_t ngram, size_t skip_gram, VW::features& fs, size_t initial_
 {
   if (ngram == 0 && gram_mask.back() < initial_length)
   {
+    // In this branch, gram_mask has been filled completely
+
+    // Get last index of features that will not exceed the final increment in gram_mask
+    // Iterate through all features to last index
     size_t last = initial_length - gram_mask.back();
     for (size_t i = 0; i < last; i++)
     {
+      // Generate the new index by hashing the indices in gram_mask
       uint64_t new_index = fs.indices[i];
       for (size_t n = 1; n < gram_mask.size(); n++)
       {
         new_index = new_index * VW::details::QUADRATIC_CONSTANT + fs.indices[i + gram_mask[n]];
       }
 
+      // Add new feature with index we just computed and feature value 1
       fs.push_back(1., new_index);
+
+      // Add the new feature name to the list of feature names
       if (!fs.space_names.empty())
       {
         std::string feature_name(fs.space_names[i].name);
@@ -37,11 +45,16 @@ void add_grams(size_t ngram, size_t skip_gram, VW::features& fs, size_t initial_
   }
   if (ngram > 0)
   {
+    // Add current value of skips to the gram_mask and generate (n-1)-grams
     gram_mask.push_back(gram_mask.back() + 1 + skips);
     add_grams(ngram - 1, skip_gram, fs, initial_length, gram_mask, 0);
     gram_mask.pop_back();
   }
-  if (skip_gram > 0 && ngram > 0) { add_grams(ngram, skip_gram - 1, fs, initial_length, gram_mask, skips + 1); }
+  if (skip_gram > 0 && ngram > 0)
+  {
+    // Increment the value of skips and call function again
+    add_grams(ngram, skip_gram - 1, fs, initial_length, gram_mask, skips + 1);
+  }
 }
 
 void compile_gram(const std::vector<std::string>& grams, std::array<uint32_t, VW::NUM_NAMESPACES>& dest,

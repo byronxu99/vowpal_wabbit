@@ -28,8 +28,8 @@ inline void vec_add(VW::feature_value& p, VW::feature_value fx, VW::feature_valu
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_index)
 template <class DataT, void (*FuncT)(DataT&, VW::feature_value feature_value, VW::feature_index feature_index),
     class WeightsT>
-void foreach_feature(WeightsT& /*weights*/, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
-    VW::feature_index offset = 0, VW::feature_value mult = 1.)
+void foreach_feature(WeightsT& /*weights*/, const VW::features& fs, DataT& dat, VW::feature_index scale,
+    VW::feature_index offset, VW::feature_value mult = 1.)
 {
   for (const auto& f : fs)
   {
@@ -40,8 +40,8 @@ void foreach_feature(WeightsT& /*weights*/, const VW::features& fs, DataT& dat, 
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_weight)
 template <class DataT,
     void (*FuncT)(DataT&, const VW::feature_value feature_value, VW::feature_value& weight_reference), class WeightsT>
-inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
-    VW::feature_index offset = 0, VW::feature_value mult = 1.)
+inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale,
+    VW::feature_index offset, VW::feature_value mult = 1.)
 {
   for (const auto& f : fs)
   {
@@ -52,8 +52,8 @@ inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& da
 
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_weight)
 template <class DataT, void (*FuncT)(DataT&, VW::feature_value, VW::feature_value), class WeightsT>
-inline void foreach_feature(const WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
-    VW::feature_index offset = 0, VW::feature_value mult = 1.)
+inline void foreach_feature(const WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale,
+    VW::feature_index offset, VW::feature_value mult = 1.)
 {
   for (const auto& f : fs)
   {
@@ -153,8 +153,8 @@ namespace GD
 template <class DataT, void (*FuncT)(DataT&, VW::feature_value feature_value, VW::feature_index feature_index),
     class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
-    VW::feature_index offset = 0, VW::feature_value mult = 1.)
+void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale,
+    VW::feature_index offset, VW::feature_value mult = 1.)
 {
   VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, scale, offset, mult);
 }
@@ -163,8 +163,8 @@ void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::
 template <class DataT,
     void (*FuncT)(DataT&, const VW::feature_value feature_value, VW::feature_value& weight_reference), class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
-    VW::feature_index offset = 0, VW::feature_value mult = 1.)
+inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale,
+    VW::feature_index offset, VW::feature_value mult = 1.)
 {
   VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, scale, offset, mult);
 }
@@ -172,8 +172,8 @@ inline void foreach_feature(WeightsT& weights, const VW::features& fs, DataT& da
 // iterate through one namespace (or its part), callback function FuncT(some_data_R, feature_value_x, feature_weight)
 template <class DataT, void (*FuncT)(DataT&, VW::feature_value, VW::feature_value), class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline void foreach_feature(const WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale = 1,
-    VW::feature_index offset = 0, VW::feature_value mult = 1.)
+inline void foreach_feature(const WeightsT& weights, const VW::features& fs, DataT& dat, VW::feature_index scale,
+    VW::feature_index offset, VW::feature_value mult = 1.)
 {
   VW::foreach_feature<DataT, FuncT, WeightsT>(weights, fs, dat, scale, offset, mult);
 }

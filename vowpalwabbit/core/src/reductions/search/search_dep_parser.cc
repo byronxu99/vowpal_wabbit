@@ -122,12 +122,12 @@ void initialize(Search::search& sch, size_t& /*num_actions*/, options_i& options
 }
 
 void inline add_feature(
-    VW::example& ex, uint64_t idx, unsigned char ns, uint64_t mask, uint64_t multiplier, bool /* audit */ = false)
+    VW::example& ex, uint64_t idx, unsigned char ns, bool /* audit */ = false)
 {
-  ex.feature_space[static_cast<int>(ns)].push_back(1.0f, (idx * multiplier) & mask);
+  ex.feature_space[static_cast<int>(ns)].push_back(1.0f, idx);
 }
 
-void add_all_features(VW::example& ex, VW::example& src, unsigned char tgt_ns, uint64_t mask, uint64_t multiplier,
+void add_all_features(VW::example& ex, VW::example& src, unsigned char tgt_ns,
     uint64_t offset, bool /* audit */ = false)
 {
   VW::features& tgt_fs = ex.feature_space[tgt_ns];
@@ -137,7 +137,7 @@ void add_all_features(VW::example& ex, VW::example& src, unsigned char tgt_ns, u
     {  // ignore VW::details::CONSTANT_NAMESPACE
       for (VW::feature_index i : src.feature_space[ns].indices)
       {
-        tgt_fs.push_back(1.0f, ((i / multiplier + offset) * multiplier) & mask);
+        tgt_fs.push_back(1.0f, i + offset);
       }
     }
   }
@@ -249,11 +249,8 @@ size_t transition_eager(Search::search& sch, uint64_t a_id, uint32_t idx, uint32
 
 void extract_features(Search::search& sch, uint32_t idx, VW::multi_ex& ec)
 {
-  VW::workspace& all = sch.get_vw_pointer_unsafe();
   task_data* data = sch.get_task_data<task_data>();
   reset_ex(data->ex);
-  uint64_t mask = sch.get_mask();
-  uint64_t multiplier = static_cast<uint64_t>(all.reduction_state.total_feature_width) << all.weights.stride_shift();
 
   auto& stack = data->stack;
   auto& tags = data->tags;
@@ -299,13 +296,12 @@ void extract_features(Search::search& sch, uint32_t idx, VW::multi_ex& ec)
     uint64_t additional_offset = static_cast<uint64_t>(i * OFFSET_CONST);
     if (!ec_buf[i])
     {
-      add_feature(ex, static_cast<uint64_t>(438129041) + additional_offset, static_cast<unsigned char>((i + 1) + 'A'),
-          mask, multiplier);
+      add_feature(ex, static_cast<uint64_t>(438129041) + additional_offset, static_cast<unsigned char>((i + 1) + 'A'));
     }
     else
     {
       add_all_features(
-          ex, *ec_buf[i], 'A' + static_cast<unsigned char>(i + 1), mask, multiplier, additional_offset, false);
+          ex, *ec_buf[i], 'A' + static_cast<unsigned char>(i + 1), additional_offset, false);
     }
   }
 
@@ -328,7 +324,7 @@ void extract_features(Search::search& sch, uint32_t idx, VW::multi_ex& ec)
   for (size_t j = 0; j < 10; j++)
   {
     additional_offset += j * 1023;
-    add_feature(ex, temp[j] + additional_offset, VAL_NAMESPACE, mask, multiplier);
+    add_feature(ex, temp[j] + additional_offset, VAL_NAMESPACE);
   }
   size_t count = 0;
   for (VW::features& fs : data->ex)

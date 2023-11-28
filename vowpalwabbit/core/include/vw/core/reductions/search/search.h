@@ -218,7 +218,7 @@ public:  // INTERFACE
   BaseTask base_task(VW::multi_ex& ec) { return BaseTask(this, ec); }
 
   // internal data that you don't get to see!
-  search_private* priv = nullptr;
+  std::shared_ptr<search_private> priv = nullptr;
   std::shared_ptr<void> task_data = nullptr;      // your task data!
   std::shared_ptr<void> metatask_data = nullptr;  // your metatask data!
   const char* task_name = nullptr;
@@ -228,7 +228,6 @@ public:  // INTERFACE
                                            // vw data structure :(
   void set_force_oracle(bool force);       // if the library wants to force search to use the oracle, set this to true
   search();
-  ~search();
 };
 
 // for defining new tasks, you must fill out a search_task

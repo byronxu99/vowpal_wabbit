@@ -33,12 +33,11 @@ namespace VW
 {
 namespace reductions
 {
-void cbify_adf_data::init_adf_data(std::size_t num_actions_, std::size_t feature_width_below_,
+void cbify_adf_data::init_adf_data(std::size_t num_actions_,
     std::vector<std::vector<VW::namespace_index>>& interactions,
     std::vector<std::vector<extent_term>>& extent_interactions)
 {
   this->num_actions = num_actions_;
-  this->feature_width_below = feature_width_below_;
 
   ecs.resize(num_actions_);
   for (size_t a = 0; a < num_actions_; ++a)
@@ -51,7 +50,7 @@ void cbify_adf_data::init_adf_data(std::size_t num_actions_, std::size_t feature
   }
 
   // cache mask for copy routine
-  uint64_t total = num_actions_ * feature_width_below_;
+  uint64_t total = num_actions_;
   uint64_t power_2 = 0;
 
   while (total > 0)
@@ -60,6 +59,7 @@ void cbify_adf_data::init_adf_data(std::size_t num_actions_, std::size_t feature
     power_2++;
   }
 
+  // mask is equal to 2^ceil(log2(num_actions)) - 1
   this->custom_index_mask = (static_cast<uint64_t>(1) << power_2) - 1;
 }
 
@@ -68,10 +68,8 @@ cbify_adf_data::~cbify_adf_data()
   for (auto* ex : ecs) { delete ex; }
 }
 
-void cbify_adf_data::copy_example_to_adf(parameters& weights, VW::example& ec)
+void cbify_adf_data::copy_example_to_adf(VW::example& ec)
 {
-  const uint64_t mask = weights.mask();
-
   for (size_t a = 0; a < num_actions; ++a)
   {
     auto& eca = *ecs[a];
@@ -88,9 +86,10 @@ void cbify_adf_data::copy_example_to_adf(parameters& weights, VW::example& ec)
       for (feature_index& idx : fs.indices)
       {
         auto rawidx = idx;
+        // set bits covered by custom_index_mask to zero
         rawidx -= rawidx & custom_index_mask;
-        rawidx += a * feature_width_below;
-        idx = rawidx & mask;
+        // add action index to get final index
+        idx = rawidx + a;
       }
     }
 
@@ -386,7 +385,7 @@ void predict_adf(cbify& data, learner& base, VW::example& ec)
 {
   const auto save_label = ec.l;
 
-  data.adf_data.copy_example_to_adf(data.all->weights, ec);
+  data.adf_data.copy_example_to_adf(ec);
   base.predict(data.adf_data.ecs);
 
   auto& out_ec = *data.adf_data.ecs[0];
@@ -778,7 +777,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::cbify_setup(VW::setup_base
 
     if (data->use_adf)
     {
-      data->adf_data.init_adf_data(num_actions, base->feature_width_below, all.feature_tweaks_config.interactions,
+      data->adf_data.init_adf_data(num_actions, all.feature_tweaks_config.interactions,
           all.feature_tweaks_config.extent_interactions);
     }
 
