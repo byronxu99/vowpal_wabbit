@@ -607,7 +607,7 @@ void add_neighbor_features(search_private& priv, VW::multi_ex& ec_seq)
 {
   if (priv.neighbor_features.size() == 0) { return; }
 
-  for (size_t n = 0; n < ec_seq.size(); n++)  // iterate over every example in the sequence
+    for (size_t n = 0; n < ec_seq.size(); n++)  // iterate over every example in the sequence
   {
     VW::example& me = *ec_seq[n];
     for (size_t n_id = 0; n_id < priv.neighbor_features.size(); n_id++)
@@ -810,12 +810,9 @@ void add_example_conditioning(search_private& priv, VW::example& ec, size_t cond
       {
         // feature scale is 1 because we are not indexing weights
         auto old_ft_index_scale = ec.ft_index_scale;
-        auto old_ft_index_offset = ec.ft_index_offset;
         ec.ft_index_scale = 1;
-        ec.ft_index_offset = 0;
         VW::foreach_feature<search_private, uint64_t, add_new_feature>(*priv.all, ec, priv);
         ec.ft_index_scale = old_ft_index_scale;
-        ec.ft_index_offset = old_ft_index_offset;
       }
     }
   }
