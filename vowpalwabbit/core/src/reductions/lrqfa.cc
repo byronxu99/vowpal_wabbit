@@ -52,6 +52,28 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
 {
   VW::workspace& all = *lrq.all;
 
+  // Imitate old behavior of setup_example where features are scaled before learn/predict
+  // Scale feature indices and then set ft_index_scale to 1 so we don't scale again
+  auto old_ft_index_scale = ec.ft_index_scale;
+  uint64_t multiplier = static_cast<uint64_t>(all.reduction_state.total_feature_width) << all.weights.stride_shift();
+  for (features& fs : ec)
+  {
+    for (auto& ft_idx : fs.indices) { ft_idx *= multiplier; }
+  }
+  ec.ft_index_scale = 1;
+
+  // Undo the previous operation when we are done
+  auto restore_ft_index_scale = VW::scope_exit(
+    [&ec, old_ft_index_scale, multiplier]()
+    {
+      for (features& fs : ec)
+      {
+        for (auto& ft_idx : fs.indices) { ft_idx /= multiplier; }
+      }
+      ec.ft_index_scale = old_ft_index_scale;
+    }
+  );
+
   memset(lrq.orig_size, 0, sizeof(lrq.orig_size));
   for (VW::namespace_index i : ec.indices) { lrq.orig_size[i] = ec.feature_space[i].size(); }
 
@@ -81,13 +103,17 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
         {
           auto& lfs = ec.feature_space[left];
           float lfx = lfs.values[lfn];
-          //uint64_t lindex = VW::details::feature_to_weight_index(lfs.indices[lfn], ec.ft_index_scale, 0);
           for (unsigned int n = 1; n <= k; ++n)
           {
-            //uint64_t lwindex = (lindex +
-            //    (static_cast<uint64_t>(rfd_id * k + n) << stride_shift));  // a feature has k weights in each field
-            auto lwindex = VW::details::feature_to_weight_index(lfs.indices[lfn] + rfd_id * k + n, ec.ft_index_scale, ec.ft_index_offset);
+            // a feature has k weights in each field
+            // left and right field ids are reversed
+            uint64_t lindex_offset = static_cast<uint64_t>(rfd_id * k + n) << stride_shift;
+            uint64_t rindex_offset = static_cast<uint64_t>(lfd_id * k + n) << stride_shift;
+
+            // note that here we have already scaled the feature indices
+            auto lwindex = lfs.indices[lfn] + ec.ft_index_offset + lindex_offset;
             float* lw = &all.weights[lwindex & weight_mask];
+
             // perturb away from saddle point at (0, 0)
             if (is_learn)
             {
@@ -97,13 +123,13 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
             for (unsigned int rfn = 0; rfn < lrq.orig_size[right]; ++rfn)
             {
               auto& rfs = ec.feature_space[right];
-              //                    feature* rf = ec.atomics[right].begin + rfn;
-              // NB: ec.ft_index_offset added by base learner
               float rfx = rfs.values[rfn];
-              //uint64_t rindex = VW::details::feature_to_weight_index(rfs.indices[rfn], ec.ft_index_scale, 0);
-              //uint64_t rwindex = (rindex + (static_cast<uint64_t>(lfd_id * k + n) << stride_shift));
 
-              rfs.push_back(*lw * lfx * rfx, rfs.indices[rfn] + lfd_id * k + n);
+              // unlike for lw, ec.ft_index_offset will be added by base learner
+              uint64_t new_feature_index = rfs.indices[rfn] + rindex_offset;
+              float new_feature_value = *lw * lfx * rfx;
+              rfs.push_back(new_feature_value, new_feature_index);
+
               if (all.output_config.audit || all.output_config.hash_inv)
               {
                 std::stringstream new_feature_buffer;
@@ -166,10 +192,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::lrqfa_setup(VW::setup_base
   int fd_id = 0;
   for (char i : lrq->field_name) { lrq->field_id[static_cast<int>(i)] = fd_id++; }
 
-  //all.reduction_state.total_feature_width = all.reduction_state.total_feature_width * static_cast<uint64_t>(1 + lrq->k);
-  //size_t feature_width = 1 + lrq->field_name.size() * lrq->k;
-  size_t feature_width = 1;
-  all.reduction_state.total_feature_width = all.reduction_state.total_feature_width * feature_width;
+  size_t feature_width = 1 + lrq->field_name.size() * lrq->k;
   auto base = stack_builder.setup_base_learner(feature_width);
 
   auto l = make_reduction_learner(std::move(lrq), require_singleline(base), predict_or_learn<true>,

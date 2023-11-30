@@ -72,6 +72,28 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
 {
   VW::workspace& all = *lrq.all;
 
+  // Imitate old behavior of setup_example where features are scaled before learn/predict
+  // Scale feature indices and then set ft_index_scale to 1 so we don't scale again
+  auto old_ft_index_scale = ec.ft_index_scale;
+  uint64_t multiplier = static_cast<uint64_t>(all.reduction_state.total_feature_width) << all.weights.stride_shift();
+  for (features& fs : ec)
+  {
+    for (auto& ft_idx : fs.indices) { ft_idx *= multiplier; }
+  }
+  ec.ft_index_scale = 1;
+
+  // Undo the previous operation when we are done
+  auto restore_ft_index_scale = VW::scope_exit(
+    [&ec, old_ft_index_scale, multiplier]()
+    {
+      for (features& fs : ec)
+      {
+        for (auto& ft_idx : fs.indices) { ft_idx /= multiplier; }
+      }
+      ec.ft_index_scale = old_ft_index_scale;
+    }
+  );
+
   // Remember original features
 
   memset(lrq.orig_size, 0, sizeof(lrq.orig_size));
@@ -89,6 +111,7 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
   bool do_dropout = lrq.dropout && is_learn && !example_is_test(ec);
   float scale = (!lrq.dropout || do_dropout) ? 1.f : 0.5f;
 
+  uint32_t stride_shift = lrq.all->weights.stride_shift();
   uint64_t weight_mask = lrq.all->weights.mask();
   for (unsigned int iter = 0; iter < maxiter; ++iter, ++which)
   {
@@ -111,7 +134,8 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
         {
           if (!do_dropout || cheesyrbit(lrq.seed))
           {
-            auto lwindex = VW::details::feature_to_weight_index(left_fs.indices[lfn] + n, ec.ft_index_scale, ec.ft_index_offset);
+            // note that here we have already scaled the feature indices
+            auto lwindex = left_fs.indices[lfn] + (static_cast<uint64_t>(n) << stride_shift) + ec.ft_index_offset;
             VW::weight* lw = &lrq.all->weights[lwindex & weight_mask];
 
             // perturb away from saddle point at (0, 0)
@@ -126,9 +150,11 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
             auto& right_fs = ec.feature_space[right];
             for (unsigned int rfn = 0; rfn < lrq.orig_size[right]; ++rfn)
             {
-              // NB: ec.ft_index_offset added by base learner
+              // unlike for lw, ec.ft_index_offset will be added by base learner
               float rfx = right_fs.values[rfn];
-              right_fs.push_back(scale * *lw * lfx * rfx, right_fs.indices[rfn] + n);
+              uint64_t new_feature_index = right_fs.indices[rfn] + (static_cast<uint64_t>(n) << stride_shift);
+              float new_feature_value = scale * *lw * lfx * rfx;
+              right_fs.push_back(new_feature_value, new_feature_index);
 
               if (all.output_config.audit || all.output_config.hash_inv)
               {
