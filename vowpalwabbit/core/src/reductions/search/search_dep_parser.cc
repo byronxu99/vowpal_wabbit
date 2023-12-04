@@ -121,24 +121,20 @@ void initialize(Search::search& sch, size_t& /*num_actions*/, options_i& options
   sch.set_label_parser(VW::cs_label_parser_global, [](const VW::polylabel& l) -> bool { return l.cs.costs.empty(); });
 }
 
-void inline add_feature(
-    VW::example& ex, uint64_t idx, unsigned char ns, bool /* audit */ = false)
+void inline add_feature(VW::example& ex, uint64_t idx, unsigned char ns, bool /* audit */ = false)
 {
   ex.feature_space[static_cast<int>(ns)].push_back(1.0f, idx);
 }
 
-void add_all_features(VW::example& ex, VW::example& src, unsigned char tgt_ns,
-    uint64_t offset, bool /* audit */ = false)
+void add_all_features(
+    VW::example& ex, VW::example& src, unsigned char tgt_ns, uint64_t offset, bool /* audit */ = false)
 {
   VW::features& tgt_fs = ex.feature_space[tgt_ns];
   for (VW::namespace_index ns : src.indices)
   {
     if (ns != VW::details::CONSTANT_NAMESPACE)
     {  // ignore VW::details::CONSTANT_NAMESPACE
-      for (VW::feature_index i : src.feature_space[ns].indices)
-      {
-        tgt_fs.push_back(1.0f, i + offset);
-      }
+      for (VW::feature_index i : src.feature_space[ns].indices) { tgt_fs.push_back(1.0f, i + offset); }
     }
   }
 }
@@ -298,11 +294,7 @@ void extract_features(Search::search& sch, uint32_t idx, VW::multi_ex& ec)
     {
       add_feature(ex, static_cast<uint64_t>(438129041) + additional_offset, static_cast<unsigned char>((i + 1) + 'A'));
     }
-    else
-    {
-      add_all_features(
-          ex, *ec_buf[i], 'A' + static_cast<unsigned char>(i + 1), additional_offset, false);
-    }
+    else { add_all_features(ex, *ec_buf[i], 'A' + static_cast<unsigned char>(i + 1), additional_offset, false); }
   }
 
   // Other features

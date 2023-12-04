@@ -84,15 +84,14 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
 
   // Undo the previous operation when we are done
   auto restore_ft_index_scale = VW::scope_exit(
-    [&ec, old_ft_index_scale, multiplier]()
-    {
-      for (features& fs : ec)
+      [&ec, old_ft_index_scale, multiplier]()
       {
-        for (auto& ft_idx : fs.indices) { ft_idx /= multiplier; }
-      }
-      ec.ft_index_scale = old_ft_index_scale;
-    }
-  );
+        for (features& fs : ec)
+        {
+          for (auto& ft_idx : fs.indices) { ft_idx /= multiplier; }
+        }
+        ec.ft_index_scale = old_ft_index_scale;
+      });
 
   // Remember original features
 

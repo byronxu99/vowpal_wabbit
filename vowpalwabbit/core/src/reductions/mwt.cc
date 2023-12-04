@@ -98,7 +98,10 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
     // For each nonzero feature in observed namespaces, check it's value.
     for (unsigned char ns : ec.indices)
     {
-      if (c.namespaces[ns]) { VW::foreach_feature<mwt, value_policy>(c.all, ec.feature_space[ns], c, ec.ft_index_scale, ec.ft_index_offset); }
+      if (c.namespaces[ns])
+      {
+        VW::foreach_feature<mwt, value_policy>(c.all, ec.feature_space[ns], c, ec.ft_index_scale, ec.ft_index_offset);
+      }
     }
     for (uint64_t policy : c.policies)
     {
@@ -125,7 +128,8 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
           for (VW::features::iterator& f : ec.feature_space[ns])
           {
             auto weight_index = VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset);
-            uint64_t new_index = ((weight_index & weight_mask) >> stride_shift) * c.num_classes + static_cast<uint64_t>(f.value());
+            uint64_t new_index =
+                ((weight_index & weight_mask) >> stride_shift) * c.num_classes + static_cast<uint64_t>(f.value());
             c.feature_space[ns].push_back(1, new_index << stride_shift);
           }
         }

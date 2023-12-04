@@ -719,7 +719,8 @@ float lda_loop(lda& l, VW::v_array<float>& Elogtheta, float* v, VW::example* ec,
     {
       for (VW::features::iterator& f : fs)
       {
-        VW::feature_index weight_index = VW::details::feature_to_weight_index(f.index(), ec->ft_index_scale, ec->ft_index_offset);
+        VW::feature_index weight_index =
+            VW::details::feature_to_weight_index(f.index(), ec->ft_index_scale, ec->ft_index_offset);
         float* u_for_w = &(weights[weight_index & weights.mask()]) + l.topics + 1;
         float c_w = find_cw(l, u_for_w, v);
         xc_w = c_w * f.value();

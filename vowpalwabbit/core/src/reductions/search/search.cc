@@ -331,10 +331,7 @@ void clear_memo_foreach_action(search_private& priv)
   priv.memo_foreach_action.clear();
 }
 
-search::search()
-{
-  priv = std::make_shared<search_private>();
-}
+search::search() { priv = std::make_shared<search_private>(); }
 
 std::string audit_feature_space("conditional");
 uint64_t conditional_constant = 8290743;
@@ -609,7 +606,7 @@ void add_neighbor_features(search_private& priv, VW::multi_ex& ec_seq)
 {
   if (priv.neighbor_features.size() == 0) { return; }
 
-    for (size_t n = 0; n < ec_seq.size(); n++)  // iterate over every example in the sequence
+  for (size_t n = 0; n < ec_seq.size(); n++)  // iterate over every example in the sequence
   {
     VW::example& me = *ec_seq[n];
     for (size_t n_id = 0; n_id < priv.neighbor_features.size(); n_id++)
@@ -803,17 +800,15 @@ void add_example_conditioning(search_private& priv, VW::example& ec, size_t cond
       }
 
       // add the single bias feature
-      if (n < priv.acset.max_bias_ngram_length)
-      {
-        add_new_feature(priv, 1., static_cast<uint64_t>(4398201));
-      }
+      if (n < priv.acset.max_bias_ngram_length) { add_new_feature(priv, 1., static_cast<uint64_t>(4398201)); }
       // add the quadratic features
       if (n < priv.acset.max_quad_ngram_length)
       {
         auto old_ft_index_scale = ec.ft_index_scale;
         auto old_ft_index_offset = ec.ft_index_offset;
-        auto restore_example =
-            VW::scope_exit([&ec, old_ft_index_scale, old_ft_index_offset] {
+        auto restore_example = VW::scope_exit(
+            [&ec, old_ft_index_scale, old_ft_index_offset]
+            {
               ec.ft_index_scale = old_ft_index_scale;
               ec.ft_index_offset = old_ft_index_offset;
             });
@@ -1991,10 +1986,10 @@ void hoopla_permute(size_t* B, size_t* end)
   std::sort(B, end, cmp_size_t);
   // make some temporary space
   std::vector<size_t> A((N + 1) * 2, 0);  // NOLINT
-  A[N] = B[0];                                                    // arbitrarily choose the maximum in the middle
-  A[N + 1] = B[N - 1];                                            // so the maximum goes next to it
-  size_t lo = N, hi = N + 1;                                      // which parts of A have we filled in? [lo,hi]
-  size_t i = 0, j = N - 1;  // which parts of B have we already covered? [0,i] and [j,N-1]
+  A[N] = B[0];                            // arbitrarily choose the maximum in the middle
+  A[N + 1] = B[N - 1];                    // so the maximum goes next to it
+  size_t lo = N, hi = N + 1;              // which parts of A have we filled in? [lo,hi]
+  size_t i = 0, j = N - 1;                // which parts of B have we already covered? [0,i] and [j,N-1]
   while (i + 1 < j)
   {
     // there are four options depending on where things get placed

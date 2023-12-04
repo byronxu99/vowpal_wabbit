@@ -69,13 +69,18 @@ void mf_print_offset_features(gdmf& d, VW::example& ec, size_t offset)
           {
             std::cout << '\t' << VW::to_string(*f1.audit()) << ':' << ((f1.index() + k) & mask) << "("
                       << ((f1.index() + offset + k) & mask) << ")" << ':' << f1.value();
-            std::cout << ':' << weights[VW::details::feature_to_weight_index(f1.index(), ec.ft_index_scale, offset + k)];
+            std::cout << ':'
+                      << weights[VW::details::feature_to_weight_index(f1.index(), ec.ft_index_scale, offset + k)];
 
             std::cout << ':' << VW::to_string(*f2.audit()) << ':' << ((f2.index() + k + d.rank) & mask) << "("
                       << ((f2.index() + offset + k + d.rank) & mask) << ")" << ':' << f2.value();
-            std::cout << ':' << weights[VW::details::feature_to_weight_index(f2.index(), ec.ft_index_scale, offset + k + d.rank)];
+            std::cout
+                << ':'
+                << weights[VW::details::feature_to_weight_index(f2.index(), ec.ft_index_scale, offset + k + d.rank)];
 
-            std::cout << ':' << weights[VW::details::feature_to_weight_index(f1.index(), ec.ft_index_scale, offset + k)] * weights[VW::details::feature_to_weight_index(f2.index(), ec.ft_index_scale, offset + k + d.rank)];
+            std::cout << ':'
+                      << weights[VW::details::feature_to_weight_index(f1.index(), ec.ft_index_scale, offset + k)] *
+                    weights[VW::details::feature_to_weight_index(f2.index(), ec.ft_index_scale, offset + k + d.rank)];
           }
         }
       }
@@ -150,7 +155,8 @@ float mf_predict(gdmf& d, VW::example& ec, T& weights)
         // float x_dot_l = sd_offset_add(weights, ec.atomics[(int)(*i)[0]].begin(), ec.atomics[(int)(*i)[0]].end(), k);
         pred_offset x_dot_l = {0., k};
         // Offset to foreach_feature() function should be 0 because it is specified in pred_offset instead
-        VW::foreach_feature<pred_offset, offset_add, T>(weights, ec.feature_space[static_cast<int>(i[0])], x_dot_l, ec.ft_index_scale, 0);
+        VW::foreach_feature<pred_offset, offset_add, T>(
+            weights, ec.feature_space[static_cast<int>(i[0])], x_dot_l, ec.ft_index_scale, 0);
 
         // x_r * r^k
         // r^k is from index+d.rank+1 to index+2*d.rank
@@ -158,7 +164,8 @@ float mf_predict(gdmf& d, VW::example& ec, T& weights)
         // k+d.rank);
         pred_offset x_dot_r = {0., k + d.rank};
         // Offset to foreach_feature() function should be 0 because it is specified in pred_offset instead
-        VW::foreach_feature<pred_offset, offset_add, T>(weights, ec.feature_space[static_cast<int>(i[1])], x_dot_r, ec.ft_index_scale, 0);
+        VW::foreach_feature<pred_offset, offset_add, T>(
+            weights, ec.feature_space[static_cast<int>(i[1])], x_dot_r, ec.ft_index_scale, 0);
 
         prediction += x_dot_l.p * x_dot_r.p;
 
@@ -234,7 +241,8 @@ void mf_train(gdmf& d, VW::example& ec, T& weights)
         // r^k \cdot x_r
         float r_dot_x = d.scalars[2 * k];
         // l^k <- l^k + update * (r^k \cdot x_r) * x_l
-        sd_offset_update<T>(weights, ec.feature_space[static_cast<int>(i[0])], ec.ft_index_scale, k, update * r_dot_x, regularization);
+        sd_offset_update<T>(
+            weights, ec.feature_space[static_cast<int>(i[0])], ec.ft_index_scale, k, update * r_dot_x, regularization);
       }
       // update r^k weights
       for (size_t k = 1; k <= d.rank; k++)
@@ -242,8 +250,8 @@ void mf_train(gdmf& d, VW::example& ec, T& weights)
         // l^k \cdot x_l
         float l_dot_x = d.scalars[2 * k - 1];
         // r^k <- r^k + update * (l^k \cdot x_l) * x_r
-        sd_offset_update<T>(
-            weights, ec.feature_space[static_cast<int>(i[1])], ec.ft_index_scale, k + d.rank, update * l_dot_x, regularization);
+        sd_offset_update<T>(weights, ec.feature_space[static_cast<int>(i[1])], ec.ft_index_scale, k + d.rank,
+            update * l_dot_x, regularization);
       }
     }
   }

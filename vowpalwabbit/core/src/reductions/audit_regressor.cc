@@ -143,7 +143,8 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
           for (size_t j = 0; j < fs.size(); ++j)
           {
             audit_regressor_interaction(rd, &fs.space_names[j]);
-            audit_regressor_feature(rd, fs.values[j], VW::details::feature_to_weight_index(fs.indices[j], ec.ft_index_scale, ec.ft_index_offset));
+            audit_regressor_feature(rd, fs.values[j],
+                VW::details::feature_to_weight_index(fs.indices[j], ec.ft_index_scale, ec.ft_index_offset));
             audit_regressor_interaction(rd, nullptr);
           }
         }
@@ -151,7 +152,8 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
         {
           for (size_t j = 0; j < fs.size(); ++j)
           {
-            audit_regressor_feature(rd, fs.values[j], VW::details::feature_to_weight_index(fs.indices[j], ec.ft_index_scale, ec.ft_index_offset));
+            audit_regressor_feature(rd, fs.values[j],
+                VW::details::feature_to_weight_index(fs.indices[j], ec.ft_index_scale, ec.ft_index_offset));
           }
         }
       }
