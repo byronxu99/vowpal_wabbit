@@ -574,13 +574,15 @@ void print_update_search(VW::workspace& all, VW::shared_data& /* sd */, const se
 
 void add_new_feature(search_private& priv, float val, uint64_t idx)
 {
+  uint64_t mask = priv.all->weights.mask();
+  uint64_t idx2 = idx & mask;
   auto& fs = priv.dat_new_feature_ec->feature_space[priv.dat_new_feature_namespace];
-  fs.push_back(val * priv.dat_new_feature_value, priv.dat_new_feature_idx + idx);
+  fs.push_back(val * priv.dat_new_feature_value, (priv.dat_new_feature_idx + idx2) & mask);
   cdbg << "adding: " << fs.indices.back() << ':' << fs.values.back() << endl;
   if (priv.all->output_config.audit)
   {
     std::stringstream temp;
-    temp << "fid=" << idx << "_" << priv.dat_new_feature_audit_ss.str();
+    temp << "fid=" << (idx & mask) << "_" << priv.dat_new_feature_audit_ss.str();
     fs.space_names.emplace_back(*priv.dat_new_feature_feature_space, temp.str());
   }
 }
@@ -808,11 +810,18 @@ void add_example_conditioning(search_private& priv, VW::example& ec, size_t cond
       // add the quadratic features
       if (n < priv.acset.max_quad_ngram_length)
       {
-        // feature scale is 1 because we are not indexing weights
         auto old_ft_index_scale = ec.ft_index_scale;
+        auto old_ft_index_offset = ec.ft_index_offset;
+        auto restore_example =
+            VW::scope_exit([&ec, old_ft_index_scale, old_ft_index_offset] {
+              ec.ft_index_scale = old_ft_index_scale;
+              ec.ft_index_offset = old_ft_index_offset;
+            });
+
+        // feature scale is 1 because we are not indexing weights
         ec.ft_index_scale = 1;
+        ec.ft_index_offset = 0;
         VW::foreach_feature<search_private, uint64_t, add_new_feature>(*priv.all, ec, priv);
-        ec.ft_index_scale = old_ft_index_scale;
       }
     }
   }

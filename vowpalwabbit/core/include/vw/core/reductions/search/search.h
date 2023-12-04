@@ -3,6 +3,7 @@
 // license as described in the file LICENSE.
 #pragma once
 
+#define VW_FEAT_SEARCH_ENABLED
 #ifdef VW_FEAT_SEARCH_ENABLED
 
 #  include "vw/core/example.h"
@@ -98,9 +99,9 @@ public:  // INTERFACE
 
   // for managing metatask-specific data
   template <class T>
-  void set_metatask_data(T* data)
+  void set_metatask_data(std::shared_ptr<T> data)
   {
-    metatask_data = std::shared_ptr<T>(data);
+    metatask_data = std::move(data);
   }
   template <class T>
   T* get_metatask_data()
