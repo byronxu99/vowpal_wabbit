@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "vw/common/fnv_hash.h"
 #include "vw/common/future_compat.h"
 #include "vw/common/vw_exception.h"
 #include "vw/core/constant.h"
@@ -216,16 +217,16 @@ template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_v
     void (*audit_func)(DataT&, const VW::audit_strings*), class WeightsT>
 void inner_kernel(DataT& dat, VW::features::const_audit_iterator& begin, VW::features::const_audit_iterator& end,
     const VW::feature_index scale, const VW::feature_index offset, WeightsT& weights, VW::feature_value ft_value,
-    VW::feature_index halfhash)
+    VW::fnv_hasher partial_hash, const uint32_t num_bits)
 {
   if (audit)
   {
     for (; begin != end; ++begin)
     {
       audit_func(dat, begin.audit() == nullptr ? &EMPTY_AUDIT_STRINGS : begin.audit());
-      VW::feature_index interaction_index = begin.index() ^ halfhash;
+      VW::feature_index interaction_hash = partial_hash.hash(begin.index()).get_truncated_hash(num_bits);
       call_func_t<DataT, FuncT>(dat, weights, interaction_value(ft_value, begin.value()),
-          feature_to_weight_index(interaction_index, scale, offset));
+          feature_to_weight_index(interaction_hash, scale, offset));
       audit_func(dat, nullptr);
     }
   }
@@ -233,9 +234,9 @@ void inner_kernel(DataT& dat, VW::features::const_audit_iterator& begin, VW::fea
   {
     for (; begin != end; ++begin)
     {
-      VW::feature_index interaction_index = begin.index() ^ halfhash;
+      VW::feature_index interaction_hash = partial_hash.hash(begin.index()).get_truncated_hash(num_bits);
       call_func_t<DataT, FuncT>(dat, weights, interaction_value(ft_value, begin.value()),
-          feature_to_weight_index(interaction_index, scale, offset));
+          feature_to_weight_index(interaction_hash, scale, offset));
     }
   }
 }
@@ -255,13 +256,13 @@ size_t process_quadratic_interaction(
   size_t i = 0;
   for (; first_begin != first_end; ++first_begin)
   {
-    VW::feature_index halfhash = VW::details::FNV_PRIME * first_begin.index();
+    auto interaction_hasher = VW::fnv_hasher().hash(first_begin.index());
     if (Audit) { audit_func(first_begin.audit() != nullptr ? first_begin.audit() : &EMPTY_AUDIT_STRINGS); }
     // next index differs for permutations and simple combinations
     auto begin = second_begin;
     if (same_namespace) { begin += i; }
     num_features += std::distance(begin, second_end);
-    kernel_func(begin, second_end, first_begin.value(), halfhash);
+    kernel_func(begin, second_end, first_begin.value(), interaction_hasher);
     if (Audit) { audit_func(nullptr); }
     i++;
   }
@@ -291,8 +292,8 @@ size_t process_cubic_interaction(
   {
     if (Audit) { audit_func(first_begin.audit() != nullptr ? first_begin.audit() : &EMPTY_AUDIT_STRINGS); }
 
-    const VW::feature_index halfhash1 = VW::details::FNV_PRIME * first_begin.index();
-    const VW::feature_value first_ft_value = first_begin.value();
+    const auto interaction_hasher_1 = VW::fnv_hasher().hash(first_begin.index());
+    const VW::feature_value interaction_value_1 = first_begin.value();
     size_t j = 0;
     if (same_namespace1)  // next index differs for permutations and simple combinations
     {
@@ -306,14 +307,14 @@ size_t process_cubic_interaction(
       {
         audit_func(inner_second_begin.audit() != nullptr ? inner_second_begin.audit() : &EMPTY_AUDIT_STRINGS);
       }
-      VW::feature_index halfhash = VW::details::FNV_PRIME * (halfhash1 ^ inner_second_begin.index());
-      VW::feature_value ft_value = interaction_value(first_ft_value, inner_second_begin.value());
+      auto interaction_hasher_2 = interaction_hasher_1.hash(inner_second_begin.index());
+      VW::feature_value interaction_value_2 = interaction_value(interaction_value_1, inner_second_begin.value());
 
       auto begin = third_begin;
       // next index differs for permutations and simple combinations
       if (same_namespace2) { begin += j; }
       num_features += std::distance(begin, third_end);
-      kernel_func(begin, third_end, ft_value, halfhash);
+      kernel_func(begin, third_end, interaction_value_2, interaction_hasher_2);
       if (Audit) { audit_func(nullptr); }
       j++;
     }  // end for (snd)
@@ -375,12 +376,12 @@ size_t process_generic_interaction(const std::vector<VW::details::features_range
 
       if (cur_data == gen_data_head)  // first namespace
       {
-        next_data->hash = VW::details::FNV_PRIME * (*cur_data->current_it).index();
+        next_data->hasher = VW::fnv_hasher().hash((*cur_data->current_it).index());
         next_data->x = (*cur_data->current_it).value();  // data->x == 1.
       }
-      else
-      {  // feature2 xor (16777619*feature1)
-        next_data->hash = VW::details::FNV_PRIME * (cur_data->hash ^ (*cur_data->current_it).index());
+      else // namespace after the first
+      {
+        next_data->hasher = cur_data->hasher.hash((*cur_data->current_it).index());
         next_data->x = interaction_value((*cur_data->current_it).value(), cur_data->x);
       }
       ++cur_data;
@@ -392,12 +393,12 @@ size_t process_generic_interaction(const std::vector<VW::details::features_range
       size_t start_i = 0;
       if (!permutations) { start_i = gen_data_last->current_it - gen_data_last->begin_it; }
 
-      VW::feature_value ft_value = gen_data_last->x;
-      VW::feature_index halfhash = gen_data_last->hash;
+      VW::feature_value interaction_value = gen_data_last->x;
+      auto interaction_hasher = gen_data_last->hasher;
 
       auto begin = cur_data->begin_it + start_i;
       num_features += (cur_data->end_it - begin);
-      kernel_func(begin, cur_data->end_it, ft_value, halfhash);
+      kernel_func(begin, cur_data->end_it, interaction_value, interaction_hasher);
       // trying to go back increasing loop_idx of each namespace by the way
       bool go_further;
       do {
@@ -432,10 +433,10 @@ inline void generate_interactions(const std::vector<std::vector<VW::namespace_in
   num_features = 0;
   // often used values
   const auto inner_kernel_func = [&](VW::features::const_audit_iterator begin, VW::features::const_audit_iterator end,
-                                     VW::feature_value value, VW::feature_index index)
+                                     VW::feature_value value, VW::fnv_hasher hasher)
   {
     details::inner_kernel<DataT, WeightOrIndexT, FuncT, audit, audit_func>(
-        dat, begin, end, ec.ft_index_scale, ec.ft_index_offset, weights, value, index);
+        dat, begin, end, ec.ft_index_scale, ec.ft_index_offset, weights, value, hasher, weights.num_bits());
   };
 
   const auto depth_audit_func = [&](const VW::audit_strings* audit_str) { audit_func(dat, audit_str); };

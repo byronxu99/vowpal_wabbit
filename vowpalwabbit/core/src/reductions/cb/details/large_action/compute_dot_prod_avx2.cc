@@ -130,11 +130,14 @@ float compute_dot_prod_avx2(uint64_t column_index, VW::workspace* _all, uint64_t
   float sum = 0.f;
   const uint64_t scale = ex->ft_index_scale;
   const uint64_t offset = ex->ft_index_offset;
-  const uint64_t weights_mask = _all->weights.mask();
+  const uint64_t num_bits = _all->weights.num_bits(); // without stride
+  const uint64_t bit_mask = (static_cast<uint64_t>(1) << num_bits) - 1;
+  const uint64_t weights_mask = _all->weights.mask(); // includes stride
 
   __m256 sums = _mm256_setzero_ps();
   const __m256i column_indices = _mm256_set1_epi64x(column_index);
   const __m256i seeds = _mm256_set1_epi64x(seed);
+  const __m256i bit_masks = _mm256_set1_epi64x(bit_mask);
   const __m256i weights_masks = _mm256_set1_epi64x(weights_mask);
   const __m256i scales = _mm256_set1_epi64x(scale);
   const __m256i offsets = _mm256_set1_epi64x(offset);
@@ -197,8 +200,11 @@ float compute_dot_prod_avx2(uint64_t column_index, VW::workspace* _all, uint64_t
 
     for (size_t i = 0; i < num_features_ns0; ++i)
     {
-      const uint64_t halfhash = VW::details::FNV_PRIME * ns0_indices[i];
-      const __m256i halfhashes = _mm256_set1_epi64x(halfhash);
+      // Compute FNV hash with AVX2
+      // First multiply by FNV prime and broadcast to all lanes
+      const auto partial_hash = VW::fnv_hasher().hash(ns0_indices[i]);
+      const __m256i partial_hashes_after_mul = _mm256_set1_epi64x(partial_hash.get_full_hash() * VW::details::FNV_32_PRIME);
+
       const float val = ns0_values[i];
       const __m256 vals = _mm256_set1_ps(val);
       size_t j = same_namespace ? i : 0;
@@ -207,8 +213,16 @@ float compute_dot_prod_avx2(uint64_t column_index, VW::workspace* _all, uint64_t
       {
         __m256i indices1 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&ns1_indices[j]));
         __m256i indices2 = _mm256_loadu_si256(reinterpret_cast<const __m256i*>(&ns1_indices[j + 4]));
-        indices1 = _mm256_xor_si256(indices1, halfhashes);
-        indices2 = _mm256_xor_si256(indices2, halfhashes);
+
+        // XOR with partial hash, already multiplied with FNV prime
+        indices1 = _mm256_xor_si256(indices1, partial_hashes_after_mul);
+        indices2 = _mm256_xor_si256(indices2, partial_hashes_after_mul);
+
+        // Truncate to num_bits by XOR folding
+        indices1 = _mm256_xor_si256(indices1, _mm256_srli_epi64(indices1, num_bits));
+        indices1 = _mm256_and_si256(indices1, bit_masks);
+        indices2 = _mm256_xor_si256(indices2, _mm256_srli_epi64(indices2, num_bits));
+        indices2 = _mm256_and_si256(indices2, bit_masks);
 
         __m256 values = _mm256_loadu_ps(&ns1_values[j]);
         values = _mm256_mul_ps(vals, values);
@@ -218,7 +232,7 @@ float compute_dot_prod_avx2(uint64_t column_index, VW::workspace* _all, uint64_t
       for (; j < num_features_ns1; ++j)
       {
         float feature_value = val * ns1_values[j];
-        auto index = (ns1_indices[j] ^ halfhash);
+        auto index = partial_hash.hash(ns1_indices[j]).get_truncated_hash(num_bits);
         compute1(feature_value, index, scale, offset, weights_mask, column_index, seed, sum);
       }
     }

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "vw/common/fnv_hash.h"
 #include "vw/common/vw_exception.h"
 #include "vw/core/constant.h"
 #include "vw/core/example_predict.h"
@@ -21,7 +22,7 @@ namespace details
 class feature_gen_data
 {
 public:
-  uint64_t hash = 0;              // hash of feature interactions of previous namespaces in the list
+  fnv_hasher hasher;
   float x = 1.f;                  // value of feature interactions of previous namespaces in the list
                                   // than once calculated at preprocessing together with same_ns
   bool self_interaction = false;  // namespace interacting with itself

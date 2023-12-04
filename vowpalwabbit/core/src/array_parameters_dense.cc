@@ -22,16 +22,23 @@
 VW::dense_parameters::dense_parameters(size_t length, uint32_t stride_shift)
     // memory allocated by calloc should be freed by C free()
     : _begin(VW::details::calloc_mergable_or_throw<VW::weight>(length << stride_shift), free)
-    , _weight_mask((length << stride_shift) - 1)
+    , _num_bits(0)
     , _stride_shift(stride_shift)
 {
+  while (length > 1)
+  {
+    length = length >> 1;
+    _num_bits++;
+  }
+  _weight_mask = (static_cast<uint64_t>(1) << (_num_bits + stride_shift)) - 1;
 }
 
-VW::dense_parameters::dense_parameters() : _begin(nullptr), _weight_mask(0), _stride_shift(0) {}
+VW::dense_parameters::dense_parameters() : _begin(nullptr), _num_bits(0), _weight_mask(0), _stride_shift(0) {}
 
 VW::dense_parameters& VW::dense_parameters::operator=(dense_parameters&& other) noexcept
 {
   _begin = std::move(other._begin);
+  _num_bits = other._num_bits;
   _weight_mask = other._weight_mask;
   _stride_shift = other._stride_shift;
   return *this;
@@ -40,6 +47,7 @@ VW::dense_parameters& VW::dense_parameters::operator=(dense_parameters&& other) 
 VW::dense_parameters::dense_parameters(dense_parameters&& other) noexcept
 {
   _begin = std::move(other._begin);
+  _num_bits = other._num_bits;
   _weight_mask = other._weight_mask;
   _stride_shift = other._stride_shift;
 }
@@ -49,6 +57,7 @@ VW::dense_parameters VW::dense_parameters::shallow_copy(const dense_parameters& 
 {
   dense_parameters return_val;
   return_val._begin = input._begin;
+  return_val._num_bits = input._num_bits;
   return_val._weight_mask = input._weight_mask;
   return_val._stride_shift = input._stride_shift;
   return return_val;
@@ -59,6 +68,7 @@ VW::dense_parameters VW::dense_parameters::deep_copy(const dense_parameters& inp
   dense_parameters return_val;
   auto length = input._weight_mask + 1;
   return_val._begin.reset(VW::details::calloc_mergable_or_throw<VW::weight>(length), free);
+  return_val._num_bits = input._num_bits;
   return_val._weight_mask = input._weight_mask;
   return_val._stride_shift = input._stride_shift;
   std::memcpy(return_val._begin.get(), input._begin.get(), length * sizeof(VW::weight));

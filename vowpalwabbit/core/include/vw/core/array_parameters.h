@@ -38,6 +38,12 @@ public:
     else { dense_weights.set_default(std::forward<Lambda>(default_func)); }
   }
 
+  inline uint32_t num_bits() const
+  {
+    if (sparse) { return sparse_weights.num_bits(); }
+    else { return dense_weights.num_bits(); }
+  }
+
   inline uint32_t stride_shift() const
   {
     if (sparse) { return sparse_weights.stride_shift(); }

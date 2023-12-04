@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "vw/common/fnv_hash.h"
 #include "vw/core/action_score.h"
 #include "vw/core/active_multiclass_prediction.h"
 #include "vw/core/cb.h"
@@ -158,7 +159,11 @@ namespace details
 {
 inline void add_passthrough_feature_magic(example& ec, uint64_t magic, uint64_t i, float x)
 {
-  if (ec.passthrough) { ec.passthrough->push_back(x, (VW::details::FNV_PRIME * magic) ^ i); }
+  if (ec.passthrough)
+  {
+    auto passthrough_hasher = VW::fnv_hasher().hash(magic).hash(i);
+    ec.passthrough->push_back(x, passthrough_hasher.get_full_hash());
+  }
 }
 }  // namespace details
 

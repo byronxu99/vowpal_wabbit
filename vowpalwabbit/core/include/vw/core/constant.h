@@ -21,9 +21,6 @@ constexpr int AFFIX_CONSTANT = 13903957;
 constexpr uint64_t CONSTANT = 11650396;
 constexpr float PROBABILITY_TOLERANCE = 1e-5f;
 
-// FNV-like hash constant for 32bit
-// http://www.isthe.com/chongo/tech/comp/fnv/#FNV-param
-constexpr uint32_t FNV_PRIME = 16777619;
 constexpr unsigned char DEFAULT_NAMESPACE = 32;
 constexpr unsigned char WILDCARD_NAMESPACE = 58;  // :
 constexpr unsigned char WAP_LDF_NAMESPACE = 126;

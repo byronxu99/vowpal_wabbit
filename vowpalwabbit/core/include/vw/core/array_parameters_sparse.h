@@ -107,6 +107,8 @@ public:
 
   uint32_t stride_shift() const { return _stride_shift; }
 
+  uint32_t num_bits() const { return _num_bits; }
+
   void stride_shift(uint32_t stride_shift) { _stride_shift = stride_shift; }
 
 #ifndef _WIN32
@@ -116,6 +118,7 @@ public:
 private:
   // This must be mutable because the const operator[] must be able to intialize default weights to return.
   mutable details::weight_map _map;
+  uint32_t _num_bits;
   uint64_t _weight_mask;  // (stride*(1 << num_bits) -1)
   uint32_t _stride_shift;
   std::function<void(VW::weight*, uint64_t)> _default_func;
