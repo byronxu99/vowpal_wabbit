@@ -65,7 +65,7 @@ public:
 
   // The sparse_parameters object consists of a std::unordered_map from
   // feature hash to a contiguous array of (feature_width * stride) floats.
-  sparse_parameters(uint32_t hash_bits, uint32_t feature_width_bits, uint32_t stride_shift = 0);
+  sparse_parameters(uint32_t feature_hash_bits, uint32_t feature_width_bits, uint32_t stride_shift = 0);
   sparse_parameters();
 
   sparse_parameters(const sparse_parameters& other) = delete;
@@ -132,7 +132,7 @@ public:
   uint64_t stride() const { return static_cast<uint64_t>(1) << _stride_shift; }
   uint32_t stride_shift() const { return _stride_shift; }
 
-  uint32_t hash_bits() const { return _hash_bits; }
+  uint32_t feature_hash_bits() const { return _feature_hash_bits; }
   uint32_t feature_width_bits() const { return _feature_width_bits; }
 
   void stride_shift(uint32_t stride_shift) { _stride_shift = stride_shift; }
@@ -149,14 +149,14 @@ private:
   // Arguments are pointer to weight and 1-dimensional array index
   std::function<void(VW::weight*, uint64_t)> _default_func;
 
-  uint32_t _hash_bits;
+  uint32_t _feature_hash_bits;
   uint32_t _feature_width_bits;
   uint32_t _stride_shift;
 
-  // (1 << hash_bits) - 1
+  // (1 << feature_hash_bits) - 1
   uint64_t _hash_mask;
 
-  // (1 << (hash_bits + feature_width_bits + stride_shift)) - 1
+  // (1 << (feature_hash_bits + feature_width_bits + stride_shift)) - 1
   uint64_t _weight_mask;
 
   // It is marked const so it can be used from both const and non const operator[]

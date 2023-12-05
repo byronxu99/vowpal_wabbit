@@ -62,10 +62,10 @@ public:
     else { return dense_weights.stride_shift(); }
   }
 
-  inline uint32_t hash_bits() const
+  inline uint32_t feature_hash_bits() const
   {
-    if (sparse) { return sparse_weights.hash_bits(); }
-    else { return dense_weights.hash_bits(); }
+    if (sparse) { return sparse_weights.feature_hash_bits(); }
+    else { return dense_weights.feature_hash_bits(); }
   }
 
   inline uint32_t feature_width_bits() const

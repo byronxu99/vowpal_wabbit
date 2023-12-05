@@ -93,7 +93,7 @@ public:
   using iterator = details::dense_iterator<VW::weight>;
   using const_iterator = details::dense_iterator<const VW::weight>;
 
-  dense_parameters(uint32_t hash_bits, uint32_t feature_width_bits, uint32_t stride_shift = 0);
+  dense_parameters(uint32_t feature_hash_bits, uint32_t feature_width_bits, uint32_t stride_shift = 0);
   dense_parameters();
 
   dense_parameters(const dense_parameters& other) = delete;
@@ -175,7 +175,7 @@ public:
   uint64_t stride() const { return static_cast<uint64_t>(1) << _stride_shift; }
   uint32_t stride_shift() const { return _stride_shift; }
 
-  uint32_t hash_bits() const { return _hash_bits; }
+  uint32_t feature_hash_bits() const { return _feature_hash_bits; }
   uint32_t feature_width_bits() const { return _feature_width_bits; }
 
   void stride_shift(uint32_t stride_shift) { _stride_shift = stride_shift; }
@@ -188,14 +188,14 @@ public:
 
 private:
   std::shared_ptr<VW::weight> _begin;
-  uint32_t _hash_bits;
+  uint32_t _feature_hash_bits;
   uint32_t _feature_width_bits;
   uint32_t _stride_shift;
 
-  // (1 << hash_bits) - 1
+  // (1 << feature_hash_bits) - 1
   uint64_t _hash_mask;
 
-  // (1 << (hash_bits + feature_width_bits + stride_shift)) - 1
+  // (1 << (feature_hash_bits + feature_width_bits + stride_shift)) - 1
   uint64_t _weight_mask;
 };
 }  // namespace VW

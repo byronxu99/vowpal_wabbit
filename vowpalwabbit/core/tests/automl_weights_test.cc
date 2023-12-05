@@ -42,7 +42,7 @@ size_t hash_to_index(VW::parameters& weights, size_t hash) { return hash & weigh
 // see: interactions_predict.h:process_quadratic_interaction(..)
 size_t interaction_to_index(VW::parameters& weights, size_t one, size_t two)
 {
-  return VW::fnv_hasher().hash(one).hash(two).get_truncated_hash(weights.hash_bits());
+  return VW::fnv_hasher().hash(one).hash(two).get_truncated_hash(weights.feature_hash_bits());
 }
 }  // namespace vw_hash_helpers
 
@@ -57,7 +57,6 @@ using namespace vw_hash_helpers;
 bool weights_offset_test(cb_sim&, VW::workspace& all, VW::multi_ex&)
 {
   const size_t offset_to_clear = 1;
-  const uint32_t stride_shift = all.weights.stride_shift();
   auto& weights = all.weights.dense_weights;
 
   std::vector<std::uint64_t> feature_indexes;

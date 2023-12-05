@@ -130,7 +130,7 @@ float compute_dot_prod_avx2(uint64_t column_index, VW::workspace* _all, uint64_t
   float sum = 0.f;
   const uint64_t scale = ex->ft_index_scale;
   const uint64_t offset = ex->ft_index_offset;
-  const uint64_t hash_bits = _all->weights.hash_bits();  // without feature width and stride
+  const uint64_t hash_bits = _all->weights.feature_hash_bits();  // without feature width and stride
   const uint64_t hash_mask = (static_cast<uint64_t>(1) << hash_bits) - 1;
   const uint64_t weights_mask = _all->weights.weight_mask();  // includes feature width and stride
 

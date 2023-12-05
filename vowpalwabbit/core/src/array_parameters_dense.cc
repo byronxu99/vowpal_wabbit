@@ -19,28 +19,28 @@
 #  define MAP_ANONYMOUS MAP_ANON
 #endif
 
-VW::dense_parameters::dense_parameters(uint32_t hash_bits, uint32_t feature_width_bits, uint32_t stride_shift)
+VW::dense_parameters::dense_parameters(uint32_t feature_hash_bits, uint32_t feature_width_bits, uint32_t stride_shift)
     // memory allocated by calloc should be freed by C free()
     : _begin(VW::details::calloc_mergable_or_throw<VW::weight>(
-                 static_cast<uint64_t>(1) << (hash_bits + feature_width_bits + stride_shift)),
+                 static_cast<uint64_t>(1) << (feature_hash_bits + feature_width_bits + stride_shift)),
           free)
-    , _hash_bits(hash_bits)
+    , _feature_hash_bits(feature_hash_bits)
     , _feature_width_bits(feature_width_bits)
     , _stride_shift(stride_shift)
 {
-  _hash_mask = (static_cast<uint64_t>(1) << hash_bits) - 1;
-  _weight_mask = (static_cast<uint64_t>(1) << (hash_bits + feature_width_bits + stride_shift)) - 1;
+  _hash_mask = (static_cast<uint64_t>(1) << feature_hash_bits) - 1;
+  _weight_mask = (static_cast<uint64_t>(1) << (feature_hash_bits + feature_width_bits + stride_shift)) - 1;
 }
 
 VW::dense_parameters::dense_parameters()
-    : _begin(nullptr), _hash_bits(0), _feature_width_bits(0), _stride_shift(0), _hash_mask(0), _weight_mask(0)
+    : _begin(nullptr), _feature_hash_bits(0), _feature_width_bits(0), _stride_shift(0), _hash_mask(0), _weight_mask(0)
 {
 }
 
 VW::dense_parameters& VW::dense_parameters::operator=(dense_parameters&& other) noexcept
 {
   _begin = std::move(other._begin);
-  _hash_bits = other._hash_bits;
+  _feature_hash_bits = other._feature_hash_bits;
   _feature_width_bits = other._feature_width_bits;
   _stride_shift = other._stride_shift;
   _hash_mask = other._hash_mask;
@@ -51,7 +51,7 @@ VW::dense_parameters& VW::dense_parameters::operator=(dense_parameters&& other) 
 VW::dense_parameters::dense_parameters(dense_parameters&& other) noexcept
 {
   _begin = std::move(other._begin);
-  _hash_bits = other._hash_bits;
+  _feature_hash_bits = other._feature_hash_bits;
   _feature_width_bits = other._feature_width_bits;
   _stride_shift = other._stride_shift;
   _hash_mask = other._hash_mask;
@@ -63,7 +63,7 @@ VW::dense_parameters VW::dense_parameters::shallow_copy(const dense_parameters& 
 {
   dense_parameters return_val;
   return_val._begin = input._begin;
-  return_val._hash_bits = input._hash_bits;
+  return_val._feature_hash_bits = input._feature_hash_bits;
   return_val._feature_width_bits = input._feature_width_bits;
   return_val._stride_shift = input._stride_shift;
   return_val._hash_mask = input._hash_mask;
@@ -76,7 +76,7 @@ VW::dense_parameters VW::dense_parameters::deep_copy(const dense_parameters& inp
   dense_parameters return_val;
   auto length = input.raw_length();
   return_val._begin.reset(VW::details::calloc_mergable_or_throw<VW::weight>(length), free);
-  return_val._hash_bits = input._hash_bits;
+  return_val._feature_hash_bits = input._feature_hash_bits;
   return_val._feature_width_bits = input._feature_width_bits;
   return_val._stride_shift = input._stride_shift;
   return_val._hash_mask = input._hash_mask;

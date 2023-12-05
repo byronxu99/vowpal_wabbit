@@ -79,18 +79,23 @@ VW::weight* VW::sparse_parameters::get_impl(size_t i) const
   return iter->second.get() + width_stride_index;
 }
 
-VW::sparse_parameters::sparse_parameters(uint32_t hash_bits, uint32_t feature_width_bits, uint32_t stride_shift)
+VW::sparse_parameters::sparse_parameters(uint32_t feature_hash_bits, uint32_t feature_width_bits, uint32_t stride_shift)
     : _default_func(nullptr)
-    , _hash_bits(hash_bits)
+    , _feature_hash_bits(feature_hash_bits)
     , _feature_width_bits(feature_width_bits)
     , _stride_shift(stride_shift)
 {
-  _hash_mask = (static_cast<uint64_t>(1) << hash_bits) - 1;
-  _weight_mask = (static_cast<uint64_t>(1) << (hash_bits + feature_width_bits + stride_shift)) - 1;
+  _hash_mask = (static_cast<uint64_t>(1) << feature_hash_bits) - 1;
+  _weight_mask = (static_cast<uint64_t>(1) << (feature_hash_bits + feature_width_bits + stride_shift)) - 1;
 }
 
 VW::sparse_parameters::sparse_parameters()
-    : _default_func(nullptr), _hash_bits(0), _feature_width_bits(0), _stride_shift(0), _hash_mask(0), _weight_mask(0)
+    : _default_func(nullptr)
+    , _feature_hash_bits(0)
+    , _feature_width_bits(0)
+    , _stride_shift(0)
+    , _hash_mask(0)
+    , _weight_mask(0)
 {
 }
 
@@ -99,7 +104,7 @@ void VW::sparse_parameters::shallow_copy(const sparse_parameters& input)
   // TODO: this is level-1 copy (VW::weight* are stilled shared)
   _map = input._map;
   _default_func = input._default_func;
-  _hash_bits = input._hash_bits;
+  _feature_hash_bits = input._feature_hash_bits;
   _feature_width_bits = input._feature_width_bits;
   _stride_shift = input._stride_shift;
   _hash_mask = input._hash_mask;
