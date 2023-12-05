@@ -76,7 +76,7 @@ TEST(Las, CreationOfTheOgAMatrix)
 
         EXPECT_EQ(action_space->explore._A.coeffRef(action_index,
                       (VW::details::feature_to_weight_index(ft_index, ex->ft_index_scale, ex->ft_index_offset) &
-                          vw->weights.dense_weights.mask())),
+                          vw->weights.dense_weights.weight_mask())),
             ft_value);
       }
     }

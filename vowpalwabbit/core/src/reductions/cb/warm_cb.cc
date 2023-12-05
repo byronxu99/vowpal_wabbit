@@ -152,8 +152,7 @@ void finish(warm_cb& data)
 
 void copy_example_to_adf(warm_cb& data, VW::example& ec)
 {
-  const uint64_t ss = data.all->weights.stride_shift();
-  const uint64_t mask = data.all->weights.mask();
+  const uint64_t mask = data.all->weights.hash_mask();
 
   for (size_t a = 0; a < data.num_actions; ++a)
   {
@@ -170,7 +169,7 @@ void copy_example_to_adf(warm_cb& data, VW::example& ec)
     {
       for (VW::feature_index& idx : fs.indices)
       {
-        idx = ((((idx >> ss) * 28904713) + 4832917 * static_cast<uint64_t>(a)) << ss) & mask;
+        idx = ((idx * 28904713) + 4832917 * static_cast<uint64_t>(a)) & mask;
       }
     }
 

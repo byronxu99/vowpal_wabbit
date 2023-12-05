@@ -120,11 +120,11 @@ inline uint64_t un_ft_index_offset(const stagewise_poly& poly, uint64_t idx)
   }
 }
 
-inline uint64_t wid_mask(const stagewise_poly& poly, uint64_t wid) { return wid & poly.all->weights.mask(); }
+inline uint64_t wid_mask(const stagewise_poly& poly, uint64_t wid) { return wid & poly.all->weights.weight_mask(); }
 
 inline uint64_t wid_mask_un_shifted(const stagewise_poly& poly, uint64_t wid)
 {
-  return stride_un_shift(poly, wid & poly.all->weights.mask());
+  return stride_un_shift(poly, wid & poly.all->weights.weight_mask());
 }
 
 inline uint64_t constant_feat(const stagewise_poly& poly)

@@ -53,7 +53,7 @@ inline float compute_dot_prod_scalar(uint64_t col, VW::workspace* _all, uint64_t
   const auto& red_features = ex->ex_reduction_features.template get<VW::large_action_space::las_reduction_features>();
   float final_dot_prod = 0.f;
 
-  AO_triplet_constructor tc(_all->weights.mask(), col, _seed, final_dot_prod);
+  AO_triplet_constructor tc(_all->weights.weight_mask(), col, _seed, final_dot_prod);
 
   VW::foreach_feature<AO_triplet_constructor, uint64_t, triplet_construction, dense_parameters>(
       _all->weights.dense_weights, _all->feature_tweaks_config.ignore_some_linear,

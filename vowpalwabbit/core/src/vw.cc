@@ -69,7 +69,10 @@ std::unique_ptr<VW::workspace> initialize_internal(
 
   if (!all->output_config.quiet)
   {
-    *(all->output_runtime.trace_message) << "Num weight bits = " << all->initial_weights_config.num_bits << std::endl;
+    *(all->output_runtime.trace_message) << "Num feature hash bits = " << all->initial_weights_config.feature_hash_bits
+                                         << std::endl;
+    *(all->output_runtime.trace_message) << "Num feature width bits = "
+                                         << all->initial_weights_config.feature_width_bits << std::endl;
     *(all->output_runtime.trace_message) << "learning rate = " << all->update_rule_config.eta << std::endl;
     *(all->output_runtime.trace_message) << "initial_t = " << all->sd->t << std::endl;
     *(all->output_runtime.trace_message) << "power_t = " << all->update_rule_config.power_t << std::endl;
@@ -503,7 +506,14 @@ const char* VW::are_features_compatible(const VW::workspace& vw1, const VW::work
     return "limit";
   }
 
-  if (vw1.initial_weights_config.num_bits != vw2.initial_weights_config.num_bits) { return "num_bits"; }
+  if (vw1.initial_weights_config.feature_hash_bits != vw2.initial_weights_config.feature_hash_bits)
+  {
+    return "feature_hash_bits";
+  }
+  if (vw1.initial_weights_config.feature_width_bits != vw2.initial_weights_config.feature_width_bits)
+  {
+    return "feature_width_bits";
+  }
 
   if (vw1.feature_tweaks_config.permutations != vw2.feature_tweaks_config.permutations) { return "permutations"; }
 
@@ -857,21 +867,27 @@ class features_and_source
 {
 public:
   VW::v_array<VW::feature> feature_map;  // map to store sparse feature vectors
-  uint32_t stride_shift{};
-  uint64_t mask{};
 };
 
-void vec_store(features_and_source& p, float fx, uint64_t fi)
-{
-  p.feature_map.push_back(VW::feature(fx, (fi >> p.stride_shift) & p.mask));
-}
+void vec_store(features_and_source& p, float fx, uint64_t fi) { p.feature_map.push_back(VW::feature(fx, fi)); }
 }  // namespace
 
 VW::feature* VW::get_features(VW::workspace& all, example* ec, size_t& feature_number)
 {
   features_and_source fs;
-  fs.stride_shift = all.weights.stride_shift();
-  fs.mask = all.weights.mask() >> all.weights.stride_shift();
+
+  // We want to call vec_store() with feature indices, not weight indices
+  // Set feature index scale to 1 and offset to 0
+  auto old_ft_index_scale = ec->ft_index_scale;
+  auto old_ft_index_offset = ec->ft_index_offset;
+  auto restore_example = VW::scope_exit(
+      [ec, old_ft_index_scale, old_ft_index_offset]()
+      {
+        ec->ft_index_scale = old_ft_index_scale;
+        ec->ft_index_offset = old_ft_index_offset;
+      });
+  ec->ft_index_scale = 1;
+  ec->ft_index_offset = 0;
   VW::foreach_feature<::features_and_source, uint64_t, vec_store>(all, *ec, fs);
 
   auto* features_array = new feature[fs.feature_map.size()];

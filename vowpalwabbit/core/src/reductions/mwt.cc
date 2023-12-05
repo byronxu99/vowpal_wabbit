@@ -76,7 +76,7 @@ void value_policy(mwt& c, float val, uint64_t index)  // estimate the value of a
   if (val < 0 || std::floor(val) != val) { c.all->logger.out_error("error {} is not a valid action", val); }
 
   auto value = static_cast<uint32_t>(val);
-  uint64_t new_index = (index & c.all->weights.mask()) >> c.all->weights.stride_shift();
+  uint64_t new_index = (index & c.all->weights.weight_mask()) >> c.all->weights.stride_shift();
 
   if (!c.evals[new_index].seen)
   {
@@ -115,8 +115,7 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
   if VW_STD17_CONSTEXPR (exclude || learn)
   {
     c.indices.clear();
-    uint32_t stride_shift = c.all->weights.stride_shift();
-    uint64_t weight_mask = c.all->weights.mask();
+    uint64_t hash_mask = c.all->weights.weight_mask();
     for (unsigned char ns : ec.indices)
     {
       if (c.namespaces[ns])
@@ -127,10 +126,8 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
           c.feature_space[ns].clear();
           for (VW::features::iterator& f : ec.feature_space[ns])
           {
-            auto weight_index = VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset);
-            uint64_t new_index =
-                ((weight_index & weight_mask) >> stride_shift) * c.num_classes + static_cast<uint64_t>(f.value());
-            c.feature_space[ns].push_back(1, new_index << stride_shift);
+            uint64_t new_index = (f.index() & hash_mask) * c.num_classes + static_cast<uint64_t>(f.value());
+            c.feature_space[ns].push_back(1, new_index);
           }
         }
         std::swap(c.feature_space[ns], ec.feature_space[ns]);

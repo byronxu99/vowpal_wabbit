@@ -38,16 +38,16 @@ public:
     else { dense_weights.set_default(std::forward<Lambda>(default_func)); }
   }
 
-  inline uint32_t num_bits() const
+  inline uint64_t hash_mask() const
   {
-    if (sparse) { return sparse_weights.num_bits(); }
-    else { return dense_weights.num_bits(); }
+    if (sparse) { return sparse_weights.hash_mask(); }
+    else { return dense_weights.hash_mask(); }
   }
 
-  inline uint32_t stride_shift() const
+  inline uint64_t weight_mask() const
   {
-    if (sparse) { return sparse_weights.stride_shift(); }
-    else { return dense_weights.stride_shift(); }
+    if (sparse) { return sparse_weights.weight_mask(); }
+    else { return dense_weights.weight_mask(); }
   }
 
   inline uint64_t stride() const
@@ -56,10 +56,22 @@ public:
     else { return dense_weights.stride(); }
   }
 
-  inline uint64_t mask() const
+  inline uint32_t stride_shift() const
   {
-    if (sparse) { return sparse_weights.mask(); }
-    else { return dense_weights.mask(); }
+    if (sparse) { return sparse_weights.stride_shift(); }
+    else { return dense_weights.stride_shift(); }
+  }
+
+  inline uint32_t hash_bits() const
+  {
+    if (sparse) { return sparse_weights.hash_bits(); }
+    else { return dense_weights.hash_bits(); }
+  }
+
+  inline uint32_t feature_width_bits() const
+  {
+    if (sparse) { return sparse_weights.feature_width_bits(); }
+    else { return dense_weights.feature_width_bits(); }
   }
 
   inline void shallow_copy(const parameters& input)
@@ -89,10 +101,16 @@ public:
     else { dense_weights.stride_shift(stride_shift); }
   }
 
-  inline VW::weight& strided_index(size_t index)
+  inline VW::weight& index(size_t hash_index, size_t width_index, size_t stride_index = 0)
   {
-    if (sparse) { return sparse_weights.strided_index(index); }
-    else { return dense_weights.strided_index(index); }
+    if (sparse) { return sparse_weights.index(hash_index, width_index, stride_index); }
+    else { return dense_weights.index(hash_index, width_index, stride_index); }
+  }
+
+  inline VW::weight& strided_index(size_t hash_width_index, size_t stride_index = 0)
+  {
+    if (sparse) { return sparse_weights.strided_index(hash_width_index, stride_index); }
+    else { return dense_weights.strided_index(hash_width_index, stride_index); }
   }
 
   inline bool not_null()

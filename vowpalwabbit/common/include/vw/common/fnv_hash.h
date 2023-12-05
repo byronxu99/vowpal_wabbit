@@ -17,7 +17,7 @@ namespace details
 // http://www.isthe.com/chongo/tech/comp/fnv/#FNV-param
 constexpr uint32_t FNV_32_PRIME = 16777619;
 constexpr uint32_t FNV_32_OFFSET = 2166136261;
-}
+}  // namespace details
 
 class fnv_hasher
 {
@@ -58,4 +58,4 @@ public:
   }
 };
 
-}
+}  // namespace VW

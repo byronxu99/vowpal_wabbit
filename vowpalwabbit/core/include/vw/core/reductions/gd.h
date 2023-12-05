@@ -83,30 +83,30 @@ public:
 };
 
 template <class T>
-inline void vec_add_multipredict(multipredict_info<T>& mp, const float fx, uint64_t fi)
+inline void vec_add_multipredict(multipredict_info<T>& mp, const float feature_value, uint64_t weight_index)
 {
-  if ((-1e-10 < fx) && (fx < 1e-10)) { return; }
-  uint64_t mask = mp.weights.mask();
+  if ((-1e-10 < feature_value) && (feature_value < 1e-10)) { return; }
+  uint64_t mask = mp.weights.weight_mask();
   VW::polyprediction* p = mp.pred;
-  fi &= mask;
-  uint64_t top = fi + (uint64_t)((mp.count - 1) * mp.step);
+  weight_index &= mask;
+  uint64_t top = weight_index + (uint64_t)((mp.count - 1) * mp.step);
   uint64_t i = 0;
   if (top <= mask)
   {
-    i += fi;
+    i += weight_index;
     for (; i <= top; i += mp.step, ++p)
     {
-      p->scalar += fx * mp.weights[i];  // TODO: figure out how to use
-                                        // weight_parameters::iterator (not using
-                                        // change_begin())
+      p->scalar += feature_value * mp.weights[i];  // TODO: figure out how to use
+                                                   // weight_parameters::iterator (not using
+                                                   // change_begin())
     }
   }
   else
   {  // TODO: this could be faster by unrolling into two loops
-    for (size_t c = 0; c < mp.count; ++c, fi += (uint64_t)mp.step, ++p)
+    for (size_t c = 0; c < mp.count; ++c, weight_index += (uint64_t)mp.step, ++p)
     {
-      fi &= mask;
-      p->scalar += fx * mp.weights[fi];
+      weight_index &= mask;
+      p->scalar += feature_value * mp.weights[weight_index];
     }
   }
 }

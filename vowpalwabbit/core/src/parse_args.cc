@@ -676,12 +676,12 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
 
   if (options.was_supplied("bit_precision"))
   {
-    if (all.runtime_config.default_bits == false && new_bits != all.initial_weights_config.num_bits)
-      THROW("Number of bits is set to " << new_bits << " and " << all.initial_weights_config.num_bits
+    if (all.runtime_config.default_bits == false && new_bits != all.initial_weights_config.feature_hash_bits)
+      THROW("Number of bits is set to " << new_bits << " and " << all.initial_weights_config.feature_hash_bits
                                         << " by argument and model.  That does not work.")
 
     all.runtime_config.default_bits = false;
-    all.initial_weights_config.num_bits = new_bits;
+    all.initial_weights_config.feature_hash_bits = new_bits;
 
     VW::validate_num_bits(all);
   }
@@ -1708,16 +1708,21 @@ void VW::details::instantiate_learner(VW::workspace& all, std::unique_ptr<VW::se
 
 void VW::details::parse_sources(options_i& options, VW::workspace& all, VW::io_buf& model, bool skip_model_load)
 {
+  // force feature_width to be a power of 2 to avoid 32-bit overflow
+  uint32_t feature_width_and_stride_bits = 0;
+  while (all.l->feature_width_below > (static_cast<uint64_t>(1) << feature_width_and_stride_bits))
+  {
+    feature_width_and_stride_bits++;
+  }
+  all.reduction_state.total_feature_width = (1 << feature_width_and_stride_bits) >> all.weights.stride_shift();
+  all.initial_weights_config.feature_width_bits = feature_width_and_stride_bits - all.weights.stride_shift();
+
+  // load_input_model() must happen after total_feature_width is set above
   if (!skip_model_load) { load_input_model(all, model); }
   else { model.close_file(); }
 
   auto parsed_source_options = parse_source(all, options);
   enable_sources(all, all.output_config.quiet, all.runtime_config.numpasses, parsed_source_options);
-
-  // force feature_width to be a power of 2 to avoid 32-bit overflow
-  uint32_t interleave_shifts = 0;
-  while (all.l->feature_width_below > (static_cast<uint64_t>(1) << interleave_shifts)) { interleave_shifts++; }
-  all.reduction_state.total_feature_width = (1 << interleave_shifts) >> all.weights.stride_shift();
 }
 
 void VW::details::print_enabled_learners(VW::workspace& all, std::vector<std::string>& enabled_learners)

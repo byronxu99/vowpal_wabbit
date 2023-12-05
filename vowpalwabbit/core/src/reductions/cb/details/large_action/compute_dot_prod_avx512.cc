@@ -63,14 +63,14 @@ float compute_dot_prod_avx512(uint64_t column_index, VW::workspace* _all, uint64
   float sum = 0.f;
   const uint64_t scale = ex->ft_index_scale;
   const uint64_t offset = ex->ft_index_offset;
-  const uint64_t num_bits = _all->weights.num_bits(); // without stride
-  const uint64_t bit_mask = (static_cast<uint64_t>(1) << num_bits) - 1;
-  const uint64_t weights_mask = _all->weights.mask(); // includes stride
+  const uint64_t hash_bits = _all->weights.hash_bits();  // without feature width and stride
+  const uint64_t hash_mask = (static_cast<uint64_t>(1) << hash_bits) - 1;
+  const uint64_t weights_mask = _all->weights.weight_mask();  // includes feature width and stride
 
   __m512 sums = _mm512_setzero_ps();
   const __m512i column_indices = _mm512_set1_epi64(column_index);
   const __m512i seeds = _mm512_set1_epi64(seed);
-  const __m512i bit_masks = _mm512_set1_epi64(bit_mask);
+  const __m512i hash_masks = _mm512_set1_epi64(hash_mask);
   const __m512i weights_masks = _mm512_set1_epi64(weights_mask);
   const __m512i scales = _mm512_set1_epi64(scale);
   const __m512i offsets = _mm512_set1_epi64(offset);
@@ -136,7 +136,8 @@ float compute_dot_prod_avx512(uint64_t column_index, VW::workspace* _all, uint64
       // Compute FNV hash with AVX-512
       // First multiply by FNV prime and broadcast to all lanes
       const auto partial_hash = VW::fnv_hasher().hash(ns0_indices[i]);
-      const __m512i partial_hashes_after_mul = _mm512_set1_epi64(partial_hash.get_full_hash() * VW::details::FNV_32_PRIME);
+      const __m512i partial_hashes_after_mul =
+          _mm512_set1_epi64(partial_hash.get_full_hash() * VW::details::FNV_32_PRIME);
 
       const float val = ns0_values[i];
       const __m512 vals = _mm512_set1_ps(val);
@@ -151,11 +152,11 @@ float compute_dot_prod_avx512(uint64_t column_index, VW::workspace* _all, uint64
         indices1 = _mm512_xor_epi64(indices1, partial_hashes_after_mul);
         indices2 = _mm512_xor_epi64(indices2, partial_hashes_after_mul);
 
-        // Truncate to num_bits by XOR folding
-        indices1 = _mm512_xor_epi64(indices1, _mm512_srli_epi64(indices1, num_bits));
-        indices1 = _mm512_and_epi64(indices1, bit_masks);
-        indices2 = _mm512_xor_epi64(indices2, _mm512_srli_epi64(indices2, num_bits));
-        indices2 = _mm512_and_epi64(indices2, bit_masks);
+        // Truncate to hash_bits by XOR folding
+        indices1 = _mm512_xor_epi64(indices1, _mm512_srli_epi64(indices1, hash_bits));
+        indices1 = _mm512_and_epi64(indices1, hash_masks);
+        indices2 = _mm512_xor_epi64(indices2, _mm512_srli_epi64(indices2, hash_bits));
+        indices2 = _mm512_and_epi64(indices2, hash_masks);
 
         __m512 values = _mm512_loadu_ps(&ns1_values[j]);
         values = _mm512_mul_ps(vals, values);
@@ -165,7 +166,7 @@ float compute_dot_prod_avx512(uint64_t column_index, VW::workspace* _all, uint64
       for (; j < num_features_ns1; ++j)
       {
         float feature_value = val * ns1_values[j];
-        auto index = partial_hash.hash(ns1_indices[j]).get_truncated_hash(num_bits);
+        auto index = partial_hash.hash(ns1_indices[j]).get_truncated_hash(hash_bits);
         compute1(feature_value, index, scale, offset, weights_mask, column_index, seed, sum);
       }
     }

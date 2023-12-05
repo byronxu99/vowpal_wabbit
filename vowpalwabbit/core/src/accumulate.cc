@@ -21,8 +21,10 @@ static void add_float(float& c1, const float& c2) { c1 += c2; }
 
 void VW::details::accumulate(VW::workspace& all, parameters& weights, size_t offset)
 {
-  uint64_t length = UINT64_ONE << all.initial_weights_config.num_bits;  // This is size of gradient
-  float* local_grad = new float[length];
+  // This is size of gradient
+  uint64_t length =
+      UINT64_ONE << (all.initial_weights_config.feature_hash_bits + all.initial_weights_config.feature_width_bits);
+  std::vector<float> local_grad(length, 0.f);
 
   if (weights.sparse)
   {
@@ -39,7 +41,7 @@ void VW::details::accumulate(VW::workspace& all, parameters& weights, size_t off
     }
   }
 
-  VW::details::all_reduce<float, add_float>(all, local_grad, length);  // TODO: modify to not use first()
+  VW::details::all_reduce<float, add_float>(all, local_grad.data(), length);  // TODO: modify to not use first()
 
   if (weights.sparse)
   {
@@ -55,8 +57,6 @@ void VW::details::accumulate(VW::workspace& all, parameters& weights, size_t off
       (&(weights.dense_weights[i << weights.dense_weights.stride_shift()]))[offset] = local_grad[i];
     }
   }
-
-  delete[] local_grad;
 }
 
 float VW::details::accumulate_scalar(VW::workspace& all, float local_sum)
@@ -68,9 +68,11 @@ float VW::details::accumulate_scalar(VW::workspace& all, float local_sum)
 
 void VW::details::accumulate_avg(VW::workspace& all, parameters& weights, size_t offset)
 {
-  uint32_t length = 1 << all.initial_weights_config.num_bits;  // This is size of gradient
+  // This is size of gradient
+  uint64_t length =
+      UINT64_ONE << (all.initial_weights_config.feature_hash_bits + all.initial_weights_config.feature_width_bits);
   float numnodes = static_cast<float>(all.runtime_state.all_reduce->total);
-  float* local_grad = new float[length];
+  std::vector<float> local_grad(length, 0.f);
 
   if (weights.sparse)
   {
@@ -87,7 +89,7 @@ void VW::details::accumulate_avg(VW::workspace& all, parameters& weights, size_t
     }
   }
 
-  VW::details::all_reduce<float, add_float>(all, local_grad, length);  // TODO: modify to not use first()
+  VW::details::all_reduce<float, add_float>(all, local_grad.data(), length);  // TODO: modify to not use first()
 
   if (weights.sparse)
   {
@@ -103,8 +105,6 @@ void VW::details::accumulate_avg(VW::workspace& all, parameters& weights, size_t
       (&(weights.dense_weights[i << weights.dense_weights.stride_shift()]))[offset] = local_grad[i] / numnodes;
     }
   }
-
-  delete[] local_grad;
 }
 
 void VW::details::accumulate_weighted_avg(VW::workspace& all, parameters& weights)
@@ -115,8 +115,10 @@ void VW::details::accumulate_weighted_avg(VW::workspace& all, parameters& weight
     return;
   }
 
-  uint32_t length = 1 << all.initial_weights_config.num_bits;  // This is the number of parameters
-  float* local_weights = new float[length];
+  // This is the number of parameters
+  uint64_t length =
+      UINT64_ONE << (all.initial_weights_config.feature_hash_bits + all.initial_weights_config.feature_width_bits);
+  std::vector<float> local_weights(length, 0.f);
 
   if (weights.sparse)
   {
@@ -134,26 +136,23 @@ void VW::details::accumulate_weighted_avg(VW::workspace& all, parameters& weight
   }
 
   // First compute weights for averaging
-  VW::details::all_reduce<float, add_float>(all, local_weights, length);
+  VW::details::all_reduce<float, add_float>(all, local_weights.data(), length);
 
   if (weights.sparse)
   {
-    VW::details::do_weighting(all.initial_weights_config.normalized_idx, length, local_weights, weights.sparse_weights);
+    VW::details::do_weighting(
+        all.initial_weights_config.normalized_idx, length, local_weights.data(), weights.sparse_weights);
   }
   else
   {
-    VW::details::do_weighting(all.initial_weights_config.normalized_idx, length, local_weights, weights.dense_weights);
+    VW::details::do_weighting(
+        all.initial_weights_config.normalized_idx, length, local_weights.data(), weights.dense_weights);
   }
 
-  if (weights.sparse)
-  {
-    delete[] local_weights;
-    THROW("Sparse parameters not supported with parallel computation");
-  }
+  if (weights.sparse) { THROW("Sparse parameters not supported with parallel computation"); }
   else
   {
     VW::details::all_reduce<float, add_float>(
         all, weights.dense_weights.first(), (static_cast<size_t>(length)) * (1ull << weights.stride_shift()));
   }
-  delete[] local_weights;
 }

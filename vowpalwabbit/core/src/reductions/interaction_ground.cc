@@ -292,9 +292,7 @@ void pre_save_load_igl(VW::workspace& all, igl::igl_data& data)
     }
   }
 
-  all.initial_weights_config.num_bits =
-      all.initial_weights_config.num_bits - static_cast<uint32_t>(std::log2(all.reduction_state.total_feature_width));
-  options.get_typed_option<uint32_t>("bit_precision").value(all.initial_weights_config.num_bits);
+  options.get_typed_option<uint32_t>("bit_precision").value(all.initial_weights_config.feature_hash_bits);
 }
 
 void output_igl_prediction(

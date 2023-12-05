@@ -36,19 +36,13 @@ size_t get_hash_for_feature(VW::workspace& all, const std::string& ns, const std
 }
 
 // see gd.cc:audit_feature(..)
-size_t hash_to_index(VW::parameters& weights, size_t hash)
-{
-  return hash & weights.mask();
-}
+size_t hash_to_index(VW::parameters& weights, size_t hash) { return hash & weights.hash_mask(); }
 
 // craft feature index for interaction
 // see: interactions_predict.h:process_quadratic_interaction(..)
 size_t interaction_to_index(VW::parameters& weights, size_t one, size_t two)
 {
-  return VW::fnv_hasher()
-    .hash(one)
-    .hash(two)
-    .get_truncated_hash(weights.num_bits());
+  return VW::fnv_hasher().hash(one).hash(two).get_truncated_hash(weights.hash_bits());
 }
 }  // namespace vw_hash_helpers
 
@@ -72,70 +66,62 @@ bool weights_offset_test(cb_sim&, VW::workspace& all, VW::multi_ex&)
   feature_indexes.emplace_back(hash_to_index(all.weights, get_hash_for_feature(all, "Action", "article=politics")));
   feature_indexes.emplace_back(hash_to_index(all.weights, get_hash_for_feature(all, "User", "user=Anna")));
 
-  std::vector<std::uint64_t> weight_indexes;
-  uint64_t ft_index_scale = static_cast<uint64_t>(all.reduction_state.total_feature_width) << all.weights.stride_shift();
-  for (auto ft_idx : feature_indexes)
-  {
-    weight_indexes.push_back(VW::details::feature_to_weight_index(ft_idx, ft_index_scale, 0));
-  }
-
   const uint64_t interaction_index = interaction_to_index(all.weights,
       get_hash_for_feature(all, "Action", "article=sports"), get_hash_for_feature(all, "Action", "article=sports"));
-  const uint64_t interaction_weight_index = VW::details::feature_to_weight_index(interaction_index, ft_index_scale, 0);
 
   static const float EXPECTED_W0 = 0.0259284f;
   static const float EXPECTED_W1 = 0.00720719;
   static const float EXPECTED_W2 = -0.0374119f;
   static const float ZERO = 0.f;
 
-  for (auto index : weight_indexes)
+  for (auto index : feature_indexes)
   {
-    EXPECT_NE(ZERO, weights[index]);
-    float w1 = weights[index + (offset_to_clear << stride_shift)];
-    float w2 = weights[index + ((offset_to_clear + 1) << stride_shift)];
+    EXPECT_NE(ZERO, weights.index(index, 0));
+    float w1 = weights.index(index, offset_to_clear);
+    float w2 = weights.index(index, offset_to_clear + 1);
     EXPECT_NE(ZERO, w1);
     EXPECT_NE(ZERO, w2);
   }
 
-  EXPECT_NEAR(EXPECTED_W0, weights[interaction_weight_index], AUTO_ML_FLOAT_TOL);
-  EXPECT_NEAR(EXPECTED_W1, weights[interaction_weight_index + (offset_to_clear << stride_shift)], AUTO_ML_FLOAT_TOL);
-  EXPECT_NEAR(EXPECTED_W2, weights[interaction_weight_index + ((offset_to_clear + 1) << stride_shift)], AUTO_ML_FLOAT_TOL);
+  EXPECT_NEAR(EXPECTED_W0, weights.index(interaction_index, 0), AUTO_ML_FLOAT_TOL);
+  EXPECT_NEAR(EXPECTED_W1, weights.index(interaction_index, offset_to_clear), AUTO_ML_FLOAT_TOL);
+  EXPECT_NEAR(EXPECTED_W2, weights.index(interaction_index, offset_to_clear + 1), AUTO_ML_FLOAT_TOL);
 
   // all weights of offset 1 will be set to zero
   VW::reductions::multi_model::clear_innermost_offset(
       weights, offset_to_clear, all.reduction_state.total_feature_width, all.reduction_state.total_feature_width);
 
-  for (auto index : weight_indexes)
+  for (auto index : feature_indexes)
   {
-    EXPECT_NE(ZERO, weights[index]);
-    float w1 = weights[index + (offset_to_clear << stride_shift)];
-    float w2 = weights[index + ((offset_to_clear + 1) << stride_shift)];
+    EXPECT_NE(ZERO, weights.index(index, 0));
+    float w1 = weights.index(index, offset_to_clear);
+    float w2 = weights.index(index, offset_to_clear + 1);
     EXPECT_EQ(ZERO, w1);
     EXPECT_NE(ZERO, w2);
     EXPECT_NE(w1, w2);
   }
 
-  EXPECT_NEAR(EXPECTED_W0, weights[interaction_weight_index], AUTO_ML_FLOAT_TOL);
-  EXPECT_EQ(ZERO, weights[interaction_weight_index + (offset_to_clear << stride_shift)]);
-  EXPECT_NEAR(EXPECTED_W2, weights[interaction_weight_index + ((offset_to_clear + 1) << stride_shift)], AUTO_ML_FLOAT_TOL);
+  EXPECT_NEAR(EXPECTED_W0, weights.index(interaction_index, 0), AUTO_ML_FLOAT_TOL);
+  EXPECT_EQ(ZERO, weights.index(interaction_index, offset_to_clear));
+  EXPECT_NEAR(EXPECTED_W2, weights.index(interaction_index, offset_to_clear + 1), AUTO_ML_FLOAT_TOL);
 
   // copy from offset 2 to offset 1
   VW::reductions::multi_model::move_innermost_offsets(weights, offset_to_clear + 1, offset_to_clear,
       all.reduction_state.total_feature_width, all.reduction_state.total_feature_width);
 
-  for (auto index : weight_indexes)
+  for (auto index : feature_indexes)
   {
-    EXPECT_NE(ZERO, weights[index]);
-    float w1 = weights[index + (offset_to_clear << stride_shift)];
-    float w2 = weights[index + ((offset_to_clear + 1) << stride_shift)];
+    EXPECT_NE(ZERO, weights.index(index, 0));
+    float w1 = weights.index(index, offset_to_clear);
+    float w2 = weights.index(index, offset_to_clear + 1);
     EXPECT_NE(ZERO, w1);
     EXPECT_NE(ZERO, w2);
     EXPECT_EQ(w1, w2);
   }
 
-  EXPECT_NEAR(EXPECTED_W0, weights[interaction_weight_index], AUTO_ML_FLOAT_TOL);
-  float actual_w1 = weights[interaction_weight_index + (offset_to_clear << stride_shift)];
-  float actual_w2 = weights[interaction_weight_index + ((offset_to_clear + 1) << stride_shift)];
+  EXPECT_NEAR(EXPECTED_W0, weights.index(interaction_index, 0), AUTO_ML_FLOAT_TOL);
+  float actual_w1 = weights.index(interaction_index, offset_to_clear);
+  float actual_w2 = weights.index(interaction_index, offset_to_clear + 1);
   EXPECT_NEAR(EXPECTED_W2, actual_w1, AUTO_ML_FLOAT_TOL);
   EXPECT_NEAR(EXPECTED_W2, actual_w2, AUTO_ML_FLOAT_TOL);
   EXPECT_EQ(actual_w1, actual_w2);
@@ -143,22 +129,18 @@ bool weights_offset_test(cb_sim&, VW::workspace& all, VW::multi_ex&)
   // Ensure weights are non-zero for another live interaction
   const size_t interaction_index_other = interaction_to_index(all.weights,
       get_hash_for_feature(all, "Action", "article=sports"), get_hash_for_feature(all, "User", "user=Anna"));
-  const size_t interaction_weight_index_other = VW::details::feature_to_weight_index(
-      interaction_index_other, ft_index_scale, 0);
 
-  EXPECT_NE(ZERO, weights[interaction_weight_index_other]);
-  EXPECT_NE(ZERO, weights[interaction_weight_index_other + (1 << stride_shift)]);
-  EXPECT_NE(ZERO, weights[interaction_weight_index_other + (2 << stride_shift)]);
+  EXPECT_NE(ZERO, weights.index(interaction_index_other, 0));
+  EXPECT_NE(ZERO, weights.index(interaction_index_other, 1));
+  EXPECT_NE(ZERO, weights.index(interaction_index_other, 2));
 
   // Ensure weights are 0 for non-live interactions
   const size_t interaction_index_empty = interaction_to_index(all.weights,
       get_hash_for_feature(all, "User", "user=Anna"), get_hash_for_feature(all, "Action", "article=sports"));
-  const size_t interaction_weight_index_empty = VW::details::feature_to_weight_index(
-      interaction_index_empty, ft_index_scale, 0);
 
-  EXPECT_EQ(ZERO, weights[interaction_weight_index_empty]);
-  EXPECT_EQ(ZERO, weights[interaction_weight_index_empty + (1 << stride_shift)]);
-  EXPECT_EQ(ZERO, weights[interaction_weight_index_empty + (2 << stride_shift)]);
+  EXPECT_EQ(ZERO, weights.index(interaction_index_empty, 0));
+  EXPECT_EQ(ZERO, weights.index(interaction_index_empty, 1));
+  EXPECT_EQ(ZERO, weights.index(interaction_index_empty, 2));
 
   // VW::automl::helper::print_weights_nonzero(all, 0, all->weights.dense_weights);
   return true;

@@ -330,7 +330,8 @@ workspace::workspace(VW::io::logger logger) : options(nullptr, nullptr), logger(
   reduction_state.bfgs = false;
   loss_config.no_bias = false;
   reduction_state.active = false;
-  initial_weights_config.num_bits = 18;
+  initial_weights_config.feature_hash_bits = 18;
+  initial_weights_config.feature_width_bits = 0;
   runtime_config.default_bits = true;
 #ifdef VW_FEAT_NETWORKING_ENABLED
   runtime_config.daemon = false;

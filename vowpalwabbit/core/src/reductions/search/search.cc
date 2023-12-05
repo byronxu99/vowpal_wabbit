@@ -571,7 +571,7 @@ void print_update_search(VW::workspace& all, VW::shared_data& /* sd */, const se
 
 void add_new_feature(search_private& priv, float val, uint64_t idx)
 {
-  uint64_t mask = priv.all->weights.mask();
+  uint64_t mask = priv.all->weights.hash_mask();
   uint64_t idx2 = idx & mask;
   auto& fs = priv.dat_new_feature_ec->feature_space[priv.dat_new_feature_namespace];
   fs.push_back(val * priv.dat_new_feature_value, (priv.dat_new_feature_idx + idx2) & mask);
@@ -2818,7 +2818,7 @@ void search::get_test_action_sequence(std::vector<action>& V)
 
 void search::set_feature_width(size_t feature_width) { this->priv->feature_width = feature_width; }
 
-uint64_t search::get_mask() { return this->priv->all->weights.mask(); }
+uint64_t search::get_mask() { return this->priv->all->weights.weight_mask(); }
 size_t search::get_stride_shift() { return this->priv->all->weights.stride_shift(); }
 uint32_t search::get_history_length() { return static_cast<uint32_t>(this->priv->history_length); }
 

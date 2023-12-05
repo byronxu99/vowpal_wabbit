@@ -84,7 +84,7 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
   float sqrtk = static_cast<float>(std::sqrt(k));
 
   uint32_t stride_shift = lrq.all->weights.stride_shift();
-  uint64_t weight_mask = lrq.all->weights.mask();
+  uint64_t weight_mask = lrq.all->weights.weight_mask();
   for (unsigned int iter = 0; iter < maxiter; ++iter, ++which)
   {
     // Add left LRQ features, holding right LRQ features fixed

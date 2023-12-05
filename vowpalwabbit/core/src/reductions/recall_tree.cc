@@ -224,18 +224,17 @@ void insert_example_at_node(recall_tree& b, uint32_t cn, VW::example& ec)
 void add_node_id_feature(recall_tree& b, uint32_t cn, VW::example& ec)
 {
   VW::workspace* all = b.all;
-  uint64_t mask = all->weights.mask();
-  size_t ss = all->weights.stride_shift();
+  uint64_t mask = all->weights.hash_mask();
 
   ec.indices.push_back(VW::details::NODE_ID_NAMESPACE);
   auto& fs = ec.feature_space[VW::details::NODE_ID_NAMESPACE];
 
-  if (b.node_only) { fs.push_back(1., ((static_cast<uint64_t>(868771) * cn) << ss) & mask); }
+  if (b.node_only) { fs.push_back(1., (static_cast<uint64_t>(868771) * cn) & mask); }
   else
   {
     while (cn > 0)
     {
-      fs.push_back(1., ((static_cast<uint64_t>(868771) * cn) << ss) & mask);
+      fs.push_back(1., (static_cast<uint64_t>(868771) * cn) & mask);
       cn = b.nodes[cn].parent;
     }
   }

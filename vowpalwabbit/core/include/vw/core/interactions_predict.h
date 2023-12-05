@@ -217,14 +217,14 @@ template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_v
     void (*audit_func)(DataT&, const VW::audit_strings*), class WeightsT>
 void inner_kernel(DataT& dat, VW::features::const_audit_iterator& begin, VW::features::const_audit_iterator& end,
     const VW::feature_index scale, const VW::feature_index offset, WeightsT& weights, VW::feature_value ft_value,
-    VW::fnv_hasher partial_hash, const uint32_t num_bits)
+    VW::fnv_hasher partial_hash, const uint32_t hash_bits)
 {
   if (audit)
   {
     for (; begin != end; ++begin)
     {
       audit_func(dat, begin.audit() == nullptr ? &EMPTY_AUDIT_STRINGS : begin.audit());
-      VW::feature_index interaction_hash = partial_hash.hash(begin.index()).get_truncated_hash(num_bits);
+      VW::feature_index interaction_hash = partial_hash.hash(begin.index()).get_truncated_hash(hash_bits);
       call_func_t<DataT, FuncT>(dat, weights, interaction_value(ft_value, begin.value()),
           feature_to_weight_index(interaction_hash, scale, offset));
       audit_func(dat, nullptr);
@@ -234,7 +234,7 @@ void inner_kernel(DataT& dat, VW::features::const_audit_iterator& begin, VW::fea
   {
     for (; begin != end; ++begin)
     {
-      VW::feature_index interaction_hash = partial_hash.hash(begin.index()).get_truncated_hash(num_bits);
+      VW::feature_index interaction_hash = partial_hash.hash(begin.index()).get_truncated_hash(hash_bits);
       call_func_t<DataT, FuncT>(dat, weights, interaction_value(ft_value, begin.value()),
           feature_to_weight_index(interaction_hash, scale, offset));
     }
@@ -379,7 +379,7 @@ size_t process_generic_interaction(const std::vector<VW::details::features_range
         next_data->hasher = VW::fnv_hasher().hash((*cur_data->current_it).index());
         next_data->x = (*cur_data->current_it).value();  // data->x == 1.
       }
-      else // namespace after the first
+      else  // namespace after the first
       {
         next_data->hasher = cur_data->hasher.hash((*cur_data->current_it).index());
         next_data->x = interaction_value((*cur_data->current_it).value(), cur_data->x);
@@ -436,7 +436,7 @@ inline void generate_interactions(const std::vector<std::vector<VW::namespace_in
                                      VW::feature_value value, VW::fnv_hasher hasher)
   {
     details::inner_kernel<DataT, WeightOrIndexT, FuncT, audit, audit_func>(
-        dat, begin, end, ec.ft_index_scale, ec.ft_index_offset, weights, value, hasher, weights.num_bits());
+        dat, begin, end, ec.ft_index_scale, ec.ft_index_offset, weights, value, hasher, weights.hash_bits());
   };
 
   const auto depth_audit_func = [&](const VW::audit_strings* audit_str) { audit_func(dat, audit_str); };

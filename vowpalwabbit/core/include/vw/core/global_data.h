@@ -170,7 +170,13 @@ public:
 class initial_weights_config
 {
 public:
-  uint32_t num_bits;      // log_2 of the number of features.
+  // number of bits to truncate feature hashes
+  uint32_t feature_hash_bits;
+
+  // log2 of number of weight vectors per feature index
+  // set by VW::details::parse_sources()
+  uint32_t feature_width_bits;
+
   size_t normalized_idx;  // offset idx where the norm is stored (1 or 2 depending on whether adaptive is true)
   std::vector<std::string> initial_regressors;
   float initial_weight;
@@ -207,10 +213,18 @@ public:
   bool active;
   bool bfgs;
   uint32_t lda;
+
   // hack to support cb model loading into ccb learner
   bool is_ccb_input_model = false;
-  void* /*Search::search*/ searchstr;
-  bool invariant_updates;  // Should we use importance aware/safe updates, gd only
+
+  // Actual type is Search::search*
+  void* searchstr;
+
+  // Should we use importance aware/safe updates, gd only
+  bool invariant_updates;
+
+  // set by VW::details::parse_sources()
+  // does not include stride
   uint32_t total_feature_width;
 };
 
@@ -342,7 +356,11 @@ public:
   std::string id;
   std::string feature_mask;
 
-  size_t length() { return (static_cast<size_t>(1)) << initial_weights_config.num_bits; };
+  size_t length()
+  {
+    return (static_cast<size_t>(1)) << (initial_weights_config.feature_hash_bits +
+               initial_weights_config.feature_width_bits);
+  };
 
   void (*print_by_ref)(VW::io::writer*, float, float, const v_array<char>&, VW::io::logger&);
   void (*print_text_by_ref)(VW::io::writer*, const std::string&, const v_array<char>&, VW::io::logger&);

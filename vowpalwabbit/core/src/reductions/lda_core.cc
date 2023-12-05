@@ -721,7 +721,7 @@ float lda_loop(lda& l, VW::v_array<float>& Elogtheta, float* v, VW::example* ec,
       {
         VW::feature_index weight_index =
             VW::details::feature_to_weight_index(f.index(), ec->ft_index_scale, ec->ft_index_offset);
-        float* u_for_w = &(weights[weight_index & weights.mask()]) + l.topics + 1;
+        float* u_for_w = &(weights[weight_index & weights.weight_mask()]) + l.topics + 1;
         float c_w = find_cw(l, u_for_w, v);
         xc_w = c_w * f.value();
         score += -f.value() * std::log(c_w);
@@ -767,7 +767,8 @@ public:
 void save_load(lda& l, VW::io_buf& model_file, bool read, bool text)
 {
   VW::workspace& all = *(l.all);
-  uint64_t length = static_cast<uint64_t>(1) << all.initial_weights_config.num_bits;
+  uint64_t length = static_cast<uint64_t>(1)
+      << (all.initial_weights_config.feature_hash_bits + all.initial_weights_config.feature_width_bits);
   if (read)
   {
     VW::details::initialize_regressor(all);
@@ -859,7 +860,7 @@ void learn_batch(lda& l, std::vector<example*>& batch)
     for (size_t k = 0; k < l.all->reduction_state.lda; k++) { l.total_lambda.push_back(0.f); }
     // This part does not work with sparse parameters
     size_t stride = weights.stride();
-    for (size_t i = 0; i <= weights.mask(); i += stride)
+    for (size_t i = 0; i <= weights.weight_mask(); i += stride)
     {
       VW::weight* w = &(weights[i]);
       for (size_t k = 0; k < l.all->reduction_state.lda; k++) { l.total_lambda[k] += w[k]; }
@@ -892,7 +893,7 @@ void learn_batch(lda& l, std::vector<example*>& batch)
     if (last_weight_index == s->f.weight_index) { continue; }
     last_weight_index = s->f.weight_index;
     // float *weights_for_w = &(weights[s->f.weight_index]);
-    float* weights_for_w = &(weights[s->f.weight_index & weights.mask()]);
+    float* weights_for_w = &(weights[s->f.weight_index & weights.weight_mask()]);
     float decay_component = l.decay_levels.end()[-2] -
         l.decay_levels.end()[static_cast<int>(-1 - l.example_t + *(weights_for_w + l.all->reduction_state.lda))];
     float decay = std::fmin(1.0f, VW::details::correctedExp(decay_component));
@@ -986,7 +987,8 @@ void learn(lda& l, VW::example& ec)
     for (const auto& f : fs)
     {
       auto weight_index = VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset);
-      index_feature temp = {new_example_batch_index, VW::feature(f.value(), weight_index & l.all->weights.mask())};
+      index_feature temp = {
+          new_example_batch_index, VW::feature(f.value(), weight_index & l.all->weights.weight_mask())};
       l.sorted_features.push_back(temp);
       l.doc_lengths[new_example_batch_index] += static_cast<int>(f.value());
     }
@@ -1000,7 +1002,7 @@ void learn_with_metrics(lda& l, VW::example& ec)
   {
     // build feature to example map
     uint64_t stride_shift = l.all->weights.stride_shift();
-    uint64_t weight_mask = l.all->weights.mask();
+    uint64_t weight_mask = l.all->weights.weight_mask();
 
     for (VW::features& fs : ec)
     {
@@ -1045,7 +1047,8 @@ public:
 template <class T>
 void get_top_weights(VW::workspace* all, int top_words_count, int topic, std::vector<VW::feature>& output, T& weights)
 {
-  uint64_t length = static_cast<uint64_t>(1) << all->initial_weights_config.num_bits;
+  uint64_t length = static_cast<uint64_t>(1)
+      << (all->initial_weights_config.feature_hash_bits + all->initial_weights_config.feature_width_bits);
 
   // get top features for this topic
   auto cmp = [](VW::feature left, VW::feature right) { return left.x > right.x; };
@@ -1079,7 +1082,8 @@ void get_top_weights(VW::workspace* all, int top_words_count, int topic, std::ve
 template <class T>
 void compute_coherence_metrics(lda& l, T& weights)
 {
-  uint64_t length = static_cast<uint64_t>(1) << l.all->initial_weights_config.num_bits;
+  uint64_t length = static_cast<uint64_t>(1)
+      << (l.all->initial_weights_config.feature_hash_bits + l.all->initial_weights_config.feature_width_bits);
 
   std::vector<std::vector<feature_pair>> topics_word_pairs;
   topics_word_pairs.resize(l.topics);
@@ -1339,9 +1343,10 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::lda_setup(VW::setup_base_i
   ld->example_t = all.update_rule_config.initial_t;
   if (ld->compute_coherence_metrics)
   {
-    ld->feature_counts.resize(static_cast<uint32_t>(VW::details::UINT64_ONE << all.initial_weights_config.num_bits));
-    ld->feature_to_example_map.resize(
-        static_cast<uint32_t>(VW::details::UINT64_ONE << all.initial_weights_config.num_bits));
+    size_t new_size = static_cast<size_t>(1)
+        << (all.initial_weights_config.feature_hash_bits + all.initial_weights_config.feature_width_bits);
+    ld->feature_counts.resize(new_size);
+    ld->feature_to_example_map.resize(new_size);
   }
 
   float temp = ceilf(logf(static_cast<float>(all.reduction_state.lda * 2 + 1)) / logf(2.f));

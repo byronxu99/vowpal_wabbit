@@ -74,10 +74,11 @@ public:
 
   void initialize_Z(VW::parameters& weights)  // NOLINT
   {
-    uint32_t length = 1 << all->initial_weights_config.num_bits;
+    uint64_t length = static_cast<uint64_t>(1)
+        << (all->initial_weights_config.feature_hash_bits + all->initial_weights_config.feature_width_bits);
     if (normalize)  // initialize normalization part
     {
-      for (uint32_t i = 0; i < length; i++) { (&(weights.strided_index(i)))[NORM2] = 0.1f; }
+      for (uint64_t i = 0; i < length; i++) { (&(weights.strided_index(i)))[NORM2] = 0.1f; }
     }
     if (!random_init)
     {
@@ -90,7 +91,7 @@ public:
 
       static constexpr double PI2 = 2.f * 3.1415927f;
 
-      for (uint32_t i = 0; i < length; i++)
+      for (uint64_t i = 0; i < length; i++)
       {
         VW::weight& w = weights.strided_index(i);
         float r1;
@@ -116,22 +117,22 @@ public:
       {
         double temp = 0;
 
-        for (uint32_t i = 0; i < length; i++)
+        for (uint64_t i = 0; i < length; i++)
         {
           temp += (static_cast<double>((&(weights.strided_index(i)))[j])) * (&(weights.strided_index(i)))[k];
         }
-        for (uint32_t i = 0; i < length; i++)
+        for (uint64_t i = 0; i < length; i++)
         {
           (&(weights.strided_index(i)))[j] -= static_cast<float>(temp) * (&(weights.strided_index(i)))[k];
         }
       }
       double norm = 0;
-      for (uint32_t i = 0; i < length; i++)
+      for (uint64_t i = 0; i < length; i++)
       {
         norm += (static_cast<double>((&(weights.strided_index(i)))[j])) * (&(weights.strided_index(i)))[j];
       }
       norm = std::sqrt(norm);
-      for (uint32_t i = 0; i < length; i++) { (&(weights.strided_index(i)))[j] /= static_cast<float>(norm); }
+      for (uint64_t i = 0; i < length; i++) { (&(weights.strided_index(i)))[j] /= static_cast<float>(norm); }
     }
   }
 
@@ -296,8 +297,9 @@ public:
 
     // second step: w[0] <- w[0] + (DZ)'b, b <- 0.
 
-    uint32_t length = 1 << all->initial_weights_config.num_bits;
-    for (uint32_t i = 0; i < length; i++)
+    uint64_t length = static_cast<uint64_t>(1)
+        << (all->initial_weights_config.feature_hash_bits + all->initial_weights_config.feature_width_bits);
+    for (uint64_t i = 0; i < length; i++)
     {
       VW::weight& w = all->weights.strided_index(i);
       for (int j = 1; j <= m; j++) { w += (&w)[j] * b[j] * D[j]; }
@@ -308,7 +310,7 @@ public:
     // third step: Z <- ADZ, A, D <- Identity
 
     // double norm = 0;
-    for (uint32_t i = 0; i < length; ++i)
+    for (uint64_t i = 0; i < length; ++i)
     {
       std::fill(tmp.begin(), tmp.end(), 0.f);
       VW::weight& w = all->weights.strided_index(i);
@@ -561,7 +563,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::oja_newton_setup(VW::setup
   oja_newton_ptr->data.AZx = std::vector<float>(buffer_size, 0.f);
   oja_newton_ptr->data.delta = std::vector<float>(buffer_size, 0.f);
 
-  all.weights.stride_shift(static_cast<uint32_t>(std::ceil(std::log2(oja_newton_ptr->m + 2))));
+  all.weights.stride_shift(static_cast<uint64_t>(std::ceil(std::log2(oja_newton_ptr->m + 2))));
 
   auto l = make_bottom_learner(std::move(oja_newton_ptr), learn, predict,
       stack_builder.get_setupfn_name(oja_newton_setup), VW::prediction_type_t::SCALAR, VW::label_type_t::SIMPLE)

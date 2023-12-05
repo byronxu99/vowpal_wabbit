@@ -81,7 +81,7 @@ inline void audit_regressor_feature(audit_regressor_data& dat, const float, cons
   for (const auto& s : dat.ns_pre) { ns_pre += s; }
 
   std::ostringstream tempstream;
-  tempstream << ':' << ((wt_idx & weights.mask()) >> weights.stride_shift()) << ':' << weights[wt_idx];
+  tempstream << ':' << ((wt_idx & weights.weight_mask()) >> weights.stride_shift()) << ':' << weights[wt_idx];
 
   std::string temp = ns_pre + tempstream.str() + '\n';
   if (dat.total_class_cnt > 1)

@@ -148,7 +148,7 @@ public:
   // get() is only needed for sparse_weights, same as operator[] for lazy_gaussian
   inline float get(uint64_t index) const { return operator[](index); }
   // dummy function because we want to use lazy_gaussian as weights in VW::foreach_feature
-  inline uint32_t num_bits() const { return 32; }
+  inline uint32_t hash_bits() const { return 32; }
 };
 
 inline void vec_add_with_norm(std::pair<float, float>& p, float fx, float fw)

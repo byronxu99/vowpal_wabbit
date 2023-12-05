@@ -92,9 +92,7 @@ void pre_save_load_automl(VW::workspace& all, automl<CMType>& data)
     }
   }
 
-  all.initial_weights_config.num_bits =
-      all.initial_weights_config.num_bits - static_cast<uint32_t>(std::log2(data.cm->max_live_configs));
-  options.get_typed_option<uint32_t>("bit_precision").value(all.initial_weights_config.num_bits);
+  options.get_typed_option<uint32_t>("bit_precision").value(all.initial_weights_config.feature_hash_bits);
 
   std::vector<std::string> interactions_opt;
   for (auto& interaction : data.cm->estimators[0].first.live_interactions)

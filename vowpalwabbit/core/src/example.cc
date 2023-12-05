@@ -8,6 +8,7 @@
 #include "vw/core/interactions.h"
 #include "vw/core/model_utils.h"
 #include "vw/core/reductions/gd.h"
+#include "vw/core/scope_exit.h"
 #include "vw/core/simple_label_parser.h"
 #include "vw/core/text_utils.h"
 #include "vw/core/vw.h"
@@ -130,44 +131,36 @@ float collision_cleanup(VW::features& fs)
   return sum_sq;
 }
 
-namespace VW
-{
-
-}  // namespace VW
-
-namespace VW
-{
-
-}  // namespace VW
-
 class full_features_and_source
 {
 public:
   VW::features fs;
-  uint32_t stride_shift;
-  uint64_t mask;
 };
 
-void vec_ffs_store(full_features_and_source& p, float fx, uint64_t fi)
-{
-  p.fs.push_back(fx, (fi >> p.stride_shift) & p.mask);
-}
+void vec_ffs_store(full_features_and_source& p, float fx, uint64_t fi) { p.fs.push_back(fx, fi); }
+
 namespace VW
 {
-
 void flatten_features(VW::workspace& all, example& ec, features& fs)
 {
   fs.clear();
   full_features_and_source ffs;
   ffs.fs = std::move(fs);
-  ffs.stride_shift = all.weights.stride_shift();
-  if (all.weights.not_null())
-  {
-    // TODO:temporary fix. all.weights is not initialized at this point in some cases.
-    ffs.mask = all.weights.mask() >> all.weights.stride_shift();
-  }
-  else { ffs.mask = static_cast<uint64_t>(LONG_MAX) >> all.weights.stride_shift(); }
+
+  // We want to call vec_ffs_store() with feature indices, not weight indices
+  // Set feature index scale to 1 and offset to 0
+  auto old_ft_index_scale = ec.ft_index_scale;
+  auto old_ft_index_offset = ec.ft_index_offset;
+  auto restore_example = VW::scope_exit(
+      [&ec, old_ft_index_scale, old_ft_index_offset]()
+      {
+        ec.ft_index_scale = old_ft_index_scale;
+        ec.ft_index_offset = old_ft_index_offset;
+      });
+  ec.ft_index_scale = 1;
+  ec.ft_index_offset = 0;
   VW::foreach_feature<full_features_and_source, uint64_t, vec_ffs_store>(all, ec, ffs);
+
   ffs.fs.sort(all.runtime_state.parse_mask);
   ffs.fs.sum_feat_sq = collision_cleanup(ffs.fs);
   fs = std::move(ffs.fs);

@@ -118,10 +118,9 @@ public:
   template <typename W>
   int read_weights(std::unique_ptr<W>& weights, uint32_t num_bits, uint32_t stride_shift)
   {
-    auto weight_length = static_cast<size_t>(uint64_t{1} << num_bits);
-
-    weights = std::unique_ptr<W>(new W(weight_length));
+    weights = std::unique_ptr<W>(new W(num_bits, 0, stride_shift));
     weights->stride_shift(stride_shift);
+    auto weight_length = weights->weight_mask() + 1;
 
     if (num_bits < 31) { RETURN_ON_FAIL((read_weights<uint32_t, W>(weights, weight_length))); }
     else

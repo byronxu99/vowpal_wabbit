@@ -87,7 +87,7 @@ float get_adanormalhedge_weights(float r, float c)
 template <bool is_learn>
 void make_marginal(data& sm, VW::example& ec)
 {
-  const uint64_t mask = sm.m_all->weights.mask();
+  const uint64_t mask = sm.m_all->weights.hash_mask();
   sm.alg_loss = 0.;
   sm.net_weight = 0.;
   sm.net_feature_weight = 0.;
@@ -193,7 +193,7 @@ void compute_expert_loss(data& sm, VW::example& ec)
 
 void update_marginal(data& sm, VW::example& ec)
 {
-  const uint64_t mask = sm.m_all->weights.mask();
+  const uint64_t mask = sm.m_all->weights.hash_mask();
   const float label = ec.l.simple.label;
   float weight = ec.weight;
   if (sm.unweighted_marginals) { weight = 1.; }
