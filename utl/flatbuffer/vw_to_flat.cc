@@ -418,14 +418,6 @@ void to_flat::convert_txt_to_flat(VW::workspace& all)
         break;
     }
 
-    uint64_t multiplier = (uint64_t)all.reduction_state.total_feature_width << all.weights.stride_shift();
-    if (multiplier != 1)
-    {
-      for (VW::features& fs : *ae)
-      {
-        for (auto& j : fs.indices) { j /= multiplier; }
-      }
-    }
     std::vector<flatbuffers::Offset<VW::parsers::flatbuffer::Namespace>> namespaces;
     for (const VW::namespace_index& ns : ae->indices)
     {

@@ -841,11 +841,6 @@ void unsetup_example(vw_ptr vwP, example_ptr ae)
       ae->indices.pop_back();
     }
   }
-
-  uint32_t multiplier = all.reduction_state.total_feature_width << all.weights.stride_shift();
-  if (multiplier != 1)  // make room for per-feature information.
-    for (auto ns : ae->indices)
-      for (auto& idx : ae->feature_space[ns].indices) idx /= multiplier;
 }
 
 void ex_set_label_string(example_ptr ec, vw_ptr vw, std::string label, size_t labelType)
