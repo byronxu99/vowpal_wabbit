@@ -18,7 +18,10 @@ constexpr int QUADRATIC_CONSTANT = 27942141;
 constexpr int CUBIC_CONSTANT = 21791;
 constexpr int CUBIC_CONSTANT2 = 37663;
 constexpr int AFFIX_CONSTANT = 13903957;
-constexpr uint64_t CONSTANT = 11650396;
+
+// Index of the constant feature is always zero
+constexpr uint64_t CONSTANT = 0;
+
 constexpr float PROBABILITY_TOLERANCE = 1e-5f;
 
 constexpr unsigned char DEFAULT_NAMESPACE = 32;
