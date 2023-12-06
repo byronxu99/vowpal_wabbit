@@ -49,8 +49,8 @@ char* FormatIndicies(VW::example* a, VW::example* b)
 inline void format_feature(
     vw_net_native::workspace_context* workspace, VW::feature_value x, VW::feature_index i, std::stringstream& sstream)
 {
-  VW::feature_index masked_weight_index = i & workspace->vw->weights.mask();
-  sstream << "weight_index = " << masked_weight_index << '/' << i << ", x = " << x;
+  VW::feature_index masked_feature_index = i & workspace->vw->weights.hash_mask();
+  sstream << "weight_index = " << masked_feature_index << '/' << i << ", x = " << x;
 }
 
 inline void format_feature(vw_net_native::workspace_context* workspace, VW::feature_value x1, VW::feature_index i1,
@@ -81,10 +81,10 @@ char* compare_features(
   std::vector<size_t> fa_missing;
   for (size_t ia = 0, ib = 0; ia < fa.values.size(); ia++)
   {
-    VW::feature_index masked_weight_index = fa.indices[ia] & workspace->vw->weights.mask();
-    VW::feature_index other_masked_weight_index = fb.indices[ib] & workspace->vw->weights.mask();
+    VW::feature_index masked_feature_index = fa.indices[ia] & workspace->vw->weights.hash_mask();
+    VW::feature_index other_masked_feature_index = fb.indices[ib] & workspace->vw->weights.hash_mask();
 
-    if (masked_weight_index == other_masked_weight_index && vw_net_native::FloatEqual(fa.values[ia], fb.values[ib]))
+    if (masked_feature_index == other_masked_feature_index && vw_net_native::FloatEqual(fa.values[ia], fb.values[ib]))
     {
       ib++;
     }
@@ -95,8 +95,8 @@ char* compare_features(
       bool found = false;
       for (ib = 0; ib < fb.values.size(); ib++)
       {
-        auto other_masked_weight_index = fb.indices[ib] & workspace->vw->weights.mask();
-        if (masked_weight_index == other_masked_weight_index)
+        auto other_masked_feature_index = fb.indices[ib] & workspace->vw->weights.hash_mask();
+        if (masked_feature_index == other_masked_feature_index)
         {
           if (!vw_net_native::FloatEqual(fa.values[ia], fb.values[ib]))
           {
@@ -125,8 +125,8 @@ char* compare_features(
 
     for (auto ia : fa_missing)
     {
-      sstream << "this.weight_index = " << (fa.indices[ia] & workspace->vw->weights.mask()) << ", x = " << fa.values[ia]
-              << ", ";
+      sstream << "this.weight_index = " << (fa.indices[ia] & workspace->vw->weights.hash_mask())
+              << ", x = " << fa.values[ia] << ", ";
     }
 
     return vw_net_native::stringstream_to_cstr(sstream);
