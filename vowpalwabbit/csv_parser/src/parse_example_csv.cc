@@ -286,7 +286,6 @@ private:
         auto it = _parser->ns_value.find(f.first);
         if (it != _parser->ns_value.end()) { _cur_channel_v = it->second; }
       }
-      _ae->feature_space[_index].start_ns_extent(_channel_hash);
 
       for (size_t i = 0; i < f.second.size(); i++)
       {
@@ -295,7 +294,6 @@ private:
         parse_features(_ae->feature_space[_index], column_index, _cur_channel_v, ns);
       }
 
-      _ae->feature_space[_index].end_ns_extent();
       if (new_index && _ae->feature_space[_index].size() > 0) { _ae->indices.emplace_back(_index); }
     }
     _ae->is_newline = empty_line;

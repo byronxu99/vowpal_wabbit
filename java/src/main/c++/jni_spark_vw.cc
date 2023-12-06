@@ -412,7 +412,6 @@ JNIEXPORT jlong JNICALL Java_org_vowpalwabbit_spark_VowpalWabbitExample_initiali
   {
     example* ex = new VW::example;
     ex->interactions = &all->feature_tweaks_config.interactions;
-    ex->extent_interactions = &all->feature_tweaks_config.extent_interactions;
 
     if (isEmpty)
     {

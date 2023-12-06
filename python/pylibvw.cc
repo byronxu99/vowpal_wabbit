@@ -498,7 +498,6 @@ VW::example* my_empty_example0(vw_ptr vw, size_t labelType)
   VW::example* ec = new VW::example;
   lp->default_label(ec->l);
   ec->interactions = &vw->feature_tweaks_config.interactions;
-  ec->extent_interactions = &vw->feature_tweaks_config.extent_interactions;
   return ec;
 }
 

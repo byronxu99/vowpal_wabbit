@@ -87,8 +87,6 @@ void initialize(Search::search& sch, size_t& /*num_actions*/, options_i& options
     {
       my_task_data->ldf_entity[a].l.cs.costs.push_back(default_wclass);
       my_task_data->ldf_entity[a].interactions = &sch.get_vw_pointer_unsafe().feature_tweaks_config.interactions;
-      my_task_data->ldf_entity[a].extent_interactions =
-          &sch.get_vw_pointer_unsafe().feature_tweaks_config.extent_interactions;
     }
     my_task_data->ldf_relation = my_task_data->ldf_entity.data() + 4;
     sch.set_options(Search::IS_LDF);

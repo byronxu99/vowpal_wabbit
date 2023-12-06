@@ -97,7 +97,6 @@ void initialize(Search::search& sch, size_t& /*num_actions*/, options_i& options
   for (size_t i = 1; i < 14; i++) { data->ex.indices.push_back(static_cast<unsigned char>(i) + 'A'); }
   data->ex.indices.push_back(VW::details::CONSTANT_NAMESPACE);
   data->ex.interactions = &sch.get_vw_pointer_unsafe().feature_tweaks_config.interactions;
-  data->ex.extent_interactions = &sch.get_vw_pointer_unsafe().feature_tweaks_config.extent_interactions;
 
   if (data->one_learner) { sch.set_feature_width(1); }
   else { sch.set_feature_width(3); }

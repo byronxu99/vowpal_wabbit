@@ -33,9 +33,8 @@ namespace VW
 {
 namespace reductions
 {
-void cbify_adf_data::init_adf_data(std::size_t num_actions_,
-    std::vector<std::vector<VW::namespace_index>>& interactions,
-    std::vector<std::vector<extent_term>>& extent_interactions)
+void cbify_adf_data::init_adf_data(
+    std::size_t num_actions_, std::vector<std::vector<VW::namespace_index>>& interactions)
 {
   this->num_actions = num_actions_;
 
@@ -46,7 +45,6 @@ void cbify_adf_data::init_adf_data(std::size_t num_actions_,
     auto& lab = ecs[a]->l.cb;
     lab.reset_to_default();
     ecs[a]->interactions = &interactions;
-    ecs[a]->extent_interactions = &extent_interactions;
   }
 
   // cache mask for copy routine
@@ -775,11 +773,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::cbify_setup(VW::setup_base
     void (*predict_ptr)(cbify&, learner&, VW::example&);
     auto base = require_multiline(stack_builder.setup_base_learner());
 
-    if (data->use_adf)
-    {
-      data->adf_data.init_adf_data(
-          num_actions, all.feature_tweaks_config.interactions, all.feature_tweaks_config.extent_interactions);
-    }
+    if (data->use_adf) { data->adf_data.init_adf_data(num_actions, all.feature_tweaks_config.interactions); }
 
     if (use_cs)
     {

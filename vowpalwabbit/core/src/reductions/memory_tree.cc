@@ -1182,7 +1182,6 @@ void save_load_memory_tree(memory_tree& b, VW::io_buf& model_file, bool read, bo
     {
       save_load_example(b.examples[i], model_file, read, text, msg, b.oas);
       b.examples[i]->interactions = &b.all->feature_tweaks_config.interactions;
-      b.examples[i]->extent_interactions = &b.all->feature_tweaks_config.extent_interactions;
     }
     // std::cout<<"done loading...."<< std::endl;
   }

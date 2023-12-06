@@ -198,12 +198,10 @@ void parser::parse_namespaces(VW::workspace* all, example* ae, const Namespace* 
 
   auto& fs = ae->feature_space[index];
 
-  if (hash_found) { fs.start_ns_extent(hash); }
   for (const auto& feature : *(ns->features()))
   {
     parse_features(all, fs, feature, (all->output_config.audit || all->output_config.hash_inv) ? ns->name() : nullptr);
   }
-  if (hash_found) { fs.end_ns_extent(); }
 }
 
 void parser::parse_features(VW::workspace* all, features& fs, const Feature* feature, const flatbuffers::String* ns)

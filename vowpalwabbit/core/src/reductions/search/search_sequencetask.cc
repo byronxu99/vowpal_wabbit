@@ -398,7 +398,6 @@ void initialize(Search::search& sch, size_t& num_actions, options_i& /*options*/
     lab.reset_to_default();
     lab.costs.push_back(default_wclass);
     data->ldf_examples[a].interactions = &sch.get_vw_pointer_unsafe().feature_tweaks_config.interactions;
-    data->ldf_examples[a].extent_interactions = &sch.get_vw_pointer_unsafe().feature_tweaks_config.extent_interactions;
   }
 
   data->num_actions = num_actions;

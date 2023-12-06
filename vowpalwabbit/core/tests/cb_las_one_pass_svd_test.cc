@@ -665,17 +665,5 @@ TEST(Las, ScalarAndSimdGenerateSamePredictions)
 
     EXPECT_FALSE(action_space->explore.impl._test_only_use_simd());
   }
-  {
-    // Extent interactions are not supported yet
-    auto vw_simd = VW::initialize(vwtest::make_args("--cb_explore_adf", "--large_action_space", "--quiet",
-        "--experimental_full_name_interactions", "A|B", "--las_hint_explicit_simd"));
-
-    VW::LEARNER::learner* learner =
-        require_multiline(vw_simd->l->get_learner_by_name_prefix("cb_explore_adf_large_action_space"));
-    auto* action_space = (internal_action_space_op*)learner->get_internal_type_erased_data_pointer_test_use_only();
-    EXPECT_NE(action_space, nullptr);
-
-    EXPECT_FALSE(action_space->explore.impl._test_only_use_simd());
-  }
 }
 #endif

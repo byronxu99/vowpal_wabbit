@@ -424,8 +424,7 @@ void learn_or_predict(ccb_data& data, learner& base, VW::multi_ex& examples)
   // that the cache will be invalidated.
   if (!previously_should_augment_with_slot_info && should_augment_with_slot_info)
   {
-    insert_ccb_interactions(
-        data.all->feature_tweaks_config.interactions, data.all->feature_tweaks_config.extent_interactions);
+    insert_ccb_interactions(data.all->feature_tweaks_config.interactions);
   }
 
   // This will overwrite the labels with CB.
@@ -621,11 +620,7 @@ void save_load(ccb_data& sm, VW::io_buf& io, bool read, bool text)
     VW::model_utils::write_model_field(io, sm.has_seen_multi_slot_example, "CCB: has_seen_multi_slot_example", text);
   }
 
-  if (read && sm.has_seen_multi_slot_example)
-  {
-    insert_ccb_interactions(
-        sm.all->feature_tweaks_config.interactions, sm.all->feature_tweaks_config.extent_interactions);
-  }
+  if (read && sm.has_seen_multi_slot_example) { insert_ccb_interactions(sm.all->feature_tweaks_config.interactions); }
 }
 }  // namespace
 std::shared_ptr<VW::LEARNER::learner> VW::reductions::ccb_explore_adf_setup(VW::setup_base_i& stack_builder)
@@ -715,8 +710,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::ccb_explore_adf_setup(VW::
 // CCB adds the following interactions:
 //   1. Every existing interaction + VW::details::CCB_ID_NAMESPACE
 //   2. wildcard_namespace + VW::details::CCB_ID_NAMESPACE
-void VW::reductions::ccb::insert_ccb_interactions(std::vector<std::vector<VW::namespace_index>>& interactions_to_add_to,
-    std::vector<std::vector<extent_term>>& extent_interactions_to_add_to)
+void VW::reductions::ccb::insert_ccb_interactions(std::vector<std::vector<VW::namespace_index>>& interactions_to_add_to)
 {
   const auto reserve_size = interactions_to_add_to.size() * 2;
   std::vector<std::vector<VW::namespace_index>> new_interactions;
@@ -730,21 +724,6 @@ void VW::reductions::ccb::insert_ccb_interactions(std::vector<std::vector<VW::na
   interactions_to_add_to.reserve(interactions_to_add_to.size() + new_interactions.size() + 2);
   std::move(new_interactions.begin(), new_interactions.end(), std::back_inserter(interactions_to_add_to));
   interactions_to_add_to.push_back({VW::details::WILDCARD_NAMESPACE, VW::details::CCB_ID_NAMESPACE});
-
-  std::vector<std::vector<extent_term>> new_extent_interactions;
-  new_extent_interactions.reserve(new_extent_interactions.size() * 2);
-  for (const auto& inter : extent_interactions_to_add_to)
-  {
-    new_extent_interactions.push_back(inter);
-    new_extent_interactions.back().emplace_back(VW::details::CCB_ID_NAMESPACE, VW::details::CCB_ID_NAMESPACE);
-    new_extent_interactions.push_back(inter);
-  }
-  extent_interactions_to_add_to.reserve(extent_interactions_to_add_to.size() + new_extent_interactions.size() + 2);
-  std::move(new_extent_interactions.begin(), new_extent_interactions.end(),
-      std::back_inserter(extent_interactions_to_add_to));
-  extent_interactions_to_add_to.push_back(
-      {std::make_pair(VW::details::WILDCARD_NAMESPACE, VW::details::WILDCARD_NAMESPACE),
-          std::make_pair(VW::details::CCB_ID_NAMESPACE, VW::details::CCB_ID_NAMESPACE)});
 }
 
 bool VW::reductions::ccb::ec_is_example_header(VW::example const& ec)

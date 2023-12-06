@@ -270,12 +270,11 @@ public:
       _generate_interactions.update_interactions_if_new_namespace_seen<
           VW::details::generate_namespace_combinations_with_repetition, false>(_interactions, ex.indices);
       score = VW::inline_predict<W>(*_weights, false, _ignore_linear, _generate_interactions.generated_interactions,
-          _unused_extent_interactions,
           /* permutations */ false, ex, _generate_interactions_object_cache);
     }
     else
     {
-      score = VW::inline_predict<W>(*_weights, false, _ignore_linear, _interactions, _unused_extent_interactions,
+      score = VW::inline_predict<W>(*_weights, false, _ignore_linear, _interactions,
           /* permutations */ false, ex, _generate_interactions_object_cache);
     }
     return S_VW_PREDICT_OK;
@@ -473,7 +472,6 @@ private:
   std::string _version;
   std::string _command_line_arguments;
   std::vector<std::vector<VW::namespace_index>> _interactions;
-  std::vector<std::vector<VW::extent_term>> _unused_extent_interactions;
   VW::details::generate_interactions_object_cache _generate_interactions_object_cache;
   VW::interactions_generator _generate_interactions;
   bool _contains_wildcard;

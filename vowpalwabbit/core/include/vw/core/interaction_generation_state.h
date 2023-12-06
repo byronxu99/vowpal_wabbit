@@ -38,21 +38,10 @@ public:
 
 using features_range_t = std::pair<features::const_audit_iterator, features::const_audit_iterator>;
 
-class extent_interaction_expansion_stack_item
-{
-public:
-  size_t current_term;
-  size_t prev_term;
-  size_t offset;
-  std::vector<features_range_t> so_far;
-};
-
 class generate_interactions_object_cache
 {
 public:
   std::vector<feature_gen_data> state_data;
-  VW::moved_object_pool<extent_interaction_expansion_stack_item> frame_pool;
-  std::stack<extent_interaction_expansion_stack_item> in_process_frames;
 };
 }  // namespace details
 }  // namespace VW

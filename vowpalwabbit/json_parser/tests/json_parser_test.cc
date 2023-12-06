@@ -392,7 +392,6 @@ TEST(ParseJson, SlatesDomParser)
 
   EXPECT_THAT(examples[0]->indices, ::testing::ElementsAre('G'));
   EXPECT_EQ(examples[0]->feature_space['G'].indices.size(), 4);
-  EXPECT_EQ(examples[0]->feature_space['G'].namespace_extents.size(), 1);
 
   VW::finish_example(*slates_vw, examples);
 }
@@ -860,14 +859,6 @@ TEST(ParseJson, SimpleVerifyExtents)
   EXPECT_EQ(examples[0]->feature_space[' '].size(), 1);
   EXPECT_EQ(examples[0]->feature_space['f'].size(), 5);
   EXPECT_EQ(examples[0]->feature_space['n'].size(), 1);
-
-  EXPECT_EQ(examples[0]->feature_space[' '].namespace_extents.size(), 1);
-  EXPECT_EQ(examples[0]->feature_space['f'].namespace_extents.size(), 2);
-  EXPECT_EQ(examples[0]->feature_space['f'].namespace_extents[0],
-      (VW::namespace_extent{0, 4, VW::hash_space(*vw, "features")}));
-  EXPECT_EQ(examples[0]->feature_space['f'].namespace_extents[1],
-      (VW::namespace_extent{4, 5, VW::hash_space(*vw, "features2")}));
-  EXPECT_EQ(examples[0]->feature_space['n'].namespace_extents.size(), 1);
 
   VW::finish_example(*vw, examples);
 }

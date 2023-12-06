@@ -94,9 +94,6 @@ TEST(FlatbufferParser, FlatbufferStandaloneExample)
 
   EXPECT_EQ(examples[0]->indices[0], VW::details::CONSTANT_NAMESPACE);
   EXPECT_FLOAT_EQ(examples[0]->feature_space[examples[0]->indices[0]].values[0], 2.23f);
-  EXPECT_EQ(examples[0]->feature_space[examples[0]->indices[0]].namespace_extents.size(), 1);
-  EXPECT_EQ(examples[0]->feature_space[examples[0]->indices[0]].namespace_extents[0],
-      (VW::namespace_extent{0, 1, VW::details::CONSTANT_NAMESPACE}));
 
   VW::finish_example(*all, *examples[0]);
 }
@@ -137,9 +134,6 @@ TEST(FlatbufferParser, FlatbufferCollection)
 
   EXPECT_EQ(examples[0]->indices[0], VW::details::CONSTANT_NAMESPACE);
   EXPECT_FLOAT_EQ(examples[0]->feature_space[examples[0]->indices[0]].values[0], 2.23f);
-  EXPECT_EQ(examples[0]->feature_space[examples[0]->indices[0]].namespace_extents.size(), 1);
-  EXPECT_EQ(examples[0]->feature_space[examples[0]->indices[0]].namespace_extents[0],
-      (VW::namespace_extent{0, 1, VW::details::CONSTANT_NAMESPACE}));
 
   VW::finish_example(*all, *examples[0]);
 }

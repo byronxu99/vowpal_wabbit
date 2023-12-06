@@ -56,11 +56,6 @@ TEST(CsvParser, ComplexCsvSimpleLabelExamples)
   EXPECT_EQ(examples[0]->feature_space['"'].size(), 0);
   EXPECT_EQ(examples[0]->feature_space['_'].size(), 0);
 
-  // Check example 1 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space['s'].namespace_extents.size(), 2);
-  EXPECT_EQ(examples[0]->feature_space['p'].namespace_extents.size(), 1);
-  EXPECT_EQ(examples[0]->feature_space[' '].namespace_extents.size(), 1);
-
   // Check example 1 feature value
   // \f\v should be trimmed
   EXPECT_TRUE((std::abs(examples[0]->feature_space['s'].values[0] - 5.1) < 0.01 &&
@@ -112,11 +107,6 @@ TEST(CsvParser, ComplexCsvSimpleLabelExamples)
   EXPECT_EQ(examples[0]->feature_space['\''].size(), 0);
   EXPECT_EQ(examples[0]->feature_space['"'].size(), 0);
   EXPECT_EQ(examples[0]->feature_space['_'].size(), 0);
-
-  // Check example 2 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space['s'].namespace_extents.size(), 1);
-  EXPECT_EQ(examples[0]->feature_space['p'].namespace_extents.size(), 1);
-  EXPECT_EQ(examples[0]->feature_space[' '].namespace_extents.size(), 1);
 
   // Check example 2 feature value
   EXPECT_FLOAT_EQ(examples[0]->feature_space['s'].values[0], -10.78);
@@ -236,9 +226,6 @@ TEST(CsvParser, MulticlassExamples)
   // Check example 1 feature numbers
   EXPECT_EQ(examples[0]->feature_space[' '].size(), 3);
 
-  // Check example 1 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space[' '].namespace_extents.size(), 1);
-
   // Check example 1 feature value
   EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 1);
   EXPECT_EQ(examples[0]->feature_space[' '].space_names[1].str_value, "here");
@@ -263,9 +250,6 @@ TEST(CsvParser, MulticlassExamples)
 
   // Check example 2 feature numbers
   EXPECT_EQ(examples[0]->feature_space[' '].size(), 3);
-
-  // Check example 2 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space[' '].namespace_extents.size(), 1);
 
   // Check example 2 feature value
   EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 2);
@@ -316,9 +300,6 @@ TEST(CsvParser, ReplaceHeader)
   EXPECT_EQ(examples[0]->feature_space[' '].size(), 3);
   EXPECT_EQ(examples[0]->feature_space['$'].size(), 0);
 
-  // Check example 1 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space[' '].namespace_extents.size(), 1);
-
   // Check example 1 feature value
   EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 1);
   EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[1], 2);
@@ -361,9 +342,6 @@ TEST(CsvParser, NoHeader)
   EXPECT_EQ(examples[0]->feature_space['n'].size(), 2);
   EXPECT_EQ(examples[0]->feature_space[' '].size(), 1);
   EXPECT_EQ(examples[0]->feature_space['&'].size(), 0);
-
-  // Check example 1 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space['n'].namespace_extents.size(), 1);
 
   // Check example 1 feature value
   EXPECT_FLOAT_EQ(examples[0]->feature_space['n'].values[0], 1);

@@ -203,8 +203,6 @@ void learn(VW::reductions::igl::igl_data& igl, learner& base, VW::multi_ex& ec_s
     else { igl.ik_ex.weight = 3 / 4.f / (1 - pa); }
 
     igl.ik_ex.interactions = &ik_interactions;
-    // TODO(low pri): not reuse igl.extent_interactions, need to add in feedback
-    igl.ik_ex.extent_interactions = igl.extent_interactions;
 
     // 2. ik learn
     igl.ik_learner->learn(igl.ik_ex, 0);
@@ -402,7 +400,6 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::interaction_ground_setup(V
   ld->ik_learner = require_singleline(ik_builder->setup_base_learner());
 
   ld->interactions = all->feature_tweaks_config.interactions;
-  ld->extent_interactions = &all->feature_tweaks_config.extent_interactions;
 
   VW::prediction_type_t pred_type;
 

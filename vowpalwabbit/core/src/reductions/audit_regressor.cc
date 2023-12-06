@@ -163,16 +163,14 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
       {
         VW::generate_interactions<audit_regressor_data, const uint64_t, audit_regressor_feature, true,
             audit_regressor_interaction, VW::sparse_parameters>(rd.all->feature_tweaks_config.interactions,
-            rd.all->feature_tweaks_config.extent_interactions, rd.all->feature_tweaks_config.permutations, ec, rd,
-            rd.all->weights.sparse_weights, num_interacted_features,
+            rd.all->feature_tweaks_config.permutations, ec, rd, rd.all->weights.sparse_weights, num_interacted_features,
             rd.all->runtime_state.generate_interactions_object_cache_state);
       }
       else
       {
         VW::generate_interactions<audit_regressor_data, const uint64_t, audit_regressor_feature, true,
             audit_regressor_interaction, VW::dense_parameters>(rd.all->feature_tweaks_config.interactions,
-            rd.all->feature_tweaks_config.extent_interactions, rd.all->feature_tweaks_config.permutations, ec, rd,
-            rd.all->weights.dense_weights, num_interacted_features,
+            rd.all->feature_tweaks_config.permutations, ec, rd, rd.all->weights.dense_weights, num_interacted_features,
             rd.all->runtime_state.generate_interactions_object_cache_state);
       }
 

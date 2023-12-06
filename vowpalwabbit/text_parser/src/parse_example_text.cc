@@ -273,7 +273,6 @@ private:
             const auto& feats = feats_it->second;
             auto& dict_fs = _ae->feature_space[VW::details::DICTIONARY_NAMESPACE];
             if (dict_fs.empty()) { _ae->indices.push_back(VW::details::DICTIONARY_NAMESPACE); }
-            dict_fs.start_ns_extent(VW::details::DICTIONARY_NAMESPACE);
             dict_fs.values.insert(dict_fs.values.end(), feats->values.begin(), feats->values.end());
             dict_fs.indices.insert(dict_fs.indices.end(), feats->indices.begin(), feats->indices.end());
             dict_fs.sum_feat_sq += feats->sum_feat_sq;
@@ -288,7 +287,6 @@ private:
                 dict_fs.space_names.emplace_back("dictionary", ss.str());
               }
             }
-            dict_fs.end_ns_extent();
           }
         }
       }
@@ -377,7 +375,6 @@ private:
     _index = 0;
     _new_index = false;
     _anon = 0;
-    bool did_start_extent = false;
     if (_read_idx >= _line.size() || _line[_read_idx] == ' ' || _line[_read_idx] == '\t' || _line[_read_idx] == '|' ||
         _line[_read_idx] == '\r')
     {
@@ -391,16 +388,12 @@ private:
         _base = space;
       }
       _channel_hash = this->_hash_seed == 0 ? 0 : VW::uniform_hash("", 0, this->_hash_seed);
-      _ae->feature_space[_index].start_ns_extent(_channel_hash);
-      did_start_extent = true;
       list_features();
     }
     else if (_line[_read_idx] != ':')
     {
       // NameSpace --> NameSpaceInfo ListFeatures
       name_space_info();
-      _ae->feature_space[_index].start_ns_extent(_channel_hash);
-      did_start_extent = true;
       list_features();
     }
     else
@@ -411,9 +404,6 @@ private:
     }
 
     if (_new_index && _ae->feature_space[_index].size() > 0) { _ae->indices.push_back(_index); }
-
-    // If the namespace was empty this will handle it internally.
-    if (did_start_extent) { _ae->feature_space[_index].end_ns_extent(); }
   }
 
   inline FORCE_INLINE void list_name_space()

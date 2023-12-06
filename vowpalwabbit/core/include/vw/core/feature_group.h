@@ -56,9 +56,6 @@ inline std::string to_string(const audit_strings& ai)
   return ss.str();
 }
 
-// First: character based feature group, second: hash of extent
-using extent_term = std::pair<namespace_index, uint64_t>;
-
 // sparse feature definition for the library interface
 class feature
 {
@@ -76,35 +73,8 @@ public:
 };
 static_assert(std::is_trivial<feature>::value, "To be used in v_array feature must be trivial");
 
-class namespace_extent
-{
-public:
-  namespace_extent() = default;
-
-  namespace_extent(size_t begin_index, size_t end_index, uint64_t hash)
-      : begin_index(begin_index), end_index(end_index), hash(hash)
-  {
-  }
-
-  namespace_extent(size_t begin_index, uint64_t hash) : begin_index(begin_index), hash(hash) {}
-
-  size_t begin_index = 0;
-  size_t end_index = 0;
-  uint64_t hash = 0;
-
-  friend bool operator==(const namespace_extent& lhs, const namespace_extent& rhs)
-  {
-    return lhs.hash == rhs.hash && lhs.begin_index == rhs.begin_index && lhs.end_index == rhs.end_index;
-  }
-  friend bool operator!=(const namespace_extent& lhs, const namespace_extent& rhs) { return !(lhs == rhs); }
-};
 namespace details
 {
-std::vector<std::pair<bool, uint64_t>> flatten_namespace_extents(
-    const std::vector<namespace_extent>& extents, size_t overall_feature_space_size);
-
-std::vector<namespace_extent> unflatten_namespace_extents(const std::vector<std::pair<bool, uint64_t>>& extents);
-
 template <typename feature_value_type_t, typename feature_index_type_t, typename audit_type_t>
 class audit_features_iterator final
 {
@@ -237,63 +207,6 @@ private:
   audit_type_t* _begin_audit;
 };
 
-template <typename features_t, typename audit_features_iterator_t, typename extent_it>
-class ns_extent_iterator final
-{
-public:
-  ns_extent_iterator(features_t* feature_group, uint64_t hash, extent_it index_current)
-      : _feature_group(feature_group), _hash(hash), _index_current(index_current)
-  {
-    // Seek to the first valid position.
-    while (_index_current != _feature_group->namespace_extents.end() && _index_current->hash != _hash)
-    {
-      ++_index_current;
-    }
-  }
-
-  using iterator_category = std::forward_iterator_tag;
-  using difference_type = std::ptrdiff_t;
-  using value_type = std::pair<audit_features_iterator_t, audit_features_iterator_t>;
-  using pointer = value_type*;
-  using reference = value_type&;
-  using const_reference = const value_type&;
-  std::pair<audit_features_iterator_t, audit_features_iterator_t> operator*()
-  {
-    return std::make_pair(_feature_group->audit_begin() + _index_current->begin_index,
-        _feature_group->audit_begin() + _index_current->end_index);
-  }
-  std::pair<audit_features_iterator_t, audit_features_iterator_t> operator*() const
-  {
-    return std::make_pair(_feature_group->audit_begin() + _index_current->begin_index,
-        _feature_group->audit_begin() + _index_current->end_index);
-  }
-
-  // Required for forward_iterator
-  ns_extent_iterator& operator++()
-  {
-    ++_index_current;
-    while (_index_current != _feature_group->namespace_extents.end() && _index_current->hash != _hash)
-    {
-      ++_index_current;
-    }
-
-    return *this;
-  }
-
-  friend bool operator==(const ns_extent_iterator& lhs, const ns_extent_iterator& rhs)
-  {
-    return lhs._feature_group == rhs._feature_group && lhs._index_current == rhs._index_current;
-  }
-
-  friend bool operator!=(const ns_extent_iterator& lhs, const ns_extent_iterator& rhs) { return !(lhs == rhs); }
-  friend class ::VW::features;
-
-private:
-  features_t* _feature_group;
-  uint64_t _hash;
-  extent_it _index_current;
-};
-
 template <typename feature_value_type_t, typename feature_index_type_t>
 class features_iterator final
 {
@@ -414,19 +327,10 @@ public:
   using audit_iterator = details::audit_features_iterator<feature_value, feature_index, VW::audit_strings>;
   using const_audit_iterator =
       details::audit_features_iterator<const feature_value, const feature_index, const VW::audit_strings>;
-  using extent_iterator =
-      details::ns_extent_iterator<features, audit_iterator, std::vector<VW::namespace_extent>::iterator>;
-  using const_extent_iterator = details::ns_extent_iterator<const features, const_audit_iterator,
-      std::vector<VW::namespace_extent>::const_iterator>;
 
   VW::v_array<feature_value> values;           // Always needed.
   VW::v_array<feature_index> indices;          // Optional for sparse data.
   std::vector<VW::audit_strings> space_names;  // Optional for audit mode.
-
-  // Each extent represents a range [begin, end) of values which exist in a
-  // given namespace. These extents must not overlap and the indices must not go
-  // outside the range of the values container.
-  std::vector<VW::namespace_extent> namespace_extents;
 
   float sum_feat_sq = 0.f;
 
@@ -471,21 +375,6 @@ public:
     return {values.end(), indices.end(), space_names.data() + space_names.size()};
   }
 
-  extent_iterator hash_extents_begin(uint64_t hash) { return {this, hash, namespace_extents.begin()}; }
-  const_extent_iterator hash_extents_begin(uint64_t hash) const { return {this, hash, namespace_extents.begin()}; }
-  extent_iterator hash_extents_end(uint64_t hash) { return {this, hash, namespace_extents.end()}; }
-  const_extent_iterator hash_extents_end(uint64_t hash) const { return {this, hash, namespace_extents.end()}; }
-
-  template <typename FuncT>
-  void foreach_feature_for_hash(uint64_t hash, const FuncT& func) const
-  {
-    for (auto it = hash_extents_begin(hash); it != hash_extents_end(hash); ++it)
-    {
-      auto this_range = *it;
-      for (auto inner_begin = this_range.first; inner_begin != this_range.second; ++inner_begin) { func(inner_begin); }
-    }
-  }
-
   void clear();
   // These 3 overloads can be used if the sum_feat_sq of the removed section is known to avoid recalculating.
   void truncate_to(const audit_iterator& pos, float sum_feat_sq_of_removed_section);
@@ -498,17 +387,6 @@ public:
   void push_back(feature_value v, feature_index i);
   void push_back(feature_value v, feature_index i, uint64_t ns_hash);
   bool sort(uint64_t parse_mask);
-
-  void start_ns_extent(uint64_t hash);
-  void end_ns_extent();
-
-  bool validate_extents()
-  {
-    // For an extent to be complete it must not have an end index of 0 and it must be > 0 in width.
-    const auto all_extents_complete = std::all_of(namespace_extents.begin(), namespace_extents.end(),
-        [](const VW::namespace_extent& obj) { return obj.begin_index < obj.end_index; });
-    return all_extents_complete;
-  }
 };
 
 /// Both fs1 and fs2 must be sorted.
@@ -519,7 +397,6 @@ float features_dot_product(const features& fs1, const features& fs2);
 using feature_value VW_DEPRECATED("Moved into VW namespace. Will be removed in VW 10.") = VW::feature_value;
 using feature_index VW_DEPRECATED("Moved into VW namespace. Will be removed in VW 10.") = VW::feature_index;
 using namespace_index VW_DEPRECATED("Moved into VW namespace. Will be removed in VW 10.") = VW::namespace_index;
-using extent_term VW_DEPRECATED("Moved into VW namespace. Will be removed in VW 10.") = VW::extent_term;
 using audit_strings VW_DEPRECATED("Moved into VW namespace. Will be removed in VW 10.") = VW::audit_strings;
 using features VW_DEPRECATED("Moved into VW namespace. Will be removed in VW 10.") = VW::features;
 using feature VW_DEPRECATED("Moved into VW namespace. Will be removed in VW 10.") = VW::feature;

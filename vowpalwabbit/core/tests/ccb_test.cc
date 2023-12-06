@@ -139,8 +139,7 @@ TEST(Ccb, InsertInteractionsImplTest)
   auto pre_result = interaction_vec_t_to_set(vw->feature_tweaks_config.interactions);
   EXPECT_THAT(pre_result, testing::ContainerEq(expected_before));
 
-  VW::reductions::ccb::insert_ccb_interactions(
-      vw->feature_tweaks_config.interactions, vw->feature_tweaks_config.extent_interactions);
+  VW::reductions::ccb::insert_ccb_interactions(vw->feature_tweaks_config.interactions);
   auto result = interaction_vec_t_to_set(vw->feature_tweaks_config.interactions);
 
   EXPECT_THAT(result, testing::ContainerEq(expected_after));

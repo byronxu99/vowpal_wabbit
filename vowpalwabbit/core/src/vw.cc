@@ -728,11 +728,6 @@ void VW::setup_example(VW::workspace& all, VW::example* ae)
         all.parser_runtime.example_parser->cache_temp_buffer_obj);
   }
 
-  // Require all extents to be complete in an VW::example.
-#ifndef NDEBUG
-  for (auto& fg : *ae) { assert(fg.validate_extents()); }
-#endif
-
   ae->partial_prediction = 0.;
   ae->num_features = 0;
   ae->reset_total_sum_feat_sq();
@@ -800,7 +795,6 @@ void VW::setup_example(VW::workspace& all, VW::example* ae)
 
   // Set the interactions for this example to the global set.
   ae->interactions = &all.feature_tweaks_config.interactions;
-  ae->extent_interactions = &all.feature_tweaks_config.extent_interactions;
 }
 
 VW::example* VW::new_unused_example(VW::workspace& all)
@@ -1005,7 +999,6 @@ void VW::copy_example_data(example* dst, const example* src)
   dst->_total_sum_feat_sq_calculated = src->_total_sum_feat_sq_calculated;
   dst->_use_permutations = src->_use_permutations;
   dst->interactions = src->interactions;
-  dst->extent_interactions = src->extent_interactions;
   dst->debug_current_reduction_depth = src->debug_current_reduction_depth;
 }
 

@@ -503,6 +503,7 @@ std::vector<VW::namespace_index> parse_char_interactions(VW::string_view input, 
   return result;
 }
 
+/*
 std::vector<VW::extent_term> VW::details::parse_full_name_interactions(VW::workspace& all, VW::string_view str)
 {
   std::vector<extent_term> result;
@@ -531,6 +532,7 @@ std::vector<VW::extent_term> VW::details::parse_full_name_interactions(VW::works
   }
   return result;
 }
+*/
 
 void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interactions_settings_duplicated,
     std::vector<std::string>& dictionary_nses)
@@ -790,6 +792,7 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
     all.feature_tweaks_config.interactions = std::move(decoded_interactions);
   }
 
+  /*
   if (options.was_supplied("experimental_full_name_interactions"))
   {
     for (const auto& i : full_name_interactions)
@@ -809,6 +812,7 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
           all.feature_tweaks_config.extent_interactions.end());
     }
   }
+  */
 
   for (size_t i = 0; i < VW::NUM_NAMESPACES; i++)
   {

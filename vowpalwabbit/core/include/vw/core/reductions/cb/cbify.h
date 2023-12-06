@@ -22,8 +22,7 @@ public:
   size_t feature_width_below = 0;
   uint64_t custom_index_mask = 0;
 
-  void init_adf_data(std::size_t num_actions, std::vector<std::vector<VW::namespace_index>>& interactions,
-      std::vector<std::vector<extent_term>>& extent_interactions);
+  void init_adf_data(std::size_t num_actions, std::vector<std::vector<VW::namespace_index>>& interactions);
 
   void copy_example_to_adf(VW::example& ec);
 

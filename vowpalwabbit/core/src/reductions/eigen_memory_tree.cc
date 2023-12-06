@@ -170,9 +170,7 @@ emt_tree::emt_tree(VW::workspace* all, std::shared_ptr<VW::rand_state> random_st
   // we will populate this examples features over and over.
   ex = VW::make_unique<VW::example>();
   empty_interactions_for_ex = VW::make_unique<std::vector<std::vector<VW::namespace_index>>>();
-  empty_extent_interactions_for_ex = VW::make_unique<std::vector<std::vector<extent_term>>>();
   ex->interactions = empty_interactions_for_ex.get();
-  ex->extent_interactions = empty_extent_interactions_for_ex.get();
   ex->indices.push_back(0);
 }
 ////////////////////////end of definitions/////////////////

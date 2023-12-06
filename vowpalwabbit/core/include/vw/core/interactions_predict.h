@@ -81,19 +81,6 @@ inline bool has_empty_interaction(const std::array<VW::features, VW::NUM_NAMESPA
   return std::any_of(namespace_indexes.begin(), namespace_indexes.end(),
       [&](VW::namespace_index idx) { return term_is_empty(idx, feature_groups); });
 }
-inline bool has_empty_interaction(const std::array<VW::features, VW::NUM_NAMESPACES>& feature_groups,
-    const std::vector<VW::extent_term>& namespace_indexes)
-{
-  return std::any_of(namespace_indexes.begin(), namespace_indexes.end(),
-      [&](VW::extent_term idx)
-      {
-        return std::find_if(feature_groups[idx.first].namespace_extents.begin(),
-                   feature_groups[idx.first].namespace_extents.end(),
-                   [&idx](const VW::namespace_extent& extent) {
-                     return idx.second == extent.hash && ((extent.end_index - extent.begin_index) > 0);
-                   }) == feature_groups[idx.first].namespace_extents.end();
-      });
-}
 
 // The inline function below may be adjusted to change the way
 // synthetic (interaction) features' values are calculated, e.g.,
@@ -122,73 +109,6 @@ std::tuple<VW::details::features_range_t, VW::details::features_range_t> inline 
 {
   return {std::make_tuple(std::make_pair(feature_groups[ns_idx1].audit_begin(), feature_groups[ns_idx1].audit_end()),
       std::make_pair(feature_groups[ns_idx2].audit_begin(), feature_groups[ns_idx2].audit_end()))};
-}
-
-template <typename DispatchCombinationFuncT>
-void generate_generic_extent_combination_iterative(const std::array<VW::features, VW::NUM_NAMESPACES>& feature_groups,
-    const std::vector<VW::extent_term>& terms, const DispatchCombinationFuncT& dispatch_combination_func,
-    std::stack<VW::details::extent_interaction_expansion_stack_item>& in_process_frames,
-    VW::moved_object_pool<VW::details::extent_interaction_expansion_stack_item>& frame_pool)
-{
-  while (!in_process_frames.empty()) { in_process_frames.pop(); }
-
-  // Add an inner scope to deal with name clashes.
-  {
-    const auto& current_term = terms[0];
-    const auto& current_fg = feature_groups[current_term.first];
-    size_t i = 0;
-    for (auto it = current_fg.hash_extents_begin(current_term.second);
-         it != current_fg.hash_extents_end(current_term.second); ++it)
-    {
-      in_process_frames.emplace();
-      frame_pool.acquire_object(in_process_frames.top());
-      auto& new_item = in_process_frames.top();
-      new_item.current_term = 1;
-      new_item.prev_term = 0;
-      new_item.offset = i;
-      new_item.so_far.push_back(*it);
-      i++;
-    }
-  }
-
-  while (!in_process_frames.empty())
-  {
-    auto top = std::move(in_process_frames.top());
-    in_process_frames.pop();
-
-    const auto& current_term = terms[top.current_term];
-    const auto& prev_term = terms[top.prev_term];
-    const auto& current_fg = feature_groups[current_term.first];
-
-    auto it = current_fg.hash_extents_begin(current_term.second);
-    if (prev_term == current_term) { std::advance(it, top.offset); }
-    else { top.offset = 0; }
-    size_t i = 0;
-    auto end = current_fg.hash_extents_end(current_term.second);
-    for (; it != end; ++it)
-    {
-      if (top.current_term == terms.size() - 1)
-      {
-        top.so_far.emplace_back(*it);
-        dispatch_combination_func(top.so_far);
-        top.so_far.pop_back();
-      }
-      else
-      {
-        in_process_frames.emplace();
-        frame_pool.acquire_object(in_process_frames.top());
-        auto& new_item = in_process_frames.top();
-        new_item.current_term = top.current_term + 1;
-        new_item.prev_term = top.current_term;
-        new_item.offset = top.offset + i;
-        new_item.so_far.insert(new_item.so_far.end(), top.so_far.begin(), top.so_far.end());
-        new_item.so_far.push_back(*it);
-      }
-      i++;
-    }
-    top.so_far.clear();
-    frame_pool.reclaim_object(std::move(top));
-  }
 }
 
 std::tuple<VW::details::features_range_t, VW::details::features_range_t,
@@ -424,9 +344,8 @@ size_t process_generic_interaction(const std::vector<VW::details::features_range
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), bool audit,
     void (*audit_func)(DataT&, const VW::audit_strings*),
     class WeightsT>  // nullptr func can't be used as template param in old compilers
-inline void generate_interactions(const std::vector<std::vector<VW::namespace_index>>& interactions,
-    const std::vector<std::vector<VW::extent_term>>& extent_interactions, bool permutations, VW::example_predict& ec,
-    DataT& dat, WeightsT& weights, size_t& num_features,
+inline void generate_interactions(const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations,
+    VW::example_predict& ec, DataT& dat, WeightsT& weights, size_t& num_features,
     VW::details::generate_interactions_object_cache&
         cache)  // default value removed to eliminate ambiguity in old complers
 {
@@ -476,40 +395,6 @@ inline void generate_interactions(const std::vector<std::vector<VW::namespace_in
               permutations, inner_kernel_func, depth_audit_func, cache.state_data);
     }
   }
-
-  for (const auto& ns : extent_interactions)
-  {
-    if (details::has_empty_interaction(ec.feature_space, ns)) { continue; }
-    if (std::any_of(ns.begin(), ns.end(),
-            [](const VW::extent_term& term) { return term.first == VW::details::WILDCARD_NAMESPACE; }))
-    {
-      continue;
-    }
-
-    details::generate_generic_extent_combination_iterative(
-        ec.feature_space, ns,
-        [&](const std::vector<VW::details::features_range_t>& combination)
-        {
-          const size_t len = ns.size();
-          if (len == 2)
-          {
-            num_features += details::process_quadratic_interaction<audit>(
-                std::make_tuple(combination[0], combination[1]), permutations, inner_kernel_func, depth_audit_func);
-          }
-          else if (len == 3)
-          {
-            num_features += details::process_cubic_interaction<audit>(
-                std::make_tuple(combination[0], combination[1], combination[2]), permutations, inner_kernel_func,
-                depth_audit_func);
-          }
-          else
-          {
-            num_features += details::process_generic_interaction<audit>(
-                combination, permutations, inner_kernel_func, depth_audit_func, cache.state_data);
-          }
-        },
-        cache.in_process_frames, cache.frame_pool);
-  }
 }  // foreach interaction in all.feature_tweaks_config.interactions
 
 }  // namespace VW
@@ -521,13 +406,12 @@ template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_v
     void (*audit_func)(DataT&, const VW::audit_strings*),
     class WeightsT>  // nullptr func can't be used as template param in old compilers
 VW_DEPRECATED("Moved into VW namespace") inline void generate_interactions(
-    const std::vector<std::vector<VW::namespace_index>>& interactions,
-    const std::vector<std::vector<VW::extent_term>>& extent_interactions, bool permutations, VW::example_predict& ec,
+    const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations, VW::example_predict& ec,
     DataT& dat, WeightsT& weights, size_t& num_features,
     VW::details::generate_interactions_object_cache&
         cache)  // default value removed to eliminate ambiguity in old complers
 {
   VW::generate_interactions<DataT, WeightOrIndexT, FuncT, audit, audit_func, WeightsT>(
-      interactions, extent_interactions, permutations, ec, dat, weights, num_features, cache);
+      interactions, permutations, ec, dat, weights, num_features, cache);
 }
 }  // namespace INTERACTIONS

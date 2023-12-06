@@ -67,7 +67,6 @@ public:
   std::vector<std::vector<namespace_index>>* interactions = nullptr;
 
   // Optional
-  std::vector<std::vector<extent_term>>* extent_interactions = nullptr;
   reduction_features ex_reduction_features;
 
   // Used for debugging reductions.  Keeps track of current reduction level.

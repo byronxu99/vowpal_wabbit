@@ -101,8 +101,6 @@ bool two_pass_svd_impl::generate_Y(const multi_ex& examples, const std::vector<f
             _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_some_linear,
             _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
-            (red_features.generated_extent_interactions ? *red_features.generated_extent_interactions
-                                                        : *ex->extent_interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);
       }
@@ -114,8 +112,6 @@ bool two_pass_svd_impl::generate_Y(const multi_ex& examples, const std::vector<f
             _all->weights.dense_weights, _all->feature_tweaks_config.ignore_some_linear,
             _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
-            (red_features.generated_extent_interactions ? *red_features.generated_extent_interactions
-                                                        : *ex->extent_interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);
       }
@@ -161,8 +157,6 @@ void two_pass_svd_impl::generate_B(const multi_ex& examples, const std::vector<f
             _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_some_linear,
             _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
-            (red_features.generated_extent_interactions ? *red_features.generated_extent_interactions
-                                                        : *ex->extent_interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);
       }
@@ -173,8 +167,6 @@ void two_pass_svd_impl::generate_B(const multi_ex& examples, const std::vector<f
             _all->weights.dense_weights, _all->feature_tweaks_config.ignore_some_linear,
             _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
-            (red_features.generated_extent_interactions ? *red_features.generated_extent_interactions
-                                                        : *ex->extent_interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);
       }

@@ -76,8 +76,6 @@ bool _test_only_generate_A(VW::workspace* _all, const multi_ex& examples, std::v
           _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_some_linear,
           _all->feature_tweaks_config.ignore_linear,
           (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
-          (red_features.generated_extent_interactions ? *red_features.generated_extent_interactions
-                                                      : *ex->extent_interactions),
           _all->feature_tweaks_config.permutations, *ex, w,
           _all->runtime_state.generate_interactions_object_cache_state);
     }
@@ -89,8 +87,6 @@ bool _test_only_generate_A(VW::workspace* _all, const multi_ex& examples, std::v
           _all->weights.dense_weights, _all->feature_tweaks_config.ignore_some_linear,
           _all->feature_tweaks_config.ignore_linear,
           (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
-          (red_features.generated_extent_interactions ? *red_features.generated_extent_interactions
-                                                      : *ex->extent_interactions),
           _all->feature_tweaks_config.permutations, *ex, w,
           _all->runtime_state.generate_interactions_object_cache_state);
     }
@@ -384,9 +380,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::cb_explore_adf_large_actio
 
   if (options.was_supplied("squarecb")) { apply_shrink_factor = true; }
 
-  if (use_simd_in_one_pass_svd_impl &&
-      (options.was_supplied("cubic") || options.was_supplied("interactions") ||
-          options.was_supplied("experimental_full_name_interactions")))
+  if (use_simd_in_one_pass_svd_impl && (options.was_supplied("cubic") || options.was_supplied("interactions")))
   {
     all.logger.err_warn(
         "Large action space with SIMD only supports quadratic interactions for now. Using scalar code path.");

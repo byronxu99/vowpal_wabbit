@@ -27,23 +27,6 @@ void for_each_value(
   for (auto value : feature_spaces[term].values) { func(value); }
 }
 
-template <typename FuncT>
-void for_each_value(
-    const std::array<VW::features, VW::NUM_NAMESPACES>& feature_spaces, VW::extent_term term, const FuncT& func)
-{
-  feature_spaces[term.first].foreach_feature_for_hash(
-      term.second, [&](VW::features::const_audit_iterator it) { func(it.value()); });
-}
-
-float calc_sum_ft_squared_for_term(
-    const std::array<VW::features, VW::NUM_NAMESPACES>& feature_spaces, VW::extent_term term)
-{
-  float sum_feat_sq_in_inter = 0.f;
-  feature_spaces[term.first].foreach_feature_for_hash(
-      term.second, [&](VW::features::const_audit_iterator it) { sum_feat_sq_in_inter += it.value() * it.value(); });
-  return sum_feat_sq_in_inter;
-}
-
 float calc_sum_ft_squared_for_term(
     const std::array<VW::features, VW::NUM_NAMESPACES>& feature_spaces, VW::namespace_index term)
 {
@@ -125,21 +108,12 @@ float calculate_count_and_sum_ft_sq_for_combinations(const std::array<VW::featur
 // returns number of new features that will be generated for example and sum of their squared values
 float VW::eval_sum_ft_squared_of_generated_ft(bool permutations,
     const std::vector<std::vector<VW::namespace_index>>& interactions,
-    const std::vector<std::vector<VW::extent_term>>& extent_interactions,
     const std::array<VW::features, VW::NUM_NAMESPACES>& feature_spaces)
 {
   float sum_ft_sq = 0.f;
 
-  if (permutations)
-  {
-    sum_ft_sq += calculate_count_and_sum_ft_sq_for_permutations(feature_spaces, interactions);
-    sum_ft_sq += calculate_count_and_sum_ft_sq_for_permutations(feature_spaces, extent_interactions);
-  }
-  else
-  {
-    sum_ft_sq += calculate_count_and_sum_ft_sq_for_combinations(feature_spaces, interactions);
-    sum_ft_sq += calculate_count_and_sum_ft_sq_for_combinations(feature_spaces, extent_interactions);
-  }
+  if (permutations) { sum_ft_sq += calculate_count_and_sum_ft_sq_for_permutations(feature_spaces, interactions); }
+  else { sum_ft_sq += calculate_count_and_sum_ft_sq_for_combinations(feature_spaces, interactions); }
   return sum_ft_sq;
 }
 
