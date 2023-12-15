@@ -513,7 +513,10 @@ void scorer_features(const emt_feats& f1, const emt_feats& f2, VW::features& out
     }
     else
     {
-      if (iter1->second != iter2->second) { out.add_feature_raw(iter1->first, std::abs(iter1->second - iter2->second)); }
+      if (iter1->second != iter2->second)
+      {
+        out.add_feature_raw(iter1->first, std::abs(iter1->second - iter2->second));
+      }
       iter1++;
       iter2++;
     }

@@ -116,8 +116,7 @@ float mf_predict(gdmf& d, VW::example& ec, T& weights)
   for (const auto& i : d.all->feature_tweaks_config.interactions)
   {
     if (i.size() != 2) THROW("can only use pairs in matrix factorization");
-    const auto interacted_count =
-        ec[i[0]].size() * ec[i[1]].size();
+    const auto interacted_count = ec[i[0]].size() * ec[i[1]].size();
     ec.num_features -= interacted_count;
     ec.num_features += ec[i[0]].size() * d.rank;
     ec.num_features += ec[i[1]].size() * d.rank;
@@ -155,8 +154,7 @@ float mf_predict(gdmf& d, VW::example& ec, T& weights)
         // float x_dot_l = sd_offset_add(weights, ec.atomics[(int)(*i)[0]].begin(), ec.atomics[(int)(*i)[0]].end(), k);
         pred_offset x_dot_l = {0., k};
         // Offset to foreach_feature() function should be 0 because it is specified in pred_offset instead
-        VW::foreach_feature<pred_offset, offset_add, T>(
-            weights, ec[i[0]], x_dot_l, ec.ft_index_scale, 0);
+        VW::foreach_feature<pred_offset, offset_add, T>(weights, ec[i[0]], x_dot_l, ec.ft_index_scale, 0);
 
         // x_r * r^k
         // r^k is from index+d.rank+1 to index+2*d.rank
@@ -164,8 +162,7 @@ float mf_predict(gdmf& d, VW::example& ec, T& weights)
         // k+d.rank);
         pred_offset x_dot_r = {0., k + d.rank};
         // Offset to foreach_feature() function should be 0 because it is specified in pred_offset instead
-        VW::foreach_feature<pred_offset, offset_add, T>(
-            weights, ec[i[1]], x_dot_r, ec.ft_index_scale, 0);
+        VW::foreach_feature<pred_offset, offset_add, T>(weights, ec[i[1]], x_dot_r, ec.ft_index_scale, 0);
 
         prediction += x_dot_l.p * x_dot_r.p;
 
@@ -241,8 +238,7 @@ void mf_train(gdmf& d, VW::example& ec, T& weights)
         // r^k \cdot x_r
         float r_dot_x = d.scalars[2 * k];
         // l^k <- l^k + update * (r^k \cdot x_r) * x_l
-        sd_offset_update<T>(
-            weights, ec[i[0]], ec.ft_index_scale, k, update * r_dot_x, regularization);
+        sd_offset_update<T>(weights, ec[i[0]], ec.ft_index_scale, k, update * r_dot_x, regularization);
       }
       // update r^k weights
       for (size_t k = 1; k <= d.rank; k++)
@@ -250,8 +246,7 @@ void mf_train(gdmf& d, VW::example& ec, T& weights)
         // l^k \cdot x_l
         float l_dot_x = d.scalars[2 * k - 1];
         // r^k <- r^k + update * (l^k \cdot x_l) * x_r
-        sd_offset_update<T>(weights, ec[i[1]], ec.ft_index_scale, k + d.rank,
-            update * l_dot_x, regularization);
+        sd_offset_update<T>(weights, ec[i[1]], ec.ft_index_scale, k + d.rank, update * l_dot_x, regularization);
       }
     }
   }

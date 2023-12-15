@@ -33,10 +33,7 @@ namespace_copy_guard::~namespace_copy_guard()
   if (_remove_ns) { _ex.delete_namespace(_ns); }
 }
 
-void namespace_copy_guard::feature_push_back(VW::feature_value v, VW::feature_index idx)
-{
-  _ex[_ns].push_back(v, idx);
-}
+void namespace_copy_guard::feature_push_back(VW::feature_value v, VW::feature_index idx) { _ex[_ns].push_back(v, idx); }
 
 feature_offset_guard::feature_offset_guard(VW::example_predict& ex, uint64_t ft_index_offset)
     : _ex(ex), _old_ft_index_offset(ex.ft_index_offset)

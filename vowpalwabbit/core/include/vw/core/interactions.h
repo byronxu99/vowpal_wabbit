@@ -38,9 +38,8 @@ inline bool contains_wildcard(const std::vector<VW::namespace_index>& interactio
 }
 
 // function estimates how many new features will be generated for example and their sum(value^2).
-float eval_sum_ft_squared_of_generated_ft(bool permutations,
-    const VW::interaction_spec_type& interactions,
-    const VW::feature_groups_type& feature_spaces);
+float eval_sum_ft_squared_of_generated_ft(
+    bool permutations, const VW::interaction_spec_type& interactions, const VW::feature_groups_type& feature_spaces);
 
 template <typename T>
 using generate_func_t = std::vector<std::vector<T>>(const std::unordered_set<T>& namespaces, size_t num_to_pick);
@@ -63,7 +62,8 @@ std::vector<T> indices_to_values_one_based(const std::vector<size_t>& indices, c
 }
 
 template <typename T>
-std::vector<T> indices_to_values_ignore_last_index(const std::vector<size_t>& indices, const std::unordered_set<T>& values)
+std::vector<T> indices_to_values_ignore_last_index(
+    const std::vector<size_t>& indices, const std::unordered_set<T>& values)
 {
   std::vector<T> result;
   result.reserve(indices.size() - 1);
@@ -320,8 +320,8 @@ public:
   bool store_in_reduction_features = false;
 
   template <generate_func_t<VW::namespace_index> generate_func, bool leave_duplicate_interactions>
-  void update_interactions_if_new_namespace_seen(const VW::interaction_spec_type& interactions,
-      const std::vector<VW::namespace_index>& new_example_namespaces)
+  void update_interactions_if_new_namespace_seen(
+      const VW::interaction_spec_type& interactions, const std::vector<VW::namespace_index>& new_example_namespaces)
   {
     auto prev_count = _all_seen_namespaces.size();
     _all_seen_namespaces.insert(new_example_namespaces.begin(), new_example_namespaces.end());
@@ -364,9 +364,8 @@ inline bool contains_wildcard(const std::vector<VW::namespace_index>& interactio
 }
 
 VW_DEPRECATED("Moved to VW namespace")
-inline float eval_sum_ft_squared_of_generated_ft(bool permutations,
-    const VW::interaction_spec_type& interactions,
-    const VW::feature_groups_type& feature_spaces)
+inline float eval_sum_ft_squared_of_generated_ft(
+    bool permutations, const VW::interaction_spec_type& interactions, const VW::feature_groups_type& feature_spaces)
 {
   return VW::eval_sum_ft_squared_of_generated_ft(permutations, interactions, feature_spaces);
 }

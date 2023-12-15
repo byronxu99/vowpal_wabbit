@@ -606,10 +606,7 @@ unsigned char ex_namespace(example_ptr ec, uint32_t ns) { return ec->indices[ns]
 
 uint32_t ex_num_features(example_ptr ec, unsigned char ns) { return (uint32_t)(*ec)[ns].size(); }
 
-feature_index ex_feature(example_ptr ec, unsigned char ns, uint32_t i)
-{
-  return (feature_index)(*ec)[ns].indices[i];
-}
+feature_index ex_feature(example_ptr ec, unsigned char ns, uint32_t i) { return (feature_index)(*ec)[ns].indices[i]; }
 
 float ex_feature_weight(example_ptr ec, unsigned char ns, uint32_t i) { return (*ec)[ns].values[i]; }
 
@@ -813,7 +810,10 @@ void unsetup_example(vw_ptr vwP, example_ptr ae)
 
   // if (ignore.empty() == false) and (invert_ignore_as_keep == false)
   // or (ignore.empty() == true) and (invert_ignore_as_keep == true)
-  if (all.feature_tweaks_config.ignore.empty() == all.feature_tweaks_config.invert_ignore_as_keep) { THROW("Cannot unsetup example when some namespaces are ignored"); }
+  if (all.feature_tweaks_config.ignore.empty() == all.feature_tweaks_config.invert_ignore_as_keep)
+  {
+    THROW("Cannot unsetup example when some namespaces are ignored");
+  }
 
   if (all.feature_tweaks_config.skip_gram_transformer != nullptr &&
       !all.feature_tweaks_config.skip_gram_transformer->get_initial_ngram_definitions().empty())

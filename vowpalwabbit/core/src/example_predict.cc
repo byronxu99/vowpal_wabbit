@@ -28,14 +28,8 @@ bool VW::example_predict::contains(const std::string& ns) const
 {
   // Handle special case for default namespace
   VW::namespace_index ns_index;
-  if (ns == VW::details::DEFAULT_NAMESPACE_STR)
-  {
-    ns_index = VW::details::DEFAULT_NAMESPACE;
-  }
-  else
-  {
-    ns_index = hash_namespace(ns);
-  }
+  if (ns == VW::details::DEFAULT_NAMESPACE_STR) { ns_index = VW::details::DEFAULT_NAMESPACE; }
+  else { ns_index = hash_namespace(ns); }
   return contains(ns_index);
 }
 
@@ -43,14 +37,8 @@ void VW::example_predict::delete_namespace(const std::string& ns)
 {
   // Handle special case for default namespace
   VW::namespace_index ns_index;
-  if (ns == VW::details::DEFAULT_NAMESPACE_STR)
-  {
-    ns_index = VW::details::DEFAULT_NAMESPACE;
-  }
-  else
-  {
-    ns_index = hash_namespace(ns);
-  }
+  if (ns == VW::details::DEFAULT_NAMESPACE_STR) { ns_index = VW::details::DEFAULT_NAMESPACE; }
+  else { ns_index = hash_namespace(ns); }
   delete_namespace(ns_index);
 }
 
@@ -58,7 +46,7 @@ VW::features& VW::example_predict::_initialize_namespace(namespace_index ns)
 {
   // operator[] will create a new namespace
   VW::features& ft = _feature_space[ns];
-  
+
   // Set namespace hash
   if (ns == VW::details::DEFAULT_NAMESPACE)
   {
@@ -163,24 +151,27 @@ bool VW::example_predict::invert_hash_namespace(VW::namespace_index hash, std::s
 VW::scope_exit_guard VW::example_predict::stash_features()
 {
   auto features_copy = _feature_space;
-  return VW::scope_exit_guard([this, features_copy = std::move(features_copy)]() mutable {
-    _feature_space = std::move(features_copy);
-    _is_set_feature_space_hash = false;
-  });
+  return VW::scope_exit_guard(
+      [this, features_copy = std::move(features_copy)]() mutable
+      {
+        _feature_space = std::move(features_copy);
+        _is_set_feature_space_hash = false;
+      });
 }
 
 VW::scope_exit_guard VW::example_predict::stash_interactions()
 {
   VW::interaction_spec_type interactions_copy = *interactions;
-  return VW::scope_exit_guard([this, interactions_copy = std::move(interactions_copy)]() mutable {
-    *interactions = std::move(interactions_copy);
-  });
+  return VW::scope_exit_guard([this, interactions_copy = std::move(interactions_copy)]() mutable
+      { *interactions = std::move(interactions_copy); });
 }
 
 VW::scope_exit_guard VW::example_predict::stash_scale_offset()
 {
-  return VW::scope_exit_guard([this, scale_copy = ft_index_scale, offset_copy = ft_index_offset]() mutable {
-    ft_index_scale = scale_copy;
-    ft_index_offset = offset_copy;
-  });
+  return VW::scope_exit_guard(
+      [this, scale_copy = ft_index_scale, offset_copy = ft_index_offset]() mutable
+      {
+        ft_index_scale = scale_copy;
+        ft_index_offset = offset_copy;
+      });
 }

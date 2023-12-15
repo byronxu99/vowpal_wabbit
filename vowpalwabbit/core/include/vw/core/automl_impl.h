@@ -30,8 +30,8 @@ public:
   estimator_impl _estimator;
   aml_estimator() : _estimator(estimator_impl()) {}
   aml_estimator(double tol_x, bool is_brentq, double alpha) : _estimator(estimator_impl(tol_x, is_brentq, alpha)) {}
-  aml_estimator(
-      estimator_impl sc, uint64_t config_index, bool eligible_to_inactivate, VW::interaction_spec_type& live_interactions)
+  aml_estimator(estimator_impl sc, uint64_t config_index, bool eligible_to_inactivate,
+      VW::interaction_spec_type& live_interactions)
       : _estimator(sc)
   {
     this->config_index = config_index;
@@ -121,7 +121,8 @@ public:
   config_oracle(uint64_t default_lease, priority_func calc_priority, const std::string& interaction_type,
       const std::string& oracle_type, std::shared_ptr<VW::rand_state>& rand_state, config_type conf_type);
 
-  void gen_configs(const VW::interaction_spec_type& champ_interactions, const std::map<namespace_index, uint64_t>& ns_counter);
+  void gen_configs(
+      const VW::interaction_spec_type& champ_interactions, const std::map<namespace_index, uint64_t>& ns_counter);
   bool insert_config(set_ns_list_t&& new_elements, const std::map<namespace_index, uint64_t>& ns_counter,
       VW::reductions::automl::config_type conf_type, bool allow_dups = false);
   bool repopulate_index_queue(const std::map<namespace_index, uint64_t>& ns_counter);
@@ -159,7 +160,8 @@ public:
   VW::interaction_spec_type total_space;
   std::shared_ptr<VW::rand_state> random_state;
   oracle_rand_impl(std::shared_ptr<VW::rand_state> random_state) : random_state(std::move(random_state)) {}
-  void gen_ns_groupings_at(const VW::interaction_spec_type& all_interactions, const size_t num, set_ns_list_t& copy_champ);
+  void gen_ns_groupings_at(
+      const VW::interaction_spec_type& all_interactions, const size_t num, set_ns_list_t& copy_champ);
 };
 class one_diff_impl
 {
@@ -182,7 +184,8 @@ public:
 class one_diff_inclusion_impl
 {
 public:
-  void gen_ns_groupings_at(const VW::interaction_spec_type& champ_interactions, const size_t num, set_ns_list_t& copy_champ);
+  void gen_ns_groupings_at(
+      const VW::interaction_spec_type& champ_interactions, const size_t num, set_ns_list_t& copy_champ);
   Iterator begin() { return Iterator(); }
   Iterator end(const VW::interaction_spec_type& all_interactions) { return Iterator(all_interactions.size()); }
 };
@@ -194,7 +197,8 @@ public:
   VW::interaction_spec_type total_space;
   std::shared_ptr<VW::rand_state> random_state;
   qbase_cubic(std::shared_ptr<VW::rand_state> random_state) : random_state(std::move(random_state)) {}
-  void gen_ns_groupings_at(const VW::interaction_spec_type& all_interactions, const size_t num, set_ns_list_t& copy_champ);
+  void gen_ns_groupings_at(
+      const VW::interaction_spec_type& all_interactions, const size_t num, set_ns_list_t& copy_champ);
 };
 
 template <typename config_oracle_impl, typename estimator_impl>

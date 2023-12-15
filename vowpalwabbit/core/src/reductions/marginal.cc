@@ -49,7 +49,9 @@ public:
       , update_before_learn(update_before_learn)
       , unweighted_marginals(unweighted_marginals)
       , compete(compete)
-      , m_all(all) {}
+      , m_all(all)
+  {
+  }
 
   float initial_numerator;
   float initial_denominator;

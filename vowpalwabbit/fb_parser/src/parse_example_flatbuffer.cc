@@ -9,8 +9,8 @@
 #include "vw/core/cb.h"
 #include "vw/core/constant.h"
 #include "vw/core/global_data.h"
-#include "vw/core/parser.h"
 #include "vw/core/parse_primitives.h"
+#include "vw/core/parser.h"
 
 #include <cfloat>
 #include <fstream>
@@ -198,16 +198,14 @@ void parser::parse_namespaces(VW::workspace* all, example* ae, const Namespace* 
   }
 }
 
-void parser::parse_features(VW::workspace* all, features& fs, const Feature* feature, const flatbuffers::String* ns_name, bool audit)
+void parser::parse_features(
+    VW::workspace* all, features& fs, const Feature* feature, const flatbuffers::String* ns_name, bool audit)
 {
   VW::feature_value fv = flatbuffers::IsFieldPresent(feature, Feature::VT_VALUE) ? feature->value() : 1.0f;
   if (flatbuffers::IsFieldPresent(feature, Feature::VT_NAME))
   {
     // If hash_all is specified, then we always treat the feature name as a string
-    if (all->parser_runtime.hash_all)
-    {
-      fs.add_feature(feature->name()->str(), fv, audit);
-    }
+    if (all->parser_runtime.hash_all) { fs.add_feature(feature->name()->str(), fv, audit); }
     // Otherwise we check if the string is an integer
     else
     {
@@ -222,10 +220,7 @@ void parser::parse_features(VW::workspace* all, features& fs, const Feature* fea
   else
   {
     fs.add_feature_raw(feature->hash(), fv);
-    if (audit && ns_name != nullptr)
-    {
-      fs.add_audit_string(ns_name->str());
-    }
+    if (audit && ns_name != nullptr) { fs.add_audit_string(ns_name->str()); }
   }
 }
 

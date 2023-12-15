@@ -322,7 +322,7 @@ void add_edge_features(Search::search& sch, task_data& D, size_t n, VW::multi_ex
       VW::foreach_feature<task_data, uint64_t, add_edge_features_group_fn>(sch.get_vw_pointer_unsafe(), edge, D);
     }
   }
-  
+
   VW::example& ecn = *ec[n];
   ecn.reset_total_sum_feat_sq();
   ecn.num_features += ecn[VW::details::NEIGHBOR_NAMESPACE].size();

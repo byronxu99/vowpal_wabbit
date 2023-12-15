@@ -93,8 +93,7 @@ VW::interaction_spec_type get_ik_interactions(
   {
     for (auto obs_ns : observation_ex)
     {
-      if (obs_ns == VW::details::DEFAULT_NAMESPACE)
-      { obs_ns = VW::details::IGL_FEEDBACK_NAMESPACE; }
+      if (obs_ns == VW::details::DEFAULT_NAMESPACE) { obs_ns = VW::details::IGL_FEEDBACK_NAMESPACE; }
 
       new_interactions.push_back(interaction);
       new_interactions.back().push_back(obs_ns);
@@ -323,8 +322,8 @@ void update_stats_igl(const VW::workspace& /* all */, VW::shared_data& sd, const
   {
     if (VW::ec_is_example_header_cb_with_observations(*example))
     {
-      num_features += (ec_seq.size() - 1) *
-          (example->get_num_features() - (*example)[VW::details::CONSTANT_NAMESPACE].size());
+      num_features +=
+          (ec_seq.size() - 1) * (example->get_num_features() - (*example)[VW::details::CONSTANT_NAMESPACE].size());
     }
     else { num_features += example->get_num_features(); }
   }

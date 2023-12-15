@@ -10,7 +10,7 @@
 #include "vw/core/reduction_features.h"
 #include "vw/core/scope_exit.h"
 #include "vw/core/v_array.h"
-#include "vw/core/vw_fwd.h" // for VW::namespace_index
+#include "vw/core/vw_fwd.h"  // for VW::namespace_index
 
 #include <string>
 #include <unordered_map>
@@ -53,19 +53,26 @@ public:
   inline NamespaceT index() { return _iter->first; }
   inline FeaturesT& features() { return _iter->second; }
 
-  inline bool operator==(const example_predict_iterator<NamespaceT, FeaturesT, IteratorT>& rhs) const { return _iter == rhs._iter; }
-  inline bool operator!=(const example_predict_iterator<NamespaceT, FeaturesT, IteratorT>& rhs) const { return _iter != rhs._iter; }
+  inline bool operator==(const example_predict_iterator<NamespaceT, FeaturesT, IteratorT>& rhs) const
+  {
+    return _iter == rhs._iter;
+  }
+  inline bool operator!=(const example_predict_iterator<NamespaceT, FeaturesT, IteratorT>& rhs) const
+  {
+    return _iter != rhs._iter;
+  }
 
 private:
   IteratorT _iter;
 };
-}
+}  // namespace details
 
 class example_predict
 {
 public:
   using iterator = details::example_predict_iterator<namespace_index, features, VW::feature_groups_type::iterator>;
-  using const_iterator = details::example_predict_iterator<const namespace_index, const features, VW::feature_groups_type::const_iterator>;
+  using const_iterator =
+      details::example_predict_iterator<const namespace_index, const features, VW::feature_groups_type::const_iterator>;
 
   example_predict() = default;
   ~example_predict() = default;
@@ -123,10 +130,10 @@ public:
   // Get the features for a namespace, const version.
   // This will throw an exception if the namespace doesn't exist.
   const features& operator[](const std::string& ns) const;
-  inline const features& operator[] (namespace_index ns) const { return _feature_space.at(ns); }
+  inline const features& operator[](namespace_index ns) const { return _feature_space.at(ns); }
 
   // Get all features
-  //inline feature_groups_type& feature_space() { return _feature_space; }
+  // inline feature_groups_type& feature_space() { return _feature_space; }
   inline const feature_groups_type& feature_space() const { return _feature_space; }
 
   // Get the string name of a namespace

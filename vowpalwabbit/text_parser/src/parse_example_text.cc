@@ -29,21 +29,22 @@ class tc_parser
 {
 private:
   // Parser state
-  VW::string_view _line; // String being parsed
-  size_t _read_idx; // Current index into _line
-  size_t _anon; // Counter for anonymous features
-  VW::namespace_index _namespace_index; // Index of current namespace being parsed
+  VW::string_view _line;                 // String being parsed
+  size_t _read_idx;                      // Current index into _line
+  size_t _anon;                          // Counter for anonymous features
+  VW::namespace_index _namespace_index;  // Index of current namespace being parsed
 
   // Pointers to global configuration data
   std::unordered_map<VW::namespace_index, std::string>* _redefine;
   std::unordered_map<VW::namespace_index, uint64_t>* _affix_features;
   std::unordered_set<VW::namespace_index>* _spelling_features;
   VW::v_array<char> _spelling;
-  std::unordered_map<VW::namespace_index, std::vector<std::shared_ptr<VW::details::feature_dict>>>* _namespace_dictionaries;
-  bool _hash_all; // if true, hash integer feature indices as strings
+  std::unordered_map<VW::namespace_index, std::vector<std::shared_ptr<VW::details::feature_dict>>>*
+      _namespace_dictionaries;
+  bool _hash_all;  // if true, hash integer feature indices as strings
 
   VW::parser* _p;
-  VW::example* _ae; // Parsed data written to this example
+  VW::example* _ae;  // Parsed data written to this example
   VW::io::logger* _logger;
 
   // TODO: Currently this function is called by both warning and error conditions. We only log
@@ -156,18 +157,12 @@ private:
         int_feature_index = _anon++;
       }
       // If _hash_all is set, always hash the feature index as a string
-      else if (_hash_all)
-      {
-        feature_index_is_int = false;
-      }
+      else if (_hash_all) { feature_index_is_int = false; }
       // Otherwise check if the feature index is an integer or string
       else
       {
         feature_index_is_int = VW::details::is_string_integer(str_feature_index);
-        if (feature_index_is_int)
-        {
-          int_feature_index = std::strtoll(str_feature_index.data(), nullptr, 10);
-        }
+        if (feature_index_is_int) { int_feature_index = std::strtoll(str_feature_index.data(), nullptr, 10); }
       }
 
       // Get the feature value
@@ -368,13 +363,10 @@ private:
         parser_warning("malformed example! String expected after : \"", _line.substr(0, _read_idx), "\"",
             _ae->example_counter, *_logger);
       }
-      
+
       // Check if the namespace is redefined
       auto ns_hash = _ae->hash_namespace(name);
-      if (_redefine->find(ns_hash) != _redefine->end())
-      {
-        name = (*_redefine)[ns_hash];
-      }
+      if (_redefine->find(ns_hash) != _redefine->end()) { name = (*_redefine)[ns_hash]; }
 
       // Check if there is a wildcard redefine
       else if (_redefine->find(VW::details::WILDCARD_NAMESPACE) != _redefine->end())
@@ -418,10 +410,7 @@ private:
         auto ns_name = (*_redefine)[VW::details::DEFAULT_NAMESPACE];
         _namespace_index = (*_ae)[ns_name].namespace_hash;
       }
-      else
-      {
-        _namespace_index = VW::details::DEFAULT_NAMESPACE;
-      }
+      else { _namespace_index = VW::details::DEFAULT_NAMESPACE; }
       list_features();
     }
     else if (_line[_read_idx] != ':')

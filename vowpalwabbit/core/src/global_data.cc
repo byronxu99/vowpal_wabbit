@@ -289,8 +289,8 @@ std::string workspace::dump_weights_to_json_experimental()
 }
 }  // namespace VW
 
-void VW::details::compile_limits(std::vector<std::string> limits, std::unordered_map<VW::namespace_index, uint32_t>& dest,
-    bool /*quiet*/, VW::io::logger& logger)
+void VW::details::compile_limits(std::vector<std::string> limits,
+    std::unordered_map<VW::namespace_index, uint32_t>& dest, bool /*quiet*/, VW::io::logger& logger)
 {
   for (size_t i = 0; i < limits.size(); i++)
   {

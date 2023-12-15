@@ -101,12 +101,12 @@ void initialize(Search::search& sch, size_t& /*num_actions*/, options_i& options
   if (data->one_learner) { sch.set_feature_width(1); }
   else { sch.set_feature_width(3); }
 
-  VW::interaction_spec_type newpairs{{'B', 'C'}, {'B', 'E'}, {'B', 'B'}, {'C', 'C'}, {'D', 'D'},
-      {'E', 'E'}, {'F', 'F'}, {'G', 'G'}, {'E', 'F'}, {'B', 'H'}, {'B', 'J'}, {'E', 'L'}, {'d', 'B'}, {'d', 'C'},
-      {'d', 'D'}, {'d', 'E'}, {'d', 'F'}, {'d', 'G'}, {'d', 'd'}};
-  VW::interaction_spec_type newtriples{{'E', 'F', 'G'}, {'B', 'E', 'F'}, {'B', 'C', 'E'},
-      {'B', 'C', 'D'}, {'B', 'E', 'L'}, {'E', 'L', 'M'}, {'B', 'H', 'I'}, {'B', 'C', 'C'}, {'B', 'E', 'J'},
-      {'B', 'E', 'H'}, {'B', 'J', 'K'}, {'B', 'E', 'N'}};
+  VW::interaction_spec_type newpairs{{'B', 'C'}, {'B', 'E'}, {'B', 'B'}, {'C', 'C'}, {'D', 'D'}, {'E', 'E'}, {'F', 'F'},
+      {'G', 'G'}, {'E', 'F'}, {'B', 'H'}, {'B', 'J'}, {'E', 'L'}, {'d', 'B'}, {'d', 'C'}, {'d', 'D'}, {'d', 'E'},
+      {'d', 'F'}, {'d', 'G'}, {'d', 'd'}};
+  VW::interaction_spec_type newtriples{{'E', 'F', 'G'}, {'B', 'E', 'F'}, {'B', 'C', 'E'}, {'B', 'C', 'D'},
+      {'B', 'E', 'L'}, {'E', 'L', 'M'}, {'B', 'H', 'I'}, {'B', 'C', 'C'}, {'B', 'E', 'J'}, {'B', 'E', 'H'},
+      {'B', 'J', 'K'}, {'B', 'E', 'N'}};
 
   all.feature_tweaks_config.interactions.clear();
   all.feature_tweaks_config.interactions.insert(

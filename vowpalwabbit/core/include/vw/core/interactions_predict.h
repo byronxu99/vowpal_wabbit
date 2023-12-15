@@ -61,15 +61,15 @@ inline bool term_is_empty(VW::namespace_index term, const VW::feature_groups_typ
   return iter == feature_groups.end() || iter->second.empty();
 }
 
-inline bool has_empty_interaction_quadratic(const VW::feature_groups_type& feature_groups,
-    const std::vector<VW::namespace_index>& namespace_indexes)
+inline bool has_empty_interaction_quadratic(
+    const VW::feature_groups_type& feature_groups, const std::vector<VW::namespace_index>& namespace_indexes)
 {
   assert(namespace_indexes.size() == 2);
   return term_is_empty(namespace_indexes[0], feature_groups) || term_is_empty(namespace_indexes[1], feature_groups);
 }
 
-inline bool has_empty_interaction_cubic(const VW::feature_groups_type& feature_groups,
-    const std::vector<VW::namespace_index>& namespace_indexes)
+inline bool has_empty_interaction_cubic(
+    const VW::feature_groups_type& feature_groups, const std::vector<VW::namespace_index>& namespace_indexes)
 {
   assert(namespace_indexes.size() == 3);
   return term_is_empty(namespace_indexes[0], feature_groups) || term_is_empty(namespace_indexes[1], feature_groups) ||
@@ -77,8 +77,8 @@ inline bool has_empty_interaction_cubic(const VW::feature_groups_type& feature_g
   ;
 }
 
-inline bool has_empty_interaction(const VW::feature_groups_type& feature_groups,
-    const std::vector<VW::namespace_index>& namespace_indexes)
+inline bool has_empty_interaction(
+    const VW::feature_groups_type& feature_groups, const std::vector<VW::namespace_index>& namespace_indexes)
 {
   return std::any_of(namespace_indexes.begin(), namespace_indexes.end(),
       [&](VW::namespace_index idx) { return term_is_empty(idx, feature_groups); });
@@ -109,13 +109,12 @@ constexpr inline VW::feature_index feature_to_weight_index(
 // Use const_cast to remove const-ness of feature_groups so we can use operator[]
 // If a namespace didn't exist, operator[] will create it and thus modify the feature group
 std::tuple<VW::details::features_range_t, VW::details::features_range_t> inline generate_quadratic_char_combination(
-    const VW::feature_groups_type& feature_groups, VW::namespace_index ns_idx1,
-    VW::namespace_index ns_idx2)
+    const VW::feature_groups_type& feature_groups, VW::namespace_index ns_idx1, VW::namespace_index ns_idx2)
 {
   const auto& ft1 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx1];
   const auto& ft2 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx2];
-  return {std::make_tuple(std::make_pair(ft1.audit_begin(), ft2.audit_end()),
-      std::make_pair(ft2.audit_begin(), ft2.audit_end()))};
+  return {std::make_tuple(
+      std::make_pair(ft1.audit_begin(), ft2.audit_end()), std::make_pair(ft2.audit_begin(), ft2.audit_end()))};
 }
 
 std::tuple<VW::details::features_range_t, VW::details::features_range_t,
@@ -126,8 +125,7 @@ std::tuple<VW::details::features_range_t, VW::details::features_range_t,
   const auto& ft2 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx2];
   const auto& ft3 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx3];
   return {std::make_tuple(std::make_pair(ft1.audit_begin(), ft1.audit_end()),
-              std::make_pair(ft2.audit_begin(), ft2.audit_end()),
-              std::make_pair(ft3.audit_begin(), ft3.audit_end()))};
+      std::make_pair(ft2.audit_begin(), ft2.audit_end()), std::make_pair(ft3.audit_begin(), ft3.audit_end()))};
 }
 
 std::vector<VW::details::features_range_t> inline generate_generic_char_combination(
@@ -384,8 +382,8 @@ inline void generate_interactions(const VW::interaction_spec_type& interactions,
       // Skip over any interaction with an empty namespace.
       if (details::has_empty_interaction_quadratic(ec.feature_space(), ns)) { continue; }
       num_features += details::process_quadratic_interaction<audit>(
-          details::generate_quadratic_char_combination(ec.feature_space(), ns[0], ns[1]), permutations, inner_kernel_func,
-          depth_audit_func);
+          details::generate_quadratic_char_combination(ec.feature_space(), ns[0], ns[1]), permutations,
+          inner_kernel_func, depth_audit_func);
     }
     else if (len == 3)  // special case for triples
     {
@@ -400,9 +398,9 @@ inline void generate_interactions(const VW::interaction_spec_type& interactions,
     {
       // Skip over any interaction with an empty namespace.
       if (details::has_empty_interaction(ec.feature_space(), ns)) { continue; }
-      num_features +=
-          details::process_generic_interaction<audit>(details::generate_generic_char_combination(ec.feature_space(), ns),
-              permutations, inner_kernel_func, depth_audit_func, cache.state_data);
+      num_features += details::process_generic_interaction<audit>(
+          details::generate_generic_char_combination(ec.feature_space(), ns), permutations, inner_kernel_func,
+          depth_audit_func, cache.state_data);
     }
   }
 }  // foreach interaction in all.feature_tweaks_config.interactions
@@ -416,8 +414,8 @@ template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_v
     void (*audit_func)(DataT&, const VW::audit_strings*),
     class WeightsT>  // nullptr func can't be used as template param in old compilers
 VW_DEPRECATED("Moved into VW namespace") inline void generate_interactions(
-    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
-    DataT& dat, WeightsT& weights, size_t& num_features,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec, DataT& dat,
+    WeightsT& weights, size_t& num_features,
     VW::details::generate_interactions_object_cache&
         cache)  // default value removed to eliminate ambiguity in old complers
 {

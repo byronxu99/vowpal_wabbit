@@ -20,14 +20,12 @@ using namespace VW::config;
 namespace
 {
 template <typename FuncT>
-void for_each_value(
-    const VW::feature_groups_type& feature_spaces, VW::namespace_index term, const FuncT& func)
+void for_each_value(const VW::feature_groups_type& feature_spaces, VW::namespace_index term, const FuncT& func)
 {
   for (auto value : feature_spaces[term].values) { func(value); }
 }
 
-float calc_sum_ft_squared_for_term(
-    const VW::feature_groups_type& feature_spaces, VW::namespace_index term)
+float calc_sum_ft_squared_for_term(const VW::feature_groups_type& feature_spaces, VW::namespace_index term)
 {
   auto iter = feature_spaces.find(term);
   if (iter == feature_spaces.end()) { return 0.f; }
@@ -35,8 +33,8 @@ float calc_sum_ft_squared_for_term(
 }
 
 template <typename InteractionTermT>
-float calculate_count_and_sum_ft_sq_for_permutations(const VW::feature_groups_type& feature_spaces,
-    const std::vector<std::vector<InteractionTermT>>& interactions)
+float calculate_count_and_sum_ft_sq_for_permutations(
+    const VW::feature_groups_type& feature_spaces, const std::vector<std::vector<InteractionTermT>>& interactions)
 {
   float sum_feat_sq_in_inter_outer = 0.;
   for (const auto& interaction : interactions)
@@ -50,8 +48,8 @@ float calculate_count_and_sum_ft_sq_for_permutations(const VW::feature_groups_ty
 }
 
 template <typename InteractionTermT>
-float calculate_count_and_sum_ft_sq_for_combinations(const VW::feature_groups_type& feature_spaces,
-    const std::vector<std::vector<InteractionTermT>>& interactions)
+float calculate_count_and_sum_ft_sq_for_combinations(
+    const VW::feature_groups_type& feature_spaces, const std::vector<std::vector<InteractionTermT>>& interactions)
 {
   std::vector<float> results;
 
@@ -107,9 +105,8 @@ float calculate_count_and_sum_ft_sq_for_combinations(const VW::feature_groups_ty
 }  // namespace
 
 // returns number of new features that will be generated for example and sum of their squared values
-float VW::eval_sum_ft_squared_of_generated_ft(bool permutations,
-    const VW::interaction_spec_type& interactions,
-    const VW::feature_groups_type& feature_spaces)
+float VW::eval_sum_ft_squared_of_generated_ft(
+    bool permutations, const VW::interaction_spec_type& interactions, const VW::feature_groups_type& feature_spaces)
 {
   float sum_ft_sq = 0.f;
 

@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <cstdint> // for uint64_t
+#include <cstdint>  // for uint64_t
 
 // forward declarations
 namespace VW

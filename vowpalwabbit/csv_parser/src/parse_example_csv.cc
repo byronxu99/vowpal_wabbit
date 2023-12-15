@@ -302,7 +302,6 @@ private:
         empty_line = empty_line && _csv_line[column_index].empty();
         parse_features(fs, column_index, audit);
       }
-
     }
     _ae->is_newline = empty_line;
   }

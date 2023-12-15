@@ -956,55 +956,56 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
           else
           {
             // wildcard found: redefine all except default and break
-            all.feature_tweaks_config.redefine[VW::details::WILDCARD_NAMESPACE] = new_namespace; }
-            break;  // break processing S
+            all.feature_tweaks_config.redefine[VW::details::WILDCARD_NAMESPACE] = new_namespace;
           }
+          break;  // break processing S
         }
       }
     }
   }
+}
 
-  if (options.was_supplied("dictionary"))
+if (options.was_supplied("dictionary"))
+{
+  if (options.was_supplied("dictionary_path"))
   {
-    if (options.was_supplied("dictionary_path"))
+    for (const std::string& path : dictionary_path)
     {
-      for (const std::string& path : dictionary_path)
-      {
-        if (directory_exists(path)) { all.feature_tweaks_config.dictionary_path.push_back(path); }
-      }
-    }
-    if (directory_exists(".")) { all.feature_tweaks_config.dictionary_path.emplace_back("."); }
-
-#if _WIN32
-    std::string path_env_var;
-    char* buf;
-    size_t buf_size;
-    auto err = _dupenv_s(&buf, &buf_size, "PATH");
-    if (!err && buf_size != 0)
-    {
-      path_env_var = std::string(buf, buf_size);
-      free(buf);
-    }
-    const char delimiter = ';';
-#else
-    const std::string path_env_var = getenv("PATH");
-    const char delimiter = ':';
-#endif
-    if (!path_env_var.empty())
-    {
-      size_t previous = 0;
-      size_t index = path_env_var.find(delimiter);
-      while (index != std::string::npos)
-      {
-        all.feature_tweaks_config.dictionary_path.push_back(path_env_var.substr(previous, index - previous));
-        previous = index + 1;
-        index = path_env_var.find(delimiter, previous);
-      }
-      all.feature_tweaks_config.dictionary_path.push_back(path_env_var.substr(previous));
+      if (directory_exists(path)) { all.feature_tweaks_config.dictionary_path.push_back(path); }
     }
   }
+  if (directory_exists(".")) { all.feature_tweaks_config.dictionary_path.emplace_back("."); }
 
-  if (noconstant) { all.feature_tweaks_config.add_constant = false; }
+#if _WIN32
+  std::string path_env_var;
+  char* buf;
+  size_t buf_size;
+  auto err = _dupenv_s(&buf, &buf_size, "PATH");
+  if (!err && buf_size != 0)
+  {
+    path_env_var = std::string(buf, buf_size);
+    free(buf);
+  }
+  const char delimiter = ';';
+#else
+  const std::string path_env_var = getenv("PATH");
+  const char delimiter = ':';
+#endif
+  if (!path_env_var.empty())
+  {
+    size_t previous = 0;
+    size_t index = path_env_var.find(delimiter);
+    while (index != std::string::npos)
+    {
+      all.feature_tweaks_config.dictionary_path.push_back(path_env_var.substr(previous, index - previous));
+      previous = index + 1;
+      index = path_env_var.find(delimiter, previous);
+    }
+    all.feature_tweaks_config.dictionary_path.push_back(path_env_var.substr(previous));
+  }
+}
+
+if (noconstant) { all.feature_tweaks_config.add_constant = false; }
 }
 
 void parse_example_tweaks(options_i& options, VW::workspace& all)

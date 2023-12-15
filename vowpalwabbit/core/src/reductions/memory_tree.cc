@@ -112,8 +112,8 @@ void diag_kronecker_product_test(VW::example& ec1, VW::example& ec2, VW::example
     else if (c1 > c2) { idx2++; }
     else
     {
-      diag_kronecker_prod_fs_test(ec1[c1], ec2[c2], ec[c1],
-          ec.total_sum_feat_sq, ec1.get_total_sum_feat_sq(), ec2.get_total_sum_feat_sq());
+      diag_kronecker_prod_fs_test(
+          ec1[c1], ec2[c2], ec[c1], ec.total_sum_feat_sq, ec1.get_total_sum_feat_sq(), ec2.get_total_sum_feat_sq());
       idx1++;
       idx2++;
     }

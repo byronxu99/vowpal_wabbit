@@ -72,8 +72,7 @@ void compute_wap_values(std::vector<VW::cs_class*> costs)
 // This is faster and allows fast undo in unsubtract_example().
 void subtract_feature(VW::example& ec, float feature_value_x, uint64_t weight_index)
 {
-  ec[VW::details::WAP_LDF_NAMESPACE].push_back(
-      -feature_value_x, weight_index, VW::details::WAP_LDF_NAMESPACE);
+  ec[VW::details::WAP_LDF_NAMESPACE].push_back(-feature_value_x, weight_index, VW::details::WAP_LDF_NAMESPACE);
 }
 
 // Iterate over all features of ecsub including quadratic and cubic features and subtract them from ec.
@@ -96,8 +95,7 @@ void unsubtract_example(VW::example* ec, VW::io::logger& logger)
 
   if (!ec->contains(VW::details::WAP_LDF_NAMESPACE))
   {
-    logger.err_error(
-        "Internal error (bug): trying to unsubtract_example, but WAP LDF namespace wasn't added");
+    logger.err_error("Internal error (bug): trying to unsubtract_example, but WAP LDF namespace wasn't added");
     return;
   }
 
@@ -474,8 +472,7 @@ size_t cs_count_features(const VW::multi_ex& ec_seq)
   {
     if (VW::is_cs_example_header(*ec))
     {
-      num_features +=
-          (ec_seq.size() - 1) * (ec->get_num_features() - ec[VW::details::CONSTANT_NAMESPACE].size());
+      num_features += (ec_seq.size() - 1) * (ec->get_num_features() - ec[VW::details::CONSTANT_NAMESPACE].size());
     }
     else { num_features += ec->get_num_features(); }
   }

@@ -34,8 +34,7 @@ namespace VW
 {
 namespace reductions
 {
-void cbify_adf_data::init_adf_data(
-    std::size_t num_actions_, VW::interaction_spec_type& interactions)
+void cbify_adf_data::init_adf_data(std::size_t num_actions_, VW::interaction_spec_type& interactions)
 {
   this->num_actions = num_actions_;
 

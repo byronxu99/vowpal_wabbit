@@ -949,8 +949,8 @@ TEST(ParseDsjson, CbWithObservations)
   // Shared example namespace
   // Shared example features and values
   EXPECT_EQ((*examples[0])['s'].indices.size(), 1);
-  EXPECT_EQ((*examples[0])['s'].indices[0],
-      VW::hash_feature(*vw, "shared_feature", VW::hash_namespace(*vw, "shared_ns")));
+  EXPECT_EQ(
+      (*examples[0])['s'].indices[0], VW::hash_feature(*vw, "shared_feature", VW::hash_namespace(*vw, "shared_ns")));
   EXPECT_EQ((*examples[0])['s'].values[0], 1);
 
   EXPECT_EQ((*examples[0])['o'].indices.size(), 1);
@@ -967,11 +967,10 @@ TEST(ParseDsjson, CbWithObservations)
   EXPECT_EQ(examples[3]->l.cb_with_observations.event.costs.size(), 0);
   // Compare action example namespace
   EXPECT_EQ((*examples[1])['b'].indices.size(), 2);
-  EXPECT_EQ(
-      (*examples[1])['b'].indices[0], VW::hash_feature(*vw, "c_feature", VW::hash_namespace(*vw, "b_action")));
+  EXPECT_EQ((*examples[1])['b'].indices[0], VW::hash_feature(*vw, "c_feature", VW::hash_namespace(*vw, "b_action")));
   EXPECT_EQ((*examples[1])['b'].values[0], 1);
-  EXPECT_EQ((*examples[1])['b'].indices[1],
-      VW::chain_hash(*vw, "d_feature", "strng", VW::hash_namespace(*vw, "b_action")));
+  EXPECT_EQ(
+      (*examples[1])['b'].indices[1], VW::chain_hash(*vw, "d_feature", "strng", VW::hash_namespace(*vw, "b_action")));
   EXPECT_EQ((*examples[1])['b'].values[1], 1);
 
   EXPECT_EQ((*examples[1])['c'].indices.size(), 1);
@@ -980,20 +979,18 @@ TEST(ParseDsjson, CbWithObservations)
   EXPECT_EQ((*examples[1])['c'].values[0], 1);
 
   EXPECT_EQ((*examples[1])['f'].indices.size(), 1);
-  EXPECT_EQ(
-      (*examples[1])['f'].indices[0], VW::hash_feature(*vw, "g_feature", VW::hash_namespace(*vw, "f_ns")));
+  EXPECT_EQ((*examples[1])['f'].indices[0], VW::hash_feature(*vw, "g_feature", VW::hash_namespace(*vw, "f_ns")));
   EXPECT_FLOAT_EQ((*examples[1])['f'].values[0], 0.994963765f);
 
   EXPECT_EQ((*examples[2])['d'].indices.size(), 1);
-  EXPECT_EQ((*examples[2])['d'].indices[0],
-      VW::chain_hash(*vw, "i_feature", "strng", VW::hash_namespace(*vw, "d_action")));
+  EXPECT_EQ(
+      (*examples[2])['d'].indices[0], VW::chain_hash(*vw, "i_feature", "strng", VW::hash_namespace(*vw, "d_action")));
   EXPECT_EQ((*examples[2])['d'].values[0], 1);
 
   EXPECT_EQ((*examples[3])['e'].indices.size(), 2);
   EXPECT_EQ((*examples[3])['e'].indices[0], VW::hash_feature(*vw, "f1", VW::hash_namespace(*vw, "e_action")));
   EXPECT_EQ((*examples[3])['e'].values[0], 1);
-  EXPECT_EQ(
-      (*examples[3])['e'].indices[1], VW::chain_hash(*vw, "f2", "strng", VW::hash_namespace(*vw, "e_action")));
+  EXPECT_EQ((*examples[3])['e'].indices[1], VW::chain_hash(*vw, "f2", "strng", VW::hash_namespace(*vw, "e_action")));
   EXPECT_EQ((*examples[3])['e'].values[0], 1);
 
   // Observation examples

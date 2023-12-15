@@ -9,7 +9,7 @@
 #include "vw/core/generic_range.h"
 #include "vw/core/scope_exit.h"
 #include "vw/core/v_array.h"
-#include "vw/core/vw_fwd.h" // for VW::namespace_index
+#include "vw/core/vw_fwd.h"  // for VW::namespace_index
 
 #include <algorithm>
 #include <cstddef>
@@ -35,7 +35,7 @@ class audit_strings
 public:
   // Name of the namespace containing the feature
   std::string namespace_name;
-  
+
   // Hash of the namespace
   // Except for special namespaces, this is the index used to access the features in the example object
   VW::namespace_index namespace_hash;
@@ -49,16 +49,18 @@ public:
   audit_strings() = default;
 
   audit_strings(std::string namespace_name, VW::namespace_index namespace_hash, std::string feature_name)
-    : namespace_name(std::move(namespace_name))
-    , namespace_hash(namespace_hash)
-    , feature_name(std::move(feature_name))
-    {}
+      : namespace_name(std::move(namespace_name)), namespace_hash(namespace_hash), feature_name(std::move(feature_name))
+  {
+  }
 
-  audit_strings(std::string namespace_name, VW::namespace_index namespace_hash, std::string feature_name, std::string str_value)
-    : namespace_name(std::move(namespace_name))
-    , namespace_hash(namespace_hash)
-    , feature_name(std::move(feature_name))
-    , str_value(std::move(str_value)) {}
+  audit_strings(
+      std::string namespace_name, VW::namespace_index namespace_hash, std::string feature_name, std::string str_value)
+      : namespace_name(std::move(namespace_name))
+      , namespace_hash(namespace_hash)
+      , feature_name(std::move(feature_name))
+      , str_value(std::move(str_value))
+  {
+  }
 
   bool is_empty() const { return feature_name.empty() && str_value.empty(); }
 };
@@ -356,8 +358,8 @@ public:
   float namespace_value = 1.f;
 
   // Features data
-  VW::v_array<feature_value> values;           // Always needed.
-  VW::v_array<feature_index> indices;          // Optional for sparse data.
+  VW::v_array<feature_value> values;   // Always needed.
+  VW::v_array<feature_index> indices;  // Optional for sparse data.
 
   // Optional for audit mode
   // add_audit_string() will add a string name for each feature
@@ -393,7 +395,7 @@ public:
 
   // Add a new feature without hashing
   void add_feature_raw(feature_index i, feature_value v);
-  
+
   // Add feature information for audit mode
   // If using audit, this must be manually called after add_feature_raw()
   void add_audit_string(std::string str);

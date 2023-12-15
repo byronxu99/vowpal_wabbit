@@ -205,7 +205,7 @@ public:
   VW::namespace_index ns_index;
   VW::namespace_index ns_hash;
   char* ns_name;
-  feature* fs; // owning raw pointer, must be freed by release_feature_space()
+  feature* fs;  // owning raw pointer, must be freed by release_feature_space()
   size_t len;
 };
 
@@ -300,7 +300,8 @@ inline void init_features(primitive_feature_space& fs, size_t features_count)
   fs.len = features_count;
 }
 
-inline void set_feature(primitive_feature_space& fs, size_t index, VW::feature_index feature_hash, VW::feature_value value)
+inline void set_feature(
+    primitive_feature_space& fs, size_t index, VW::feature_index feature_hash, VW::feature_value value)
 {
   fs.fs[index].index = feature_hash;
   fs.fs[index].value = value;

@@ -113,8 +113,8 @@ public:
   bool permutations;  // if true - permutations of features generated instead of simple combinations. false by default
   // Referenced by examples as their set of interactions. Can be overriden by learners.
   VW::interaction_spec_type interactions;
-  bool invert_ignore_as_keep; // if true - ignore all namespaces except those in ignore set. false by default
-  std::unordered_set<VW::namespace_index> ignore;  // a set of namespaces to ignore
+  bool invert_ignore_as_keep;  // if true - ignore all namespaces except those in ignore set. false by default
+  std::unordered_set<VW::namespace_index> ignore;         // a set of namespaces to ignore
   std::unordered_set<VW::namespace_index> ignore_linear;  // a set of namespaces to ignore for linear
   std::unordered_map<std::string, std::set<std::string>>
       ignore_features_dsjson;  // a map from hash(namespace) to a vector of hash(feature). This flag is only available
@@ -122,11 +122,12 @@ public:
 
   std::unordered_map<VW::namespace_index, std::string> redefine;  // map some namespaces to different names
   std::unique_ptr<VW::kskip_ngram_transformer> skip_gram_transformer;
-  std::vector<std::string> limit_strings;      // descriptor of feature limits
+  std::vector<std::string> limit_strings;                   // descriptor of feature limits
   std::unordered_map<VW::namespace_index, uint32_t> limit;  // count to limit features by
-  std::unordered_map<VW::namespace_index, uint64_t> affix_features;  // affixes to generate (up to 16 per namespace - 4 bits per affix)
+  std::unordered_map<VW::namespace_index, uint64_t>
+      affix_features;  // affixes to generate (up to 16 per namespace - 4 bits per affix)
   std::unordered_set<VW::namespace_index> spelling_features;  // generate spelling features for which namespace
-  std::vector<std::string> dictionary_path;            // where to look for dictionaries
+  std::vector<std::string> dictionary_path;                   // where to look for dictionaries
 
   // feature_dict can be created in either loaded_dictionaries or namespace_dictionaries.
   // use shared pointers to avoid the question of ownership
@@ -269,7 +270,7 @@ public:
 #ifdef VW_FEAT_FLATBUFFERS_ENABLED
   std::unique_ptr<VW::parsers::flatbuffer::parser> flat_converter;
 #endif
-  bool hash_all; // if true, integer features are also hashed as strings
+  bool hash_all;  // if true, integer features are also hashed as strings
 };
 
 class output_config
@@ -386,8 +387,8 @@ namespace details
 void print_result_by_ref(
     VW::io::writer* f, float res, float weight, const VW::v_array<char>& tag, VW::io::logger& logger);
 
-void compile_limits(std::vector<std::string> limits, std::unordered_map<VW::namespace_index, uint32_t>& dest, bool quiet,
-    VW::io::logger& logger);
+void compile_limits(std::vector<std::string> limits, std::unordered_map<VW::namespace_index, uint32_t>& dest,
+    bool quiet, VW::io::logger& logger);
 }  // namespace details
 }  // namespace VW
 

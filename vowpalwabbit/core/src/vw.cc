@@ -685,7 +685,8 @@ void feature_limit(VW::workspace& all, VW::example* ex)
     {
       limit = all.feature_tweaks_config.limit[index];
     }
-    else if (all.feature_tweaks_config.limit.find(VW::details::WILDCARD_NAMESPACE) != all.feature_tweaks_config.limit.end())
+    else if (all.feature_tweaks_config.limit.find(VW::details::WILDCARD_NAMESPACE) !=
+        all.feature_tweaks_config.limit.end())
     {
       limit = all.feature_tweaks_config.limit[VW::details::WILDCARD_NAMESPACE];
     }
@@ -753,10 +754,7 @@ void VW::setup_example(VW::workspace& all, VW::example* ae)
     bool ns_in_ignore_set = all.feature_tweaks_config.ignore.find(ns) != all.feature_tweaks_config.ignore.end();
     // if (ns_in_ignore_set == true) and (invert_ignore_as_keep == false)
     // or (ns_in_ignore_set == false) and (invert_ignore_as_keep == true)
-    if (ns_in_ignore_set != all.feature_tweaks_config.invert_ignore_as_keep)
-    {
-      ae->delete_namespace(ns);
-    }
+    if (ns_in_ignore_set != all.feature_tweaks_config.invert_ignore_as_keep) { ae->delete_namespace(ns); }
   }
 
   if (all.feature_tweaks_config.skip_gram_transformer != nullptr)
@@ -875,10 +873,7 @@ void VW::add_constant_feature(const VW::workspace& all, VW::example* ec)
   auto& const_ns = (*ec)[VW::details::CONSTANT_NAMESPACE];
   const_ns.add_feature_raw(VW::details::CONSTANT, 1.f);
   ec->num_features++;
-  if (all.output_config.audit || all.output_config.hash_inv)
-  {
-    const_ns.add_audit_string("Constant");
-  }
+  if (all.output_config.audit || all.output_config.hash_inv) { const_ns.add_audit_string("Constant"); }
 }
 void VW::add_label(VW::example* ec, float label, float weight, float base)
 {

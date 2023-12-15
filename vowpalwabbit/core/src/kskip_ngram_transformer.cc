@@ -58,8 +58,7 @@ void add_grams(size_t ngram, size_t skip_gram, VW::features& fs, size_t initial_
 }
 
 void compile_gram(const std::vector<std::string>& grams, std::unordered_map<VW::namespace_index, uint32_t>& dest,
-    uint32_t& default_dest,
-    const std::string& descriptor, bool /*quiet*/, VW::io::logger& logger)
+    uint32_t& default_dest, const std::string& descriptor, bool /*quiet*/, VW::io::logger& logger)
 {
   for (const auto& gram : grams)
   {
@@ -109,4 +108,5 @@ VW::kskip_ngram_transformer VW::kskip_ngram_transformer::build(
 
 VW::kskip_ngram_transformer::kskip_ngram_transformer(std::vector<std::string> grams, std::vector<std::string> skips)
     : initial_ngram_definitions(std::move(grams)), initial_skip_definitions(std::move(skips))
-{ }
+{
+}

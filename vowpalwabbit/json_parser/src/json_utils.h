@@ -77,10 +77,7 @@ public:
         VW::feature_index index = std::strtoll(name, nullptr, 10);
         ftrs->add_feature(index, value, audit);
       }
-      else
-      {
-        ftrs->add_feature(name, value, audit);
-      }
+      else { ftrs->add_feature(name, value, audit); }
     }
   }
 
@@ -104,10 +101,7 @@ public:
         VW::feature_index index = std::strtoll(name, nullptr, 10);
         ftrs->add_feature(index, value, audit);
       }
-      else
-      {
-        ftrs->add_feature(name, value, audit);
-      }
+      else { ftrs->add_feature(name, value, audit); }
     }
   }
 };

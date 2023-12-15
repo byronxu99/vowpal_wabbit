@@ -231,11 +231,13 @@ VW::scope_exit_guard VW::features::stash_features()
   auto values_copy = values;
   auto indices_copy = indices;
   auto audit_info_copy = audit_info;
-  return VW::scope_exit_guard([this, values_copy = std::move(values_copy), indices_copy = std::move(indices_copy),
-                                 audit_info_copy = std::move(audit_info_copy), sum_feat_sq_copy = sum_feat_sq]() mutable {
-    values = std::move(values_copy);
-    indices = std::move(indices_copy);
-    audit_info = std::move(audit_info_copy);
-    sum_feat_sq = sum_feat_sq_copy;
-  });
+  return VW::scope_exit_guard(
+      [this, values_copy = std::move(values_copy), indices_copy = std::move(indices_copy),
+          audit_info_copy = std::move(audit_info_copy), sum_feat_sq_copy = sum_feat_sq]() mutable
+      {
+        values = std::move(values_copy);
+        indices = std::move(indices_copy);
+        audit_info = std::move(audit_info_copy);
+        sum_feat_sq = sum_feat_sq_copy;
+      });
 }

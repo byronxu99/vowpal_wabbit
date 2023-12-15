@@ -80,10 +80,9 @@ inline void generate_interactions(const VW::interaction_spec_type& interactions,
 // iterate through all namespaces and quadratic&cubic features, callback function FuncT(some_data_R, feature_value_x,
 // WeightOrIndexT) where WeightOrIndexT is EITHER float& feature_weight OR uint64_t feature_index
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), class WeightsT>
-inline void foreach_feature(WeightsT& weights,
-    std::unordered_set<VW::namespace_index>& ignore_linear,
-    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
-    DataT& dat, size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache)
+inline void foreach_feature(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec, DataT& dat,
+    size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache)
 {
   VW::feature_index scale = ec.ft_index_scale;
   VW::feature_index offset = ec.ft_index_offset;
@@ -110,19 +109,17 @@ inline void foreach_feature(WeightsT& weights,
 }
 
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), class WeightsT>
-inline void foreach_feature(WeightsT& weights,
-    std::unordered_set<VW::namespace_index>& ignore_linear,
-    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
-    DataT& dat, VW::details::generate_interactions_object_cache& cache)
+inline void foreach_feature(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec, DataT& dat,
+    VW::details::generate_interactions_object_cache& cache)
 {
   size_t num_interacted_features_ignored = 0;
-  foreach_feature<DataT, WeightOrIndexT, FuncT, WeightsT>(weights, ignore_linear, interactions,
-      permutations, ec, dat, num_interacted_features_ignored, cache);
+  foreach_feature<DataT, WeightOrIndexT, FuncT, WeightsT>(
+      weights, ignore_linear, interactions, permutations, ec, dat, num_interacted_features_ignored, cache);
 }
 
 template <class WeightsT>
-inline VW::feature_value inline_predict(WeightsT& weights,
-    std::unordered_set<VW::namespace_index>& ignore_linear,
+inline VW::feature_value inline_predict(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
     const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
     VW::details::generate_interactions_object_cache& cache, VW::feature_value initial = 0.f)
 {
@@ -132,14 +129,13 @@ inline VW::feature_value inline_predict(WeightsT& weights,
 }
 
 template <class WeightsT>
-inline VW::feature_value inline_predict(WeightsT& weights,
-    std::unordered_set<VW::namespace_index>& ignore_linear,
+inline VW::feature_value inline_predict(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
     const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
     size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache,
     VW::feature_value initial = 0.f)
 {
-  foreach_feature<VW::feature_value, VW::feature_value, details::vec_add, WeightsT>(weights,
-      ignore_linear, interactions, permutations, ec, initial, num_interacted_features, cache);
+  foreach_feature<VW::feature_value, VW::feature_value, details::vec_add, WeightsT>(
+      weights, ignore_linear, interactions, permutations, ec, initial, num_interacted_features, cache);
   return initial;
 }
 }  // namespace VW
@@ -179,9 +175,8 @@ inline void foreach_feature(const WeightsT& weights, const VW::features& fs, Dat
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT),
     class WeightsT>  // nullptr func can't be used as template param in old
                      // compilers
-VW_DEPRECATED("Moved to VW namespace") inline void generate_interactions(
-    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
-    DataT& dat, WeightsT& weights, size_t& num_interacted_features,
+VW_DEPRECATED("Moved to VW namespace") inline void generate_interactions(const VW::interaction_spec_type& interactions,
+    bool permutations, VW::example_predict& ec, DataT& dat, WeightsT& weights, size_t& num_interacted_features,
     VW::details::generate_interactions_object_cache& cache)  // default value removed to eliminate
                                                              // ambiguity in old complers
 {
@@ -193,10 +188,9 @@ VW_DEPRECATED("Moved to VW namespace") inline void generate_interactions(
 // WeightOrIndexT) where WeightOrIndexT is EITHER float& feature_weight OR uint64_t feature_index
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline void foreach_feature(WeightsT& weights,
-    std::unordered_set<VW::namespace_index>& ignore_linear,
-    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
-    DataT& dat, size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache)
+inline void foreach_feature(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec, DataT& dat,
+    size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache)
 {
   VW::foreach_feature<DataT, WeightOrIndexT, FuncT, WeightsT>(
       weights, ignore_linear, interactions, permutations, ec, dat, num_interacted_features, cache);
@@ -204,10 +198,9 @@ inline void foreach_feature(WeightsT& weights,
 
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline void foreach_feature(WeightsT& weights,
-    std::unordered_set<VW::namespace_index>& ignore_linear,
-    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
-    DataT& dat, VW::details::generate_interactions_object_cache& cache)
+inline void foreach_feature(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec, DataT& dat,
+    VW::details::generate_interactions_object_cache& cache)
 {
   VW::foreach_feature<DataT, WeightOrIndexT, FuncT, WeightsT>(
       weights, ignore_linear, interactions, permutations, ec, dat, cache);
@@ -215,23 +208,21 @@ inline void foreach_feature(WeightsT& weights,
 
 template <class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline VW::feature_value
-    inline_predict(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
-        const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
-        VW::details::generate_interactions_object_cache& cache, VW::feature_value initial = 0.f)
+inline VW::feature_value inline_predict(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
+    VW::details::generate_interactions_object_cache& cache, VW::feature_value initial = 0.f)
 {
   return VW::inline_predict(weights, ignore_linear, interactions, permutations, ec, cache, initial);
 }
 
 template <class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline VW::feature_value
-    inline_predict(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
-        const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
-        size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache,
-        VW::feature_value initial = 0.f)
+inline VW::feature_value inline_predict(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
+    size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache,
+    VW::feature_value initial = 0.f)
 {
-  return VW::inline_predict(weights, ignore_linear, interactions, permutations, ec,
-      num_interacted_features, cache, initial);
+  return VW::inline_predict(
+      weights, ignore_linear, interactions, permutations, ec, num_interacted_features, cache, initial);
 }
 }  // namespace GD

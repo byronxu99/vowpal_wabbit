@@ -58,10 +58,9 @@ TEST(CsvParser, ComplexCsvSimpleLabelExamples)
 
   // Check example 1 feature value
   // \f\v should be trimmed
-  EXPECT_TRUE((std::abs((*examples[0])['s'].values[0] - 5.1) < 0.01 &&
-                  std::abs((*examples[0])['s'].values[1] + 7.7) < 0.01) ||
-      (std::abs((*examples[0])['s'].values[0] + 7.7) < 0.01 &&
-          std::abs((*examples[0])['s'].values[1] - 5.1) < 0.01));
+  EXPECT_TRUE(
+      (std::abs((*examples[0])['s'].values[0] - 5.1) < 0.01 && std::abs((*examples[0])['s'].values[1] + 7.7) < 0.01) ||
+      (std::abs((*examples[0])['s'].values[0] + 7.7) < 0.01 && std::abs((*examples[0])['s'].values[1] - 5.1) < 0.01));
   EXPECT_FLOAT_EQ((*examples[0])['p'].values[0], 2.8);
   EXPECT_FLOAT_EQ((*examples[0])['p'].values[1], 0.4);
   EXPECT_FLOAT_EQ((*examples[0])[' '].values[0], 1);

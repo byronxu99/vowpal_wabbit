@@ -342,7 +342,8 @@ void predict_or_learn_multi(nn& n, learner& base, VW::example& ec)
             {
               float sigmah = n.output_layer[VW::details::NN_OUTPUT_NAMESPACE].values[i] / dropscale;
               float sigmahprime = dropscale * (1.0f - sigmah * sigmah);
-              n.outputweight[VW::details::NN_OUTPUT_NAMESPACE].indices[0] = n.output_layer[VW::details::NN_OUTPUT_NAMESPACE].indices[i];
+              n.outputweight[VW::details::NN_OUTPUT_NAMESPACE].indices[0] =
+                  n.output_layer[VW::details::NN_OUTPUT_NAMESPACE].indices[i];
               base.predict(n.outputweight, n.k);
               float nu = n.outputweight.pred.scalar;
               float gradhw = 0.5f * nu * gradient * sigmahprime;

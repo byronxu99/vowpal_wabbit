@@ -568,10 +568,7 @@ TEST(VowpalWabbitSlim, CbDataEpsilon0SkypeJb)
   cb_data_epsilon_0_skype_jb_test_runner(999, 0, 2, 0, ranking_expected, pdf_expected);
 }
 
-void clear(VW::example_predict& ex)
-{
-  ex.delete_all_namespaces();
-}
+void clear(VW::example_predict& ex) { ex.delete_all_namespaces(); }
 
 void generate_cb_data_5(VW::example_predict& shared, VW::example_predict* ex)
 {

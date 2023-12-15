@@ -180,8 +180,8 @@ TEST(Interactions, CompileInteractionsQuadraticCombinations)
   auto result = VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
       interactions, indices);
 
-  VW::interaction_spec_type compare_set = {{'a', 'a'}, {'a', 'b'}, {'a', 'c'}, {'a', 'd'},
-      {'b', 'b'}, {'b', 'c'}, {'b', 'd'}, {'c', 'c'}, {'c', 'd'}, {'d', 'd'}};
+  VW::interaction_spec_type compare_set = {{'a', 'a'}, {'a', 'b'}, {'a', 'c'}, {'a', 'd'}, {'b', 'b'}, {'b', 'c'},
+      {'b', 'd'}, {'c', 'c'}, {'c', 'd'}, {'d', 'd'}};
 
   sort_all(compare_set);
   sort_all(result);
@@ -196,9 +196,9 @@ TEST(Interactions, CompileInteractionsQuadraticPermutations)
   auto result = VW::details::compile_interactions<VW::details::generate_namespace_permutations_with_repetition, true>(
       interactions, indices);
 
-  VW::interaction_spec_type compare_set = {{'a', 'a'}, {'a', 'b'}, {'a', 'c'}, {'a', 'd'},
-      {'b', 'a'}, {'b', 'b'}, {'b', 'c'}, {'b', 'd'}, {'c', 'a'}, {'c', 'b'}, {'c', 'c'}, {'c', 'd'}, {'d', 'a'},
-      {'d', 'b'}, {'d', 'c'}, {'d', 'd'}};
+  VW::interaction_spec_type compare_set = {{'a', 'a'}, {'a', 'b'}, {'a', 'c'}, {'a', 'd'}, {'b', 'a'}, {'b', 'b'},
+      {'b', 'c'}, {'b', 'd'}, {'c', 'a'}, {'c', 'b'}, {'c', 'c'}, {'c', 'd'}, {'d', 'a'}, {'d', 'b'}, {'d', 'c'},
+      {'d', 'd'}};
 
   sort_all(compare_set);
   sort_all(result);
@@ -249,18 +249,17 @@ TEST(Interactions, CompileInteractionsCubicPermutations)
   auto result = VW::details::compile_interactions<VW::details::generate_namespace_permutations_with_repetition, true>(
       interactions, indices);
 
-  VW::interaction_spec_type compare_set = {
-      {'a', 'a', 'a'}, {'a', 'a', 'b'}, {'a', 'a', 'c'}, {'a', 'a', 'd'}, {'a', 'b', 'a'}, {'a', 'b', 'b'},
-      {'a', 'b', 'c'}, {'a', 'b', 'd'}, {'a', 'c', 'a'}, {'a', 'c', 'b'}, {'a', 'c', 'c'}, {'a', 'c', 'd'},
-      {'a', 'd', 'a'}, {'a', 'd', 'b'}, {'a', 'd', 'c'}, {'a', 'd', 'd'}, {'b', 'a', 'a'}, {'b', 'a', 'b'},
-      {'b', 'a', 'c'}, {'b', 'a', 'd'}, {'b', 'b', 'a'}, {'b', 'b', 'b'}, {'b', 'b', 'c'}, {'b', 'b', 'd'},
-      {'b', 'c', 'a'}, {'b', 'c', 'b'}, {'b', 'c', 'c'}, {'b', 'c', 'd'}, {'b', 'd', 'a'}, {'b', 'd', 'b'},
-      {'b', 'd', 'c'}, {'b', 'd', 'd'}, {'c', 'a', 'a'}, {'c', 'a', 'b'}, {'c', 'a', 'c'}, {'c', 'a', 'd'},
-      {'c', 'b', 'a'}, {'c', 'b', 'b'}, {'c', 'b', 'c'}, {'c', 'b', 'd'}, {'c', 'c', 'a'}, {'c', 'c', 'b'},
-      {'c', 'c', 'c'}, {'c', 'c', 'd'}, {'c', 'd', 'a'}, {'c', 'd', 'b'}, {'c', 'd', 'c'}, {'c', 'd', 'd'},
-      {'d', 'a', 'a'}, {'d', 'a', 'b'}, {'d', 'a', 'c'}, {'d', 'a', 'd'}, {'d', 'b', 'a'}, {'d', 'b', 'b'},
-      {'d', 'b', 'c'}, {'d', 'b', 'd'}, {'d', 'c', 'a'}, {'d', 'c', 'b'}, {'d', 'c', 'c'}, {'d', 'c', 'd'},
-      {'d', 'd', 'a'}, {'d', 'd', 'b'}, {'d', 'd', 'c'}, {'d', 'd', 'd'}
+  VW::interaction_spec_type compare_set = {{'a', 'a', 'a'}, {'a', 'a', 'b'}, {'a', 'a', 'c'}, {'a', 'a', 'd'},
+      {'a', 'b', 'a'}, {'a', 'b', 'b'}, {'a', 'b', 'c'}, {'a', 'b', 'd'}, {'a', 'c', 'a'}, {'a', 'c', 'b'},
+      {'a', 'c', 'c'}, {'a', 'c', 'd'}, {'a', 'd', 'a'}, {'a', 'd', 'b'}, {'a', 'd', 'c'}, {'a', 'd', 'd'},
+      {'b', 'a', 'a'}, {'b', 'a', 'b'}, {'b', 'a', 'c'}, {'b', 'a', 'd'}, {'b', 'b', 'a'}, {'b', 'b', 'b'},
+      {'b', 'b', 'c'}, {'b', 'b', 'd'}, {'b', 'c', 'a'}, {'b', 'c', 'b'}, {'b', 'c', 'c'}, {'b', 'c', 'd'},
+      {'b', 'd', 'a'}, {'b', 'd', 'b'}, {'b', 'd', 'c'}, {'b', 'd', 'd'}, {'c', 'a', 'a'}, {'c', 'a', 'b'},
+      {'c', 'a', 'c'}, {'c', 'a', 'd'}, {'c', 'b', 'a'}, {'c', 'b', 'b'}, {'c', 'b', 'c'}, {'c', 'b', 'd'},
+      {'c', 'c', 'a'}, {'c', 'c', 'b'}, {'c', 'c', 'c'}, {'c', 'c', 'd'}, {'c', 'd', 'a'}, {'c', 'd', 'b'},
+      {'c', 'd', 'c'}, {'c', 'd', 'd'}, {'d', 'a', 'a'}, {'d', 'a', 'b'}, {'d', 'a', 'c'}, {'d', 'a', 'd'},
+      {'d', 'b', 'a'}, {'d', 'b', 'b'}, {'d', 'b', 'c'}, {'d', 'b', 'd'}, {'d', 'c', 'a'}, {'d', 'c', 'b'},
+      {'d', 'c', 'c'}, {'d', 'c', 'd'}, {'d', 'd', 'a'}, {'d', 'd', 'b'}, {'d', 'd', 'c'}, {'d', 'd', 'd'}
 
   };
 

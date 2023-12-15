@@ -22,10 +22,7 @@ example_predict_builder::example_predict_builder(
   add_namespace(namespace_idx);
 }
 
-void example_predict_builder::add_namespace(VW::namespace_index feature_group)
-{
-  _namespace_idx = feature_group;
-}
+void example_predict_builder::add_namespace(VW::namespace_index feature_group) { _namespace_idx = feature_group; }
 
 void example_predict_builder::push_feature_string(const char* feature_name, VW::feature_value value)
 {

@@ -586,10 +586,7 @@ void add_new_feature(search_private& priv, float val, uint64_t idx)
 
 void del_features_in_top_namespace(search_private& /* priv */, VW::example& ec, VW::namespace_index ns)
 {
-  if ((ec.size() == 0) || (!ec.contains(ns)))
-  {
-    return;
-  }
+  if ((ec.size() == 0) || (!ec.contains(ns))) { return; }
   auto& fs = ec[ns];
   ec.num_features -= fs.size();
   ec.delete_namespace(ns);
@@ -632,8 +629,7 @@ void add_neighbor_features(search_private& priv, VW::multi_ex& ec_seq)
       {
         VW::example& other = *ec_seq[n + offset];
         // feature scale is 1 because we are not indexing weights
-        VW::foreach_feature<search_private, add_new_feature>(
-            priv.all, other[ns], priv, 1, me.ft_index_offset);
+        VW::foreach_feature<search_private, add_new_feature>(priv.all, other[ns], priv, 1, me.ft_index_offset);
       }
     }
 
