@@ -99,8 +99,8 @@ void multiply(VW::features& f_dest, VW::features& f_src2, interact& in)
 template <bool is_learn, bool print_all>
 void predict_or_learn(interact& in, VW::LEARNER::learner& base, VW::example& ec)
 {
-  VW::features& f1 = ec.feature_space[in.n1];
-  VW::features& f2 = ec.feature_space[in.n2];
+  VW::features& f1 = ec[in.n1];
+  VW::features& f2 = ec[in.n2];
 
   if (!contains_valid_namespaces(f1, f2, in, in.all->logger))
   {

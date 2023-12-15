@@ -41,15 +41,15 @@ TEST(Cache, WriteAndReadExample)
   VW::parsers::cache::read_example_from_cache(workspace.get(), io_reader, examples);
   EXPECT_EQ(io_reader.unflushed_bytes_count(), backing_vector->size());
 
-  EXPECT_EQ(dest_ex.indices.size(), 2);
-  EXPECT_EQ(dest_ex.feature_space['n'].size(), 3);
-  EXPECT_EQ(dest_ex.feature_space['s'].size(), 1);
+  EXPECT_EQ(dest_ex.size(), 2);
+  EXPECT_EQ(dest_ex['n'].size(), 3);
+  EXPECT_EQ(dest_ex['s'].size(), 1);
 
-  EXPECT_THAT(src_ex.feature_space['s'].values, Pointwise(FloatNear(1e-3f), dest_ex.feature_space['s'].values));
-  EXPECT_THAT(src_ex.feature_space['s'].indices, Pointwise(Eq(), dest_ex.feature_space['s'].indices));
+  EXPECT_THAT(src_ex['s'].values, Pointwise(FloatNear(1e-3f), dest_ex['s'].values));
+  EXPECT_THAT(src_ex['s'].indices, Pointwise(Eq(), dest_ex['s'].indices));
 
-  EXPECT_THAT(src_ex.feature_space['n'].values, Pointwise(FloatNear(1e-3f), dest_ex.feature_space['n'].values));
-  EXPECT_THAT(src_ex.feature_space['n'].indices, Pointwise(Eq(), dest_ex.feature_space['n'].indices));
+  EXPECT_THAT(src_ex['n'].values, Pointwise(FloatNear(1e-3f), dest_ex['n'].values));
+  EXPECT_THAT(src_ex['n'].indices, Pointwise(Eq(), dest_ex['n'].indices));
 
   EXPECT_FLOAT_EQ(src_ex.l.simple.label, dest_ex.l.simple.label);
 }
@@ -91,12 +91,12 @@ TEST(Cache, WriteAndReadLargeExample)
   examples.push_back(&dest_ex);
   VW::parsers::cache::read_example_from_cache(workspace.get(), io_reader, examples);
 
-  EXPECT_EQ(src_ex.indices.size(), dest_ex.indices.size());
+  EXPECT_EQ(src_ex.size(), dest_ex.size());
   for (auto idx : {' ', 'a', 'b', 'c', 'd', 'e', 'f'})
   {
-    EXPECT_EQ(src_ex.feature_space[idx].size(), dest_ex.feature_space[idx].size());
-    EXPECT_THAT(src_ex.feature_space[idx].values, Pointwise(FloatNear(1e-3f), dest_ex.feature_space[idx].values));
-    EXPECT_THAT(src_ex.feature_space[idx].indices, Pointwise(Eq(), dest_ex.feature_space[idx].indices));
+    EXPECT_EQ(src_ex[idx].size(), dest_ex[idx].size());
+    EXPECT_THAT(src_ex[idx].values, Pointwise(FloatNear(1e-3f), dest_ex[idx].values));
+    EXPECT_THAT(src_ex[idx].indices, Pointwise(Eq(), dest_ex[idx].indices));
   }
 }
 

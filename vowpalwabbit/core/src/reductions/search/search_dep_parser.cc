@@ -101,10 +101,10 @@ void initialize(Search::search& sch, size_t& /*num_actions*/, options_i& options
   if (data->one_learner) { sch.set_feature_width(1); }
   else { sch.set_feature_width(3); }
 
-  std::vector<std::vector<VW::namespace_index>> newpairs{{'B', 'C'}, {'B', 'E'}, {'B', 'B'}, {'C', 'C'}, {'D', 'D'},
+  VW::interaction_spec_type newpairs{{'B', 'C'}, {'B', 'E'}, {'B', 'B'}, {'C', 'C'}, {'D', 'D'},
       {'E', 'E'}, {'F', 'F'}, {'G', 'G'}, {'E', 'F'}, {'B', 'H'}, {'B', 'J'}, {'E', 'L'}, {'d', 'B'}, {'d', 'C'},
       {'d', 'D'}, {'d', 'E'}, {'d', 'F'}, {'d', 'G'}, {'d', 'd'}};
-  std::vector<std::vector<VW::namespace_index>> newtriples{{'E', 'F', 'G'}, {'B', 'E', 'F'}, {'B', 'C', 'E'},
+  VW::interaction_spec_type newtriples{{'E', 'F', 'G'}, {'B', 'E', 'F'}, {'B', 'C', 'E'},
       {'B', 'C', 'D'}, {'B', 'E', 'L'}, {'E', 'L', 'M'}, {'B', 'H', 'I'}, {'B', 'C', 'C'}, {'B', 'E', 'J'},
       {'B', 'E', 'H'}, {'B', 'J', 'K'}, {'B', 'E', 'N'}};
 
@@ -122,27 +122,27 @@ void initialize(Search::search& sch, size_t& /*num_actions*/, options_i& options
 
 void inline add_feature(VW::example& ex, uint64_t idx, unsigned char ns, bool /* audit */ = false)
 {
-  ex.feature_space[static_cast<int>(ns)].push_back(1.0f, idx);
+  ex[ns].push_back(1.0f, idx);
 }
 
 void add_all_features(
     VW::example& ex, VW::example& src, unsigned char tgt_ns, uint64_t offset, bool /* audit */ = false)
 {
-  VW::features& tgt_fs = ex.feature_space[tgt_ns];
-  for (VW::namespace_index ns : src.indices)
+  VW::features& tgt_fs = ex[tgt_ns];
+  for (VW::namespace_index ns : src)
   {
     if (ns != VW::details::CONSTANT_NAMESPACE)
     {  // ignore VW::details::CONSTANT_NAMESPACE
-      for (VW::feature_index i : src.feature_space[ns].indices) { tgt_fs.push_back(1.0f, i + offset); }
+      for (VW::feature_index i : src[ns].indices) { tgt_fs.push_back(1.0f, i + offset); }
     }
   }
 }
 
 void inline reset_ex(VW::example& ex)
 {
+  ex.delete_all_namespaces();
   ex.num_features = 0;
   ex.reset_total_sum_feat_sq();
-  for (VW::features& fs : ex) { fs.clear(); }
 }
 
 // arc-hybrid System.

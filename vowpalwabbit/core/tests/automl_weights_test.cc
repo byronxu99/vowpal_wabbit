@@ -31,7 +31,7 @@ namespace vw_hash_helpers
 // see parse_example.cc:maybeFeature(..) for other cases
 size_t get_hash_for_feature(VW::workspace& all, const std::string& ns, const std::string& feature)
 {
-  auto hash_ft = VW::hash_feature(all, feature, VW::hash_space(all, ns));
+  auto hash_ft = VW::hash_feature(all, feature, VW::hash_namespace(all, ns));
   return hash_ft & all.runtime_state.parse_mask;
 }
 

@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "vw/core/example_predict.h"
 #include "vw/core/feature_group.h"
 #include "vw/core/multi_ex.h"
 #include "vw/core/vw_fwd.h"
@@ -17,7 +18,7 @@ namespace large_action_space
 class las_reduction_features
 {
 public:
-  std::vector<std::vector<VW::namespace_index>>* generated_interactions = nullptr;
+  VW::interaction_spec_type* generated_interactions = nullptr;
   VW::multi_ex::value_type shared_example = nullptr;
   float squarecb_gamma = 1.f;
 

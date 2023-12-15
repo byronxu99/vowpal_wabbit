@@ -16,6 +16,7 @@
 
 #include <cfloat>
 #include <string>
+#include <unordered_map>
 
 using namespace VW::LEARNER;
 using namespace VW::config;
@@ -28,14 +29,10 @@ public:
   VW::workspace* all = nullptr;
   std::string field_name = "";
   int k = 0;
-  int field_id[256];
-  size_t orig_size[256];
+  std::unordered_map<VW::namespace_index, int> field_id;
+  std::unordered_map<VW::namespace_index, size_t> orig_size;
 
-  lrqfa_state()
-  {
-    std::fill(field_id, field_id + 256, 0);
-    std::fill(orig_size, orig_size + 256, 0);
-  }
+  lrqfa_state() = default;
 };
 
 inline float cheesyrand(uint64_t x)
@@ -73,8 +70,7 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
         ec.ft_index_scale = old_ft_index_scale;
       });
 
-  memset(lrq.orig_size, 0, sizeof(lrq.orig_size));
-  for (VW::namespace_index i : ec.indices) { lrq.orig_size[i] = ec.feature_space[i].size(); }
+  for (VW::namespace_index i : ec) { lrq.orig_size[i] = ec[i].size(); }
 
   size_t which = (is_learn && !example_is_test(ec)) ? ec.example_counter : 0;
   float first_prediction = 0;
@@ -100,7 +96,7 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
         unsigned int rfd_id = lrq.field_id[right];
         for (unsigned int lfn = 0; lfn < lrq.orig_size[left]; ++lfn)
         {
-          auto& lfs = ec.feature_space[left];
+          auto& lfs = ec[left];
           float lfx = lfs.values[lfn];
           for (unsigned int n = 1; n <= k; ++n)
           {
@@ -121,7 +117,7 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
 
             for (unsigned int rfn = 0; rfn < lrq.orig_size[right]; ++rfn)
             {
-              auto& rfs = ec.feature_space[right];
+              auto& rfs = ec[right];
               float rfx = rfs.values[rfn];
 
               // unlike for lw, ec.ft_index_offset will be added by base learner
@@ -132,8 +128,8 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
               if (all.output_config.audit || all.output_config.hash_inv)
               {
                 std::stringstream new_feature_buffer;
-                new_feature_buffer << right << '^' << rfs.space_names[rfn].name << '^' << n;
-                rfs.space_names.emplace_back("lrqfa", new_feature_buffer.str());
+                new_feature_buffer << right << '^' << rfs.audit_info[rfn].name << '^' << n;
+                rfs.audit_info.emplace_back("lrqfa", new_feature_buffer.str());
               }
             }
           }
@@ -159,9 +155,8 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
     for (char i : lrq.field_name)
     {
       VW::namespace_index right = i;
-      auto& rfs = ec.feature_space[right];
-      rfs.values.resize(lrq.orig_size[right]);
-      if (all.output_config.audit || all.output_config.hash_inv) { rfs.space_names.resize(lrq.orig_size[right]); }
+      auto& rfs = ec[right];
+      rfs.truncate_to(lrq.orig_size[right]);
     }
   }
 }

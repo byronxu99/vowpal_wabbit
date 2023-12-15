@@ -4,44 +4,183 @@
 
 #include "vw/core/example_predict.h"
 
+#include "vw/common/future_compat.h"
+#include "vw/common/hash.h"
+#include "vw/core/constant.h"
+
 #include <sstream>
 
-VW::example_predict::iterator::iterator(features* feature_space, namespace_index* index)
-    : _feature_space(feature_space), _index(index)
+std::vector<namespace_index> VW::example_predict::namespaces() const
 {
+  std::vector<namespace_index> result;
+  result.reserve(_feature_space.size());
+  for (const auto& ns : _feature_space) { result.push_back(ns.first); }
+  return result;
 }
 
-VW::features& VW::example_predict::iterator::operator*() { return _feature_space[*_index]; }
-
-VW::example_predict::iterator& VW::example_predict::iterator::operator++()
+bool VW::example_predict::empty(namespace_index ns) const
 {
-  _index++;
-  return *this;
+  auto it = _feature_space.find(ns);
+  return it == _feature_space.end() || it->second.empty();
 }
 
-VW::namespace_index VW::example_predict::iterator::index() { return *_index; }
+bool VW::example_predict::contains(const std::string& ns) const
+{
+  // Handle special case for default namespace
+  VW::namespace_index ns_index;
+  if (ns == VW::details::DEFAULT_NAMESPACE_STR)
+  {
+    ns_index = VW::details::DEFAULT_NAMESPACE;
+  }
+  else
+  {
+    ns_index = hash_namespace(ns);
+  }
+  return contains(ns_index);
+}
 
-bool VW::example_predict::iterator::operator==(const iterator& rhs) const { return _index == rhs._index; }
-bool VW::example_predict::iterator::operator!=(const iterator& rhs) const { return _index != rhs._index; }
+void VW::example_predict::delete_namespace(const std::string& ns)
+{
+  // Handle special case for default namespace
+  VW::namespace_index ns_index;
+  if (ns == VW::details::DEFAULT_NAMESPACE_STR)
+  {
+    ns_index = VW::details::DEFAULT_NAMESPACE;
+  }
+  else
+  {
+    ns_index = hash_namespace(ns);
+  }
+  delete_namespace(ns_index);
+}
 
-VW::example_predict::iterator VW::example_predict::begin() { return {feature_space.data(), indices.begin()}; }
-VW::example_predict::iterator VW::example_predict::end() { return {feature_space.data(), indices.end()}; }
+VW::features& VW::example_predict::_initialize_namespace(namespace_index ns)
+{
+  // operator[] will create a new namespace
+  VW::features& ft = _feature_space[ns];
+  
+  // Set namespace hash
+  if (ns == VW::details::DEFAULT_NAMESPACE)
+  {
+    // Default namespace always has a constant index equal to VW::details::DEFAULT_NAMESPACE
+    // However, its hash is the hash of VW::details::DEFAULT_NAMESPACE_STR
+    // which varies depending on the hash seed
+    ft.namespace_hash = hash_namespace(VW::details::DEFAULT_NAMESPACE_STR);
+  }
+  else
+  {
+    // For all other namespaces, index is equal to hash
+    ft.namespace_hash = ns;
+  }
+
+  // Set namespace audit string for special namespaces
+  if (ns == VW::details::DEFAULT_NAMESPACE) { ft.namespace_name = VW::details::DEFAULT_NAMESPACE_STR; }
+  if (ns == VW::details::WILDCARD_NAMESPACE) { ft.namespace_name = VW::details::WILDCARD_NAMESPACE_STR; }
+  if (ns == VW::details::WAP_LDF_NAMESPACE) { ft.namespace_name = ""; }
+  if (ns == VW::details::HISTORY_NAMESPACE) { ft.namespace_name = ""; }
+  if (ns == VW::details::CONSTANT_NAMESPACE) { ft.namespace_name = ""; }
+  if (ns == VW::details::NN_OUTPUT_NAMESPACE) { ft.namespace_name = ""; }
+  if (ns == VW::details::AUTOLINK_NAMESPACE) { ft.namespace_name = ""; }
+  if (ns == VW::details::NEIGHBOR_NAMESPACE) { ft.namespace_name = "neighbor"; }
+  if (ns == VW::details::AFFIX_NAMESPACE) { ft.namespace_name = "affix"; }
+  if (ns == VW::details::SPELLING_NAMESPACE) { ft.namespace_name = "spelling"; }
+  if (ns == VW::details::CONDITIONING_NAMESPACE) { ft.namespace_name = "search_condition"; }
+  if (ns == VW::details::DICTIONARY_NAMESPACE) { ft.namespace_name = "dictionary"; }
+  if (ns == VW::details::NODE_ID_NAMESPACE) { ft.namespace_name = ""; }
+  if (ns == VW::details::BASELINE_ENABLED_MESSAGE_NAMESPACE) { ft.namespace_name = ""; }
+  if (ns == VW::details::CCB_SLOT_NAMESPACE) { ft.namespace_name = ""; }
+  if (ns == VW::details::CCB_ID_NAMESPACE) { ft.namespace_name = "_ccb_slot_index"; }
+  if (ns == VW::details::IGL_FEEDBACK_NAMESPACE) { ft.namespace_name = ""; }
+
+  return ft;
+}
+
+VW::features& VW::example_predict::operator[](const std::string& ns)
+{
+  // Handle special case for default namespace
+  auto ns_index = (ns == VW::details::DEFAULT_NAMESPACE_STR) ? VW::details::DEFAULT_NAMESPACE : hash_namespace(ns);
+
+  // If the namespace already exists, return it
+  auto ft_iter = _feature_space.find(ns_index);
+  if (ft_iter != _feature_space.end()) { return ft_iter->second; }
+
+  // This creates a new namespace
+  // operator[](namespace_index) will call _initialize_namespace
+  VW::features& ft = (*this)[ns_index];
+
+  // Because the namespace didn't exist before, we need to set its string name
+  ft.namespace_name = ns;
+
+  return ft;
+}
 
 uint64_t VW::example_predict::get_or_calculate_order_independent_feature_space_hash()
 {
-  if (!is_set_feature_space_hash)
+  if (!_is_set_feature_space_hash)
   {
-    is_set_feature_space_hash = true;
-    for (const auto ns : indices)
+    _is_set_feature_space_hash = true;
+    for (const VW::namespace_index ns : *this)
     {
-      feature_space_hash += std::hash<namespace_index>()(ns);
-      for (const auto& f : feature_space[ns])
+      _feature_space_hash += std::hash<namespace_index>()(ns);
+
+      for (const auto& f : _feature_space[ns])
       {
-        feature_space_hash += std::hash<feature_index>()(f.index());
-        feature_space_hash += std::hash<feature_value>()(f.value());
+        _feature_space_hash += std::hash<feature_index>()(f.index());
+        _feature_space_hash += std::hash<feature_value>()(f.value());
       }
     }
   }
 
-  return feature_space_hash;
+  return _feature_space_hash;
+}
+
+bool VW::example_predict::get_string_name(VW::namespace_index ns, std::string& name_out) const
+{
+  auto iter = _feature_space.find(ns);
+  if (iter != _feature_space.end())
+  {
+    name_out = iter->second.namespace_name;
+    return true;
+  }
+  return false;
+}
+
+bool VW::example_predict::invert_hash_namespace(VW::namespace_index hash, std::string& name_out) const
+{
+  // In case hash is not equal to index, we must iterate through
+  // all namespaces instead of using _feature_space.find()
+  for (auto iter = _feature_space.begin(); iter != _feature_space.end(); ++iter)
+  {
+    if (iter->first == hash)
+    {
+      name_out = iter->second.namespace_name;
+      return true;
+    }
+  }
+  return false;
+}
+
+VW::scope_exit_guard VW::example_predict::stash_features()
+{
+  auto features_copy = _feature_space;
+  return VW::scope_exit_guard([this, features_copy = std::move(features_copy)]() mutable {
+    _feature_space = std::move(features_copy);
+    _is_set_feature_space_hash = false;
+  });
+}
+
+VW::scope_exit_guard VW::example_predict::stash_interactions()
+{
+  VW::interaction_spec_type interactions_copy = *interactions;
+  return VW::scope_exit_guard([this, interactions_copy = std::move(interactions_copy)]() mutable {
+    *interactions = std::move(interactions_copy);
+  });
+}
+
+VW::scope_exit_guard VW::example_predict::stash_scale_offset()
+{
+  return VW::scope_exit_guard([this, scale_copy = ft_index_scale, offset_copy = ft_index_offset]() mutable {
+    ft_index_scale = scale_copy;
+    ft_index_offset = offset_copy;
+  });
 }

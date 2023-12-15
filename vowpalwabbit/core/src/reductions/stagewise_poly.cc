@@ -405,15 +405,13 @@ void synthetic_reset(stagewise_poly& poly, VW::example& ec)
   poly.synth_ec.end_pass = ec.end_pass;
   poly.synth_ec.sorted = ec.sorted;
 
-  poly.synth_ec.feature_space[TREE_ATOMICS].clear();
+  poly.synth_ec[TREE_ATOMICS].clear();
   poly.synth_ec.num_features = 0;
-
-  if (poly.synth_ec.indices.size() == 0) { poly.synth_ec.indices.push_back(TREE_ATOMICS); }
 }
 
 void synthetic_decycle(stagewise_poly& poly)
 {
-  VW::features& fs = poly.synth_ec.feature_space[TREE_ATOMICS];
+  VW::features& fs = poly.synth_ec[TREE_ATOMICS];
   for (size_t i = 0; i < fs.size(); ++i)
   {
     assert(cycle_get(poly, fs.indices[i]));
@@ -458,7 +456,7 @@ void synthetic_create_rec(stagewise_poly& poly, float v, uint64_t findex)
 #endif  // DEBUG
 
     VW::feature temp = {v * poly.synth_rec_f.x, wid_cur};
-    poly.synth_ec.feature_space[TREE_ATOMICS].push_back(temp.x, temp.weight_index);
+    poly.synth_ec[TREE_ATOMICS].push_back(temp.x, temp.weight_index);
     poly.synth_ec.num_features++;
 
     if (parent_get(poly, temp.weight_index))

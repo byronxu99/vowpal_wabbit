@@ -6,6 +6,7 @@
 
 #include "vw/common/random.h"
 #include "vw/common/string_view.h"
+#include "vw/core/example_predict.h"
 #include "vw/core/feature_group.h"
 #include "vw/core/vw_fwd.h"
 
@@ -124,7 +125,7 @@ struct emt_tree
   emt_initial_type initial_type = emt_initial_type::COSINE;
 
   std::unique_ptr<VW::example> ex;  // we create one of these which we re-use so we don't have to reallocate examples
-  std::unique_ptr<std::vector<std::vector<VW::namespace_index>>> empty_interactions_for_ex;
+  std::unique_ptr<VW::interaction_spec_type> empty_interactions_for_ex;
 
 #ifdef VW_ENABLE_EMT_DEBUG_TIMER
   int64_t begin = 0;  // for timing performance

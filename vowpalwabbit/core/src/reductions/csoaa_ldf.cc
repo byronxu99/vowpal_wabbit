@@ -72,42 +72,39 @@ void compute_wap_values(std::vector<VW::cs_class*> costs)
 // This is faster and allows fast undo in unsubtract_example().
 void subtract_feature(VW::example& ec, float feature_value_x, uint64_t weight_index)
 {
-  ec.feature_space[VW::details::WAP_LDF_NAMESPACE].push_back(
+  ec[VW::details::WAP_LDF_NAMESPACE].push_back(
       -feature_value_x, weight_index, VW::details::WAP_LDF_NAMESPACE);
 }
 
 // Iterate over all features of ecsub including quadratic and cubic features and subtract them from ec.
 void subtract_example(VW::workspace& all, VW::example* ec, VW::example* ecsub)
 {
-  auto& wap_fs = ec->feature_space[VW::details::WAP_LDF_NAMESPACE];
+  auto& wap_fs = (*ec)[VW::details::WAP_LDF_NAMESPACE];
   wap_fs.sum_feat_sq = 0;
   VW::foreach_feature<VW::example&, uint64_t, subtract_feature>(all, *ecsub, *ec);
-  ec->indices.push_back(VW::details::WAP_LDF_NAMESPACE);
   ec->num_features += wap_fs.size();
   ec->reset_total_sum_feat_sq();
 }
 
 void unsubtract_example(VW::example* ec, VW::io::logger& logger)
 {
-  if (ec->indices.empty())
+  if (ec->empty())
   {
     logger.err_error("Internal error (bug): trying to unsubtract_example, but there are no namespaces");
     return;
   }
 
-  if (ec->indices.back() != VW::details::WAP_LDF_NAMESPACE)
+  if (!ec->contains(VW::details::WAP_LDF_NAMESPACE))
   {
     logger.err_error(
-        "Internal error (bug): trying to unsubtract_example, but either it wasn't added, or something was added "
-        "after and not removed");
+        "Internal error (bug): trying to unsubtract_example, but WAP LDF namespace wasn't added");
     return;
   }
 
-  auto& fs = ec->feature_space[VW::details::WAP_LDF_NAMESPACE];
+  auto& fs = (*ec)[VW::details::WAP_LDF_NAMESPACE];
   ec->num_features -= fs.size();
+  ec->delete_namespace(VW::details::WAP_LDF_NAMESPACE);
   ec->reset_total_sum_feat_sq();
-  fs.clear();
-  ec->indices.pop_back();
 }
 
 void make_single_prediction(ldf& data, learner& base, VW::example& ec)
@@ -478,7 +475,7 @@ size_t cs_count_features(const VW::multi_ex& ec_seq)
     if (VW::is_cs_example_header(*ec))
     {
       num_features +=
-          (ec_seq.size() - 1) * (ec->get_num_features() - ec->feature_space[VW::details::CONSTANT_NAMESPACE].size());
+          (ec_seq.size() - 1) * (ec->get_num_features() - ec[VW::details::CONSTANT_NAMESPACE].size());
     }
     else { num_features += ec->get_num_features(); }
   }

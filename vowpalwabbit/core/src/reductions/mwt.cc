@@ -17,6 +17,7 @@
 #include "vw/io/logger.h"
 
 #include <cmath>
+#include <unordered_set>
 
 using namespace VW::LEARNER;
 using namespace VW::config;
@@ -58,7 +59,7 @@ public:
 class mwt
 {
 public:
-  std::array<bool, VW::NUM_NAMESPACES> namespaces{};  // the set of namespaces to evaluate.
+  std::unordered_set<VW::namespace_index> namespaces{};  // the set of namespaces to evaluate.
   std::vector<policy_data> evals;                     // accrued losses of features.
   std::pair<bool, VW::cb_class> optional_observation;
   VW::v_array<uint64_t> policies;
@@ -67,7 +68,7 @@ public:
   bool learn = false;
 
   VW::v_array<VW::namespace_index> indices;  // excluded namespaces
-  std::array<VW::features, VW::NUM_NAMESPACES> feature_space;
+  VW::feature_groups_type feature_space;
   VW::workspace* all = nullptr;
 };
 
@@ -100,7 +101,7 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
     {
       if (c.namespaces[ns])
       {
-        VW::foreach_feature<mwt, value_policy>(c.all, ec.feature_space[ns], c, ec.ft_index_scale, ec.ft_index_offset);
+        VW::foreach_feature<mwt, value_policy>(c.all, ec[ns], c, ec.ft_index_scale, ec.ft_index_offset);
       }
     }
     for (uint64_t policy : c.policies)
@@ -124,13 +125,13 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
         if (learn)
         {
           c.feature_space[ns].clear();
-          for (VW::features::iterator& f : ec.feature_space[ns])
+          for (VW::features::iterator& f : ec[ns])
           {
             uint64_t new_index = (f.index() & hash_mask) * c.num_classes + static_cast<uint64_t>(f.value());
             c.feature_space[ns].push_back(1, new_index);
           }
         }
-        std::swap(c.feature_space[ns], ec.feature_space[ns]);
+        std::swap(c.feature_space[ns], ec[ns]);
       }
     }
   }
@@ -153,7 +154,7 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
     {
       unsigned char ns = c.indices.back();
       c.indices.pop_back();
-      std::swap(c.feature_space[ns], ec.feature_space[ns]);
+      std::swap(c.feature_space[ns], ec[ns]);
     }
   }
   VW_WARNING_STATE_POP
@@ -267,7 +268,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::mwt_setup(VW::setup_base_i
 
   if (!options.add_parse_and_check_necessary(new_options)) { return nullptr; }
 
-  for (char i : s) { c->namespaces[static_cast<unsigned char>(i)] = true; }
+  for (char i : s) { c->namespaces.insert(i); }
   c->all = &all;
 
   c->evals.resize(all.length(), policy_data{});

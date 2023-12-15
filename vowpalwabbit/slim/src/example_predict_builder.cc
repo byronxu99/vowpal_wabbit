@@ -25,19 +25,17 @@ example_predict_builder::example_predict_builder(
 void example_predict_builder::add_namespace(VW::namespace_index feature_group)
 {
   _namespace_idx = feature_group;
-  const auto it = std::find(_ex->indices.begin(), _ex->indices.end(), feature_group);
-  if (it == _ex->indices.end()) { _ex->indices.push_back(feature_group); }
 }
 
 void example_predict_builder::push_feature_string(const char* feature_name, VW::feature_value value)
 {
   VW::feature_index feature_hash =
       _feature_index_bit_mask & VW::details::hashstring(feature_name, strlen(feature_name), _namespace_hash);
-  _ex->feature_space[_namespace_idx].push_back(value, feature_hash);
+  (*_ex)[_namespace_idx].push_back(value, feature_hash);
 }
 
 void example_predict_builder::push_feature(VW::feature_index feature_idx, VW::feature_value value)
 {
-  _ex->feature_space[_namespace_idx].push_back(value, _namespace_hash + feature_idx);
+  (*_ex)[_namespace_idx].push_back(value, _namespace_hash + feature_idx);
 }
 }  // namespace vw_slim

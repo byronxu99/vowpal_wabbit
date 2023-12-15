@@ -604,20 +604,20 @@ uint32_t ex_num_namespaces(example_ptr ec) { return (uint32_t)ec->indices.size()
 
 unsigned char ex_namespace(example_ptr ec, uint32_t ns) { return ec->indices[ns]; }
 
-uint32_t ex_num_features(example_ptr ec, unsigned char ns) { return (uint32_t)ec->feature_space[ns].size(); }
+uint32_t ex_num_features(example_ptr ec, unsigned char ns) { return (uint32_t)(*ec)[ns].size(); }
 
 feature_index ex_feature(example_ptr ec, unsigned char ns, uint32_t i)
 {
-  return (feature_index)ec->feature_space[ns].indices[i];
+  return (feature_index)(*ec)[ns].indices[i];
 }
 
-float ex_feature_weight(example_ptr ec, unsigned char ns, uint32_t i) { return ec->feature_space[ns].values[i]; }
+float ex_feature_weight(example_ptr ec, unsigned char ns, uint32_t i) { return (*ec)[ns].values[i]; }
 
-float ex_sum_feat_sq(example_ptr ec, unsigned char ns) { return ec->feature_space[ns].sum_feat_sq; }
+float ex_sum_feat_sq(example_ptr ec, unsigned char ns) { return (*ec)[ns].sum_feat_sq; }
 
 void ex_push_feature(example_ptr ec, unsigned char ns, feature_index fid, float v)
 {  // warning: assumes namespace exists!
-  ec->feature_space[ns].push_back(v, fid);
+  (*ec)[ns].push_back(v, fid);
   ec->num_features++;
   ec->reset_total_sum_feat_sq();
 }
@@ -675,7 +675,7 @@ void ex_push_feature_list(example_ptr ec, vw_ptr vw, unsigned char ns_first_lett
       }
       if (got)
       {
-        ec->feature_space[ns_first_letter].push_back(f.x, f.weight_index);
+        (*ec)[ns_first_letter].push_back(f.x, f.weight_index);
         count++;
       }
     }
@@ -725,7 +725,7 @@ void ex_push_feature_dict(example_ptr ec, vw_ptr vw, unsigned char ns_first_lett
       continue;
     }
 
-    ec->feature_space[ns_first_letter].push_back(feat_value, feat_index);
+    (*ec)[ns_first_letter].push_back(feat_value, feat_index);
     count++;
   }
 
@@ -758,7 +758,7 @@ void ex_push_dictionary(example_ptr ec, vw_ptr vw, PyObject* o)
 
     std::string ns_full = ns_e();
     unsigned char ns_first_letter = ns_full[0];
-    uint64_t ns_hash = VW::hash_space(*vw, ns_full);
+    uint64_t ns_hash = VW::hash_namespace(*vw, ns_full);
 
     ex_ensure_namespace_exists(ec, ns_first_letter);
 
@@ -773,23 +773,23 @@ void ex_push_dictionary(example_ptr ec, vw_ptr vw, PyObject* o)
 
 bool ex_pop_feature(example_ptr ec, unsigned char ns)
 {
-  if (ec->feature_space[ns].size() == 0) return false;
-  float val = ec->feature_space[ns].values.back();
-  ec->feature_space[ns].values.pop_back();
-  if (ec->feature_space[ns].indices.size() > 0) ec->feature_space[ns].indices.pop_back();
-  if (ec->feature_space[ns].space_names.size() > 0) ec->feature_space[ns].space_names.pop_back();
+  if ((*ec)[ns].size() == 0) return false;
+  float val = (*ec)[ns].values.back();
+  (*ec)[ns].values.pop_back();
+  if ((*ec)[ns].indices.size() > 0) (*ec)[ns].indices.pop_back();
+  if ((*ec)[ns].audit_info.size() > 0) (*ec)[ns].audit_info.pop_back();
   ec->num_features--;
-  ec->feature_space[ns].sum_feat_sq -= val * val;
+  (*ec)[ns].sum_feat_sq -= val * val;
   ec->reset_total_sum_feat_sq();
   return true;
 }
 
 void ex_erase_namespace(example_ptr ec, unsigned char ns)
 {
-  ec->num_features -= ec->feature_space[ns].size();
+  ec->num_features -= (*ec)[ns].size();
   ec->reset_total_sum_feat_sq();
-  ec->feature_space[ns].sum_feat_sq = 0.;
-  ec->feature_space[ns].clear();
+  (*ec)[ns].sum_feat_sq = 0.;
+  (*ec)[ns].clear();
 }
 
 bool ex_pop_namespace(example_ptr ec)
@@ -811,7 +811,9 @@ void unsetup_example(vw_ptr vwP, example_ptr ae)
   ae->reset_total_sum_feat_sq();
   ae->loss = 0.;
 
-  if (all.feature_tweaks_config.ignore_some) { THROW("Cannot unsetup example when some namespaces are ignored"); }
+  // if (ignore.empty() == false) and (invert_ignore_as_keep == false)
+  // or (ignore.empty() == true) and (invert_ignore_as_keep == true)
+  if (all.feature_tweaks_config.ignore.empty() == all.feature_tweaks_config.invert_ignore_as_keep) { THROW("Cannot unsetup example when some namespaces are ignored"); }
 
   if (all.feature_tweaks_config.skip_gram_transformer != nullptr &&
       !all.feature_tweaks_config.skip_gram_transformer->get_initial_ngram_definitions().empty())
@@ -1390,7 +1392,7 @@ BOOST_PYTHON_MODULE(pylibvw)
       .def("learn", &my_learn, "given a pyvw example, learn (and predict) on that example")
       .def("json_weights", &my_json_weights, "get json string of current weights")
       .def("predict", &my_predict, "given a pyvw example, predict on that example")
-      .def("hash_space", &VW::hash_space, "given a namespace (as a string), compute the hash of that namespace")
+      .def("hash_namespace", &VW::hash_namespace, "given a namespace (as a string), compute the hash of that namespace")
       .def("hash_feature", &VW::hash_feature,
           "given a feature string (arg2) and a hashed namespace (arg3), hash that feature")
       .def("_finish_example", &my_finish_example, "tell VW that you're done with a given example")

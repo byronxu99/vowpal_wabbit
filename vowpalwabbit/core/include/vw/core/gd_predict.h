@@ -9,6 +9,8 @@
 #include "vw/core/interactions_predict.h"
 #include "vw/core/v_array.h"
 
+#include <unordered_set>
+
 #undef VW_DEBUG_LOG
 #define VW_DEBUG_LOG vw_dbg::GD_PREDICT
 
@@ -66,7 +68,7 @@ template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_v
     class WeightsT>  // nullptr func can't be used as template param in old
                      // compilers
 
-inline void generate_interactions(const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations,
+inline void generate_interactions(const VW::interaction_spec_type& interactions, bool permutations,
     VW::example_predict& ec, DataT& dat, WeightsT& weights, size_t& num_interacted_features,
     VW::details::generate_interactions_object_cache& cache)  // default value removed to eliminate
                                                              // ambiguity in old complers
@@ -78,19 +80,20 @@ inline void generate_interactions(const std::vector<std::vector<VW::namespace_in
 // iterate through all namespaces and quadratic&cubic features, callback function FuncT(some_data_R, feature_value_x,
 // WeightOrIndexT) where WeightOrIndexT is EITHER float& feature_weight OR uint64_t feature_index
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), class WeightsT>
-inline void foreach_feature(WeightsT& weights, bool ignore_some_linear,
-    std::array<bool, VW::NUM_NAMESPACES>& ignore_linear,
-    const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations, VW::example_predict& ec,
+inline void foreach_feature(WeightsT& weights,
+    std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
     DataT& dat, size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache)
 {
   VW::feature_index scale = ec.ft_index_scale;
   VW::feature_index offset = ec.ft_index_offset;
 
-  if (ignore_some_linear)
+  if (!ignore_linear.empty())
   {
     for (VW::example_predict::iterator i = ec.begin(); i != ec.end(); ++i)
     {
-      if (!ignore_linear[i.index()])
+      // if namespace index is not in the ignore set
+      if (ignore_linear.find(i.index()) == ignore_linear.end())
       {
         VW::features& f = *i;
         foreach_feature<DataT, FuncT, WeightsT>(weights, f, dat, scale, offset);
@@ -107,35 +110,35 @@ inline void foreach_feature(WeightsT& weights, bool ignore_some_linear,
 }
 
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), class WeightsT>
-inline void foreach_feature(WeightsT& weights, bool ignore_some_linear,
-    std::array<bool, VW::NUM_NAMESPACES>& ignore_linear,
-    const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations, VW::example_predict& ec,
+inline void foreach_feature(WeightsT& weights,
+    std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
     DataT& dat, VW::details::generate_interactions_object_cache& cache)
 {
   size_t num_interacted_features_ignored = 0;
-  foreach_feature<DataT, WeightOrIndexT, FuncT, WeightsT>(weights, ignore_some_linear, ignore_linear, interactions,
+  foreach_feature<DataT, WeightOrIndexT, FuncT, WeightsT>(weights, ignore_linear, interactions,
       permutations, ec, dat, num_interacted_features_ignored, cache);
 }
 
 template <class WeightsT>
-inline VW::feature_value inline_predict(WeightsT& weights, bool ignore_some_linear,
-    std::array<bool, VW::NUM_NAMESPACES>& ignore_linear,
-    const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations, VW::example_predict& ec,
+inline VW::feature_value inline_predict(WeightsT& weights,
+    std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
     VW::details::generate_interactions_object_cache& cache, VW::feature_value initial = 0.f)
 {
   foreach_feature<VW::feature_value, VW::feature_value, details::vec_add, WeightsT>(
-      weights, ignore_some_linear, ignore_linear, interactions, permutations, ec, initial, cache);
+      weights, ignore_linear, interactions, permutations, ec, initial, cache);
   return initial;
 }
 
 template <class WeightsT>
-inline VW::feature_value inline_predict(WeightsT& weights, bool ignore_some_linear,
-    std::array<bool, VW::NUM_NAMESPACES>& ignore_linear,
-    const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations, VW::example_predict& ec,
+inline VW::feature_value inline_predict(WeightsT& weights,
+    std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
     size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache,
     VW::feature_value initial = 0.f)
 {
-  foreach_feature<VW::feature_value, VW::feature_value, details::vec_add, WeightsT>(weights, ignore_some_linear,
+  foreach_feature<VW::feature_value, VW::feature_value, details::vec_add, WeightsT>(weights,
       ignore_linear, interactions, permutations, ec, initial, num_interacted_features, cache);
   return initial;
 }
@@ -177,7 +180,7 @@ template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_v
     class WeightsT>  // nullptr func can't be used as template param in old
                      // compilers
 VW_DEPRECATED("Moved to VW namespace") inline void generate_interactions(
-    const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations, VW::example_predict& ec,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
     DataT& dat, WeightsT& weights, size_t& num_interacted_features,
     VW::details::generate_interactions_object_cache& cache)  // default value removed to eliminate
                                                              // ambiguity in old complers
@@ -190,45 +193,45 @@ VW_DEPRECATED("Moved to VW namespace") inline void generate_interactions(
 // WeightOrIndexT) where WeightOrIndexT is EITHER float& feature_weight OR uint64_t feature_index
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline void foreach_feature(WeightsT& weights, bool ignore_some_linear,
-    std::array<bool, VW::NUM_NAMESPACES>& ignore_linear,
-    const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations, VW::example_predict& ec,
+inline void foreach_feature(WeightsT& weights,
+    std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
     DataT& dat, size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache)
 {
   VW::foreach_feature<DataT, WeightOrIndexT, FuncT, WeightsT>(
-      weights, ignore_some_linear, ignore_linear, interactions, permutations, ec, dat, num_interacted_features, cache);
+      weights, ignore_linear, interactions, permutations, ec, dat, num_interacted_features, cache);
 }
 
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
-inline void foreach_feature(WeightsT& weights, bool ignore_some_linear,
-    std::array<bool, VW::NUM_NAMESPACES>& ignore_linear,
-    const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations, VW::example_predict& ec,
+inline void foreach_feature(WeightsT& weights,
+    std::unordered_set<VW::namespace_index>& ignore_linear,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
     DataT& dat, VW::details::generate_interactions_object_cache& cache)
 {
   VW::foreach_feature<DataT, WeightOrIndexT, FuncT, WeightsT>(
-      weights, ignore_some_linear, ignore_linear, interactions, permutations, ec, dat, cache);
+      weights, ignore_linear, interactions, permutations, ec, dat, cache);
 }
 
 template <class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
 inline VW::feature_value
-    inline_predict(WeightsT& weights, bool ignore_some_linear, std::array<bool, VW::NUM_NAMESPACES>& ignore_linear,
-        const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations, VW::example_predict& ec,
+    inline_predict(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
+        const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
         VW::details::generate_interactions_object_cache& cache, VW::feature_value initial = 0.f)
 {
-  return VW::inline_predict(weights, ignore_some_linear, ignore_linear, interactions, permutations, ec, cache, initial);
+  return VW::inline_predict(weights, ignore_linear, interactions, permutations, ec, cache, initial);
 }
 
 template <class WeightsT>
 VW_DEPRECATED("Moved to VW namespace")
 inline VW::feature_value
-    inline_predict(WeightsT& weights, bool ignore_some_linear, std::array<bool, VW::NUM_NAMESPACES>& ignore_linear,
-        const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations, VW::example_predict& ec,
+    inline_predict(WeightsT& weights, std::unordered_set<VW::namespace_index>& ignore_linear,
+        const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
         size_t& num_interacted_features, VW::details::generate_interactions_object_cache& cache,
         VW::feature_value initial = 0.f)
 {
-  return VW::inline_predict(weights, ignore_some_linear, ignore_linear, interactions, permutations, ec,
+  return VW::inline_predict(weights, ignore_linear, interactions, permutations, ec,
       num_interacted_features, cache, initial);
 }
 }  // namespace GD

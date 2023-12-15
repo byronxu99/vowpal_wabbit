@@ -3,6 +3,7 @@
 // license as described in the file LICENSE.
 
 #pragma once
+#include "vw/core/example_predict.h"
 #include "vw/core/reduction_stack.h"
 #include "vw/core/reductions/ftrl.h"
 
@@ -33,7 +34,7 @@ public:
 
   VW::cb_class known_cost;  // for update stats
 
-  std::vector<std::vector<VW::namespace_index>> interactions;
+  VW::interaction_spec_type interactions;
 
   std::unique_ptr<VW::workspace> ik_all;
   ftrl* ik_ftrl;  // automatically save resume

@@ -9,6 +9,7 @@
 #include "vw/core/array_parameters.h"
 #include "vw/core/constant.h"
 #include "vw/core/error_reporting.h"
+#include "vw/core/example_predict.h"
 #include "vw/core/input_parser.h"
 #include "vw/core/interaction_generation_state.h"
 #include "vw/core/metrics_collector.h"
@@ -27,6 +28,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 // Thread cannot be used in managed C++, tell the compiler that this is unmanaged even if included in a managed project.
@@ -110,23 +112,20 @@ public:
   float initial_constant;
   bool permutations;  // if true - permutations of features generated instead of simple combinations. false by default
   // Referenced by examples as their set of interactions. Can be overriden by learners.
-  std::vector<std::vector<namespace_index>> interactions;
-  bool ignore_some;
-  std::array<bool, NUM_NAMESPACES> ignore;  // a set of namespaces to ignore
-  bool ignore_some_linear;
-  std::array<bool, NUM_NAMESPACES> ignore_linear;  // a set of namespaces to ignore for linear
+  VW::interaction_spec_type interactions;
+  bool invert_ignore_as_keep; // if true - ignore all namespaces except those in ignore set. false by default
+  std::unordered_set<VW::namespace_index> ignore;  // a set of namespaces to ignore
+  std::unordered_set<VW::namespace_index> ignore_linear;  // a set of namespaces to ignore for linear
   std::unordered_map<std::string, std::set<std::string>>
       ignore_features_dsjson;  // a map from hash(namespace) to a vector of hash(feature). This flag is only available
                                // for dsjson.
 
-  bool redefine_some;                                  // --redefine param was used
-  std::array<unsigned char, NUM_NAMESPACES> redefine;  // keeps new chars for namespaces
+  std::unordered_map<VW::namespace_index, std::string> redefine;  // map some namespaces to different names
   std::unique_ptr<VW::kskip_ngram_transformer> skip_gram_transformer;
   std::vector<std::string> limit_strings;      // descriptor of feature limits
-  std::array<uint32_t, NUM_NAMESPACES> limit;  // count to limit features by
-  std::array<uint64_t, NUM_NAMESPACES>
-      affix_features;  // affixes to generate (up to 16 per namespace - 4 bits per affix)
-  std::array<bool, NUM_NAMESPACES> spelling_features;  // generate spelling features for which namespace
+  std::unordered_map<VW::namespace_index, uint32_t> limit;  // count to limit features by
+  std::unordered_map<VW::namespace_index, uint64_t> affix_features;  // affixes to generate (up to 16 per namespace - 4 bits per affix)
+  std::unordered_set<VW::namespace_index> spelling_features;  // generate spelling features for which namespace
   std::vector<std::string> dictionary_path;            // where to look for dictionaries
 
   // feature_dict can be created in either loaded_dictionaries or namespace_dictionaries.
@@ -134,7 +133,7 @@ public:
   std::vector<details::dictionary_info>
       loaded_dictionaries;  // which dictionaries have we loaded from a file to memory?
   // This array is required to be value initialized so that the std::vectors are constructed.
-  std::array<std::vector<std::shared_ptr<details::feature_dict>>, NUM_NAMESPACES>
+  std::unordered_map<VW::namespace_index, std::vector<std::shared_ptr<details::feature_dict>>>
       namespace_dictionaries{};  // each namespace has a list of dictionaries attached to it
 };
 
@@ -270,6 +269,7 @@ public:
 #ifdef VW_FEAT_FLATBUFFERS_ENABLED
   std::unique_ptr<VW::parsers::flatbuffer::parser> flat_converter;
 #endif
+  bool hash_all; // if true, integer features are also hashed as strings
 };
 
 class output_config
@@ -386,7 +386,7 @@ namespace details
 void print_result_by_ref(
     VW::io::writer* f, float res, float weight, const VW::v_array<char>& tag, VW::io::logger& logger);
 
-void compile_limits(std::vector<std::string> limits, std::array<uint32_t, VW::NUM_NAMESPACES>& dest, bool quiet,
+void compile_limits(std::vector<std::string> limits, std::unordered_map<VW::namespace_index, uint32_t>& dest, bool quiet,
     VW::io::logger& logger);
 }  // namespace details
 }  // namespace VW

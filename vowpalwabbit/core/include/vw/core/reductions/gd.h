@@ -118,10 +118,10 @@ inline void foreach_feature(VW::workspace& all, VW::example& ec, DataT& dat)
 {
   return all.weights.sparse
       ? foreach_feature<DataT, WeightOrIndexT, FuncT, VW::sparse_parameters>(all.weights.sparse_weights,
-            all.feature_tweaks_config.ignore_some_linear, all.feature_tweaks_config.ignore_linear, *ec.interactions,
+            all.feature_tweaks_config.ignore_linear, *ec.interactions,
             all.feature_tweaks_config.permutations, ec, dat, all.runtime_state.generate_interactions_object_cache_state)
       : foreach_feature<DataT, WeightOrIndexT, FuncT, VW::dense_parameters>(all.weights.dense_weights,
-            all.feature_tweaks_config.ignore_some_linear, all.feature_tweaks_config.ignore_linear, *ec.interactions,
+            all.feature_tweaks_config.ignore_linear, *ec.interactions,
             all.feature_tweaks_config.permutations, ec, dat,
             all.runtime_state.generate_interactions_object_cache_state);
 }
@@ -132,11 +132,11 @@ inline void foreach_feature(VW::workspace& all, VW::example& ec, DataT& dat, siz
 {
   return all.weights.sparse
       ? foreach_feature<DataT, WeightOrIndexT, FuncT, VW::sparse_parameters>(all.weights.sparse_weights,
-            all.feature_tweaks_config.ignore_some_linear, all.feature_tweaks_config.ignore_linear, *ec.interactions,
+            all.feature_tweaks_config.ignore_linear, *ec.interactions,
             all.feature_tweaks_config.permutations, ec, dat, num_interacted_features,
             all.runtime_state.generate_interactions_object_cache_state)
       : foreach_feature<DataT, WeightOrIndexT, FuncT, VW::dense_parameters>(all.weights.dense_weights,
-            all.feature_tweaks_config.ignore_some_linear, all.feature_tweaks_config.ignore_linear, *ec.interactions,
+            all.feature_tweaks_config.ignore_linear, *ec.interactions,
             all.feature_tweaks_config.permutations, ec, dat, num_interacted_features,
             all.runtime_state.generate_interactions_object_cache_state);
 }
@@ -171,10 +171,10 @@ inline float inline_predict(VW::workspace& all, VW::example& ec)
 {
   const auto& simple_red_features = ec.ex_reduction_features.template get<VW::simple_label_reduction_features>();
   return all.weights.sparse
-      ? inline_predict<VW::sparse_parameters>(all.weights.sparse_weights, all.feature_tweaks_config.ignore_some_linear,
+      ? inline_predict<VW::sparse_parameters>(all.weights.sparse_weights,
             all.feature_tweaks_config.ignore_linear, *ec.interactions, all.feature_tweaks_config.permutations, ec,
             all.runtime_state.generate_interactions_object_cache_state, simple_red_features.initial)
-      : inline_predict<VW::dense_parameters>(all.weights.dense_weights, all.feature_tweaks_config.ignore_some_linear,
+      : inline_predict<VW::dense_parameters>(all.weights.dense_weights,
             all.feature_tweaks_config.ignore_linear, *ec.interactions, all.feature_tweaks_config.permutations, ec,
             all.runtime_state.generate_interactions_object_cache_state, simple_red_features.initial);
 }
@@ -183,11 +183,11 @@ inline float inline_predict(VW::workspace& all, VW::example& ec, size_t& num_gen
 {
   const auto& simple_red_features = ec.ex_reduction_features.template get<VW::simple_label_reduction_features>();
   return all.weights.sparse
-      ? inline_predict<VW::sparse_parameters>(all.weights.sparse_weights, all.feature_tweaks_config.ignore_some_linear,
+      ? inline_predict<VW::sparse_parameters>(all.weights.sparse_weights,
             all.feature_tweaks_config.ignore_linear, *ec.interactions, all.feature_tweaks_config.permutations, ec,
             num_generated_features, all.runtime_state.generate_interactions_object_cache_state,
             simple_red_features.initial)
-      : inline_predict<VW::dense_parameters>(all.weights.dense_weights, all.feature_tweaks_config.ignore_some_linear,
+      : inline_predict<VW::dense_parameters>(all.weights.dense_weights,
             all.feature_tweaks_config.ignore_linear, *ec.interactions, all.feature_tweaks_config.permutations, ec,
             num_generated_features, all.runtime_state.generate_interactions_object_cache_state,
             simple_red_features.initial);

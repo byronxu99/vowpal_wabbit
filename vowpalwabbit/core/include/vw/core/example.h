@@ -35,8 +35,11 @@ class workspace;
 }
 namespace VW
 {
+// Forward declare friend functions for example
+void copy_example_metadata(example* dst, const example* src);
 void copy_example_data(example* dst, const example* src);
 void setup_example(VW::workspace& all, example* ae);
+VW::example& get_unused_example(VW::workspace* all);
 
 class polylabel
 {
@@ -138,8 +141,10 @@ public:
     _total_sum_feat_sq_calculated = false;
   }
 
+  friend void VW::copy_example_metadata(example* dst, const example* src);
   friend void VW::copy_example_data(example* dst, const example* src);
   friend void VW::setup_example(VW::workspace& all, example* ae);
+  friend VW::example& get_unused_example(VW::workspace* all);
 
 private:
   bool _total_sum_feat_sq_calculated = false;
@@ -162,7 +167,7 @@ inline void add_passthrough_feature_magic(example& ec, uint64_t magic, uint64_t 
   if (ec.passthrough)
   {
     auto passthrough_hasher = VW::fnv_hasher().hash(magic).hash(i);
-    ec.passthrough->push_back(x, passthrough_hasher.get_full_hash());
+    ec.passthrough->add_feature_raw(passthrough_hasher.get_full_hash(), x);
   }
 }
 }  // namespace details

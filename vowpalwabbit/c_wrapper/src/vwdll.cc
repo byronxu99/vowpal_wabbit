@@ -281,14 +281,14 @@ extern "C"
   {
     auto* pointer = static_cast<VW::workspace*>(handle);
     std::string str(s);
-    return VW::hash_space(*pointer, str);
+    return VW::hash_namespace(*pointer, str);
   }
 
   VW_DLL_PUBLIC size_t VW_CALLING_CONV VW_HashSpaceStaticA(const char* s, const char* h = "strings")
   {
     std::string str(s);
     std::string hash(h);
-    return VW::hash_space_static(str, hash);
+    return VW::hash_namespace_static(str, hash);
   }
 
 #ifdef USE_CODECVT

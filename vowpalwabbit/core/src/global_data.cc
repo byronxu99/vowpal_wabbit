@@ -5,6 +5,7 @@
 #include "vw/core/global_data.h"
 
 #include "vw/config/options.h"
+#include "vw/core/constant.h"
 #include "vw/core/example.h"
 #include "vw/core/parse_regressor.h"
 #include "vw/core/reductions/metrics.h"
@@ -288,7 +289,7 @@ std::string workspace::dump_weights_to_json_experimental()
 }
 }  // namespace VW
 
-void VW::details::compile_limits(std::vector<std::string> limits, std::array<uint32_t, VW::NUM_NAMESPACES>& dest,
+void VW::details::compile_limits(std::vector<std::string> limits, std::unordered_map<VW::namespace_index, uint32_t>& dest,
     bool /*quiet*/, VW::io::logger& logger)
 {
   for (size_t i = 0; i < limits.size(); i++)
@@ -298,13 +299,13 @@ void VW::details::compile_limits(std::vector<std::string> limits, std::array<uin
     {
       int n = atoi(limit.c_str());
       logger.err_warn("limiting to {} features for each namespace.", n);
-      for (size_t j = 0; j < 256; j++) { dest[j] = n; }
+      dest[VW::details::WILDCARD_NAMESPACE] = n;
     }
     else if (limit.size() == 1) { logger.out_error("The namespace index must be specified before the n"); }
     else
     {
       int n = atoi(limit.c_str() + 1);
-      dest[static_cast<uint32_t>(limit[0])] = n;
+      dest[limit[0]] = n;
       logger.err_warn("limiting to {0} for namespaces {1}", n, limit[0]);
     }
   }
@@ -376,13 +377,6 @@ workspace::workspace(VW::io::logger logger) : options(nullptr, nullptr), logger(
   update_rule_config.eta_decay_rate = 1.0;
   initial_weights_config.initial_weight = 0.0;
   feature_tweaks_config.initial_constant = 0.0;
-
-  for (size_t i = 0; i < NUM_NAMESPACES; i++)
-  {
-    feature_tweaks_config.limit[i] = INT_MAX;
-    feature_tweaks_config.affix_features[i] = 0;
-    feature_tweaks_config.spelling_features[i] = 0;
-  }
 
   feature_tweaks_config.add_constant = true;
 

@@ -701,6 +701,7 @@ VW::example& get_unused_example(VW::workspace* all)
   auto& p = *all->parser_runtime.example_parser;
   auto* ex = p.example_pool.get_object().release();
   ex->example_counter = static_cast<size_t>(p.num_examples_taken_from_pool.fetch_add(1, std::memory_order_relaxed));
+  ex->_hash_seed = all->runtime_config.hash_seed;
   return *ex;
 }
 

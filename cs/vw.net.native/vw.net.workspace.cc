@@ -199,7 +199,7 @@ API void WorkspaceGetPerformanceStatistics(
 API size_t WorkspaceHashSpace(vw_net_native::workspace_context* workspace, char* space, size_t space_size)
 {
   std::string space_str(space, space_size);
-  return VW::hash_space(*workspace->vw, space_str);
+  return VW::hash_namespace(*workspace->vw, space_str);
 }
 
 API size_t WorkspaceHashFeature(

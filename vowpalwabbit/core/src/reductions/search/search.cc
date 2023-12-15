@@ -573,33 +573,27 @@ void add_new_feature(search_private& priv, float val, uint64_t idx)
 {
   uint64_t mask = priv.all->weights.hash_mask();
   uint64_t idx2 = idx & mask;
-  auto& fs = priv.dat_new_feature_ec->feature_space[priv.dat_new_feature_namespace];
-  fs.push_back(val * priv.dat_new_feature_value, (priv.dat_new_feature_idx + idx2) & mask);
+  auto& fs = (*priv.dat_new_feature_ec)[priv.dat_new_feature_namespace];
+  fs.add_feature_raw(priv.dat_new_feature_idx + idx2, val * priv.dat_new_feature_value);
   cdbg << "adding: " << fs.indices.back() << ':' << fs.values.back() << endl;
   if (priv.all->output_config.audit)
   {
     std::stringstream temp;
     temp << "fid=" << (idx & mask) << "_" << priv.dat_new_feature_audit_ss.str();
-    fs.space_names.emplace_back(*priv.dat_new_feature_feature_space, temp.str());
+    fs.add_audit_string(temp.str());
   }
 }
 
-void del_features_in_top_namespace(search_private& /* priv */, VW::example& ec, size_t ns)
+void del_features_in_top_namespace(search_private& /* priv */, VW::example& ec, VW::namespace_index ns)
 {
-  if ((ec.indices.size() == 0) || (ec.indices.back() != ns))
+  if ((ec.size() == 0) || (!ec.contains(ns)))
   {
     return;
-    // if (ec.indices.size() == 0)
-    //{ THROW("internal error (bug): expecting top namespace to be '" << ns << "' but it was empty"); }
-    // else
-    //{ THROW("internal error (bug): expecting top namespace to be '" << ns << "' but it was " <<
-    //(size_t)ec.indices.last()); }
   }
-  auto& fs = ec.feature_space[ns];
-  ec.indices.pop_back();
+  auto& fs = ec[ns];
   ec.num_features -= fs.size();
+  ec.delete_namespace(ns);
   ec.reset_total_sum_feat_sq();
-  fs.clear();
 }
 
 void add_neighbor_features(search_private& priv, VW::multi_ex& ec_seq)
@@ -639,19 +633,18 @@ void add_neighbor_features(search_private& priv, VW::multi_ex& ec_seq)
         VW::example& other = *ec_seq[n + offset];
         // feature scale is 1 because we are not indexing weights
         VW::foreach_feature<search_private, add_new_feature>(
-            priv.all, other.feature_space[ns], priv, 1, me.ft_index_offset);
+            priv.all, other[ns], priv, 1, me.ft_index_offset);
       }
     }
 
-    auto& fs = me.feature_space[VW::details::NEIGHBOR_NAMESPACE];
+    auto& fs = me[VW::details::NEIGHBOR_NAMESPACE];
     size_t sz = fs.size();
     if ((sz > 0) && (fs.sum_feat_sq > 0.))
     {
-      me.indices.push_back(VW::details::NEIGHBOR_NAMESPACE);
       me.reset_total_sum_feat_sq();
       me.num_features += sz;
     }
-    else { fs.clear(); }
+    else { me.delete_namespace(VW::details::NEIGHBOR_NAMESPACE); }
   }
 }
 
@@ -804,16 +797,8 @@ void add_example_conditioning(search_private& priv, VW::example& ec, size_t cond
       // add the quadratic features
       if (n < priv.acset.max_quad_ngram_length)
       {
-        auto old_ft_index_scale = ec.ft_index_scale;
-        auto old_ft_index_offset = ec.ft_index_offset;
-        auto restore_example = VW::scope_exit(
-            [&ec, old_ft_index_scale, old_ft_index_offset]
-            {
-              ec.ft_index_scale = old_ft_index_scale;
-              ec.ft_index_offset = old_ft_index_offset;
-            });
-
         // feature scale is 1 because we are not indexing weights
+        auto restore_guard = ec.stash_scale_offset();
         ec.ft_index_scale = 1;
         ec.ft_index_offset = 0;
         VW::foreach_feature<search_private, uint64_t, add_new_feature>(*priv.all, ec, priv);
@@ -852,14 +837,13 @@ void add_example_conditioning(search_private& priv, VW::example& ec, size_t cond
     cdbg << "END adding passthrough features" << endl;
   }
 
-  auto& con_fs = ec.feature_space[VW::details::CONDITIONING_NAMESPACE];
+  auto& con_fs = ec[VW::details::CONDITIONING_NAMESPACE];
   if ((con_fs.size() > 0) && (con_fs.sum_feat_sq > 0.))
   {
-    ec.indices.push_back(VW::details::CONDITIONING_NAMESPACE);
     ec.reset_total_sum_feat_sq();
     ec.num_features += con_fs.size();
   }
-  else { con_fs.clear(); }
+  else { ec.delete_namespace(VW::details::CONDITIONING_NAMESPACE); }
 }
 
 void del_example_conditioning(search_private& priv, VW::example& ec)
@@ -1171,10 +1155,11 @@ action single_prediction_not_ldf(search_private& priv, VW::example& ec, int poli
   }
   cdbg << " ]" << endl;
 
-  auto old_ft_index_scale = ec.ft_index_scale;
-  ec.ft_index_scale = priv.scale;
-  require_singleline(priv.learner)->predict(ec, policy);
-  ec.ft_index_scale = old_ft_index_scale;
+  {
+    auto restore_guard = ec.stash_scale_offset();
+    ec.ft_index_scale = priv.scale;
+    require_singleline(priv.learner)->predict(ec, policy);
+  }
 
   uint32_t act = priv.active_csoaa ? ec.pred.active_multiclass.predicted_class : ec.pred.multiclass;
   cdbg << "a=" << act << " from";
@@ -1522,16 +1507,17 @@ void generate_training_example(search_private& priv, VW::polylabel& losses, floa
           priv.learn_condition_on_act.data());
     }
 
-    auto old_ft_index_scale = ec.ft_index_scale;
-    ec.ft_index_scale = priv.scale;
-    for (size_t is_local = 0; is_local <= static_cast<size_t>(priv.xv); is_local++)
     {
-      int learner = select_learner(priv, priv.current_policy, priv.learn_learner_id, true, is_local > 0);
-      cdbg << "BEGIN learner->learn(ec, " << learner << ")" << endl;
-      require_singleline(priv.learner)->learn(ec, learner);
-      cdbg << "END   learner->learn(ec, " << learner << ")" << endl;
+      auto restore_guard = ec.stash_scale_offset();
+      ec.ft_index_scale = priv.scale;
+      for (size_t is_local = 0; is_local <= static_cast<size_t>(priv.xv); is_local++)
+      {
+        int learner = select_learner(priv, priv.current_policy, priv.learn_learner_id, true, is_local > 0);
+        cdbg << "BEGIN learner->learn(ec, " << learner << ")" << endl;
+        require_singleline(priv.learner)->learn(ec, learner);
+        cdbg << "END   learner->learn(ec, " << learner << ")" << endl;
+      }
     }
-    ec.ft_index_scale = old_ft_index_scale;
 
     if (add_conditioning) { del_example_conditioning(priv, ec); }
     ec.l = old_label;

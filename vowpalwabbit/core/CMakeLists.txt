@@ -45,6 +45,7 @@ set(vw_core_headers
   include/vw/core/generic_range.h
   include/vw/core/global_data.h
   include/vw/core/guard.h
+  include/vw/core/hash.h
   include/vw/core/hashstring.h
   include/vw/core/interactions_predict.h
   include/vw/core/interactions.h

@@ -70,4 +70,6 @@ inline details::scope_exit_caller<TScopeExitLambda> scope_exit(TScopeExitLambda&
   return details::scope_exit_caller<TScopeExitLambda>(std::forward<TScopeExitLambda>(lambda));
 }
 
+using scope_exit_guard = details::scope_exit_caller<std::function<void()>>;
+
 }  // namespace VW

@@ -5,8 +5,11 @@
 #pragma once
 
 #include "vw/common/future_compat.h"
+#include "vw/common/string_view.h"
 #include "vw/core/generic_range.h"
+#include "vw/core/scope_exit.h"
 #include "vw/core/v_array.h"
+#include "vw/core/vw_fwd.h" // for VW::namespace_index
 
 #include <algorithm>
 #include <cstddef>
@@ -24,34 +27,47 @@ namespace VW
 
 using feature_value = float;
 using feature_index = uint64_t;
-using namespace_index = unsigned char;
 
 class features;
 
 class audit_strings
 {
 public:
-  std::string ns;
-  std::string name;
+  // Name of the namespace containing the feature
+  std::string namespace_name;
+  
+  // Hash of the namespace
+  // Except for special namespaces, this is the index used to access the features in the example object
+  VW::namespace_index namespace_hash;
+
+  // Name of the feature
+  std::string feature_name;
 
   // This is only set if chain hashing is in use.
   std::string str_value;
 
   audit_strings() = default;
-  audit_strings(std::string ns, std::string name) : ns(std::move(ns)), name(std::move(name)) {}
-  audit_strings(std::string ns, std::string name, std::string str_value)
-      : ns(std::move(ns)), name(std::move(name)), str_value(std::move(str_value))
-  {
-  }
 
-  bool is_empty() const { return ns.empty() && name.empty() && str_value.empty(); }
+  audit_strings(std::string namespace_name, VW::namespace_index namespace_hash, std::string feature_name)
+    : namespace_name(std::move(namespace_name))
+    , namespace_hash(namespace_hash)
+    , feature_name(std::move(feature_name))
+    {}
+
+  audit_strings(std::string namespace_name, VW::namespace_index namespace_hash, std::string feature_name, std::string str_value)
+    : namespace_name(std::move(namespace_name))
+    , namespace_hash(namespace_hash)
+    , feature_name(std::move(feature_name))
+    , str_value(std::move(str_value)) {}
+
+  bool is_empty() const { return feature_name.empty() && str_value.empty(); }
 };
 
 inline std::string to_string(const audit_strings& ai)
 {
   std::ostringstream ss;
-  if (!ai.ns.empty() && ai.ns != " ") { ss << ai.ns << '^'; }
-  ss << ai.name;
+  if (!ai.namespace_name.empty() && ai.namespace_name != " ") { ss << ai.namespace_name << '^'; }
+  ss << ai.feature_name;
   if (!ai.str_value.empty()) { ss << '^' << ai.str_value; }
   return ss.str();
 }
@@ -60,11 +76,11 @@ inline std::string to_string(const audit_strings& ai)
 class feature
 {
 public:
-  float x;
-  uint64_t weight_index;
+  VW::feature_value value;
+  VW::feature_index index;
 
   feature() = default;
-  feature(float _x, uint64_t _index) : x(_x), weight_index(_index) {}
+  feature(VW::feature_value _value, VW::feature_index _index) : value(_value), index(_index) {}
 
   feature(const feature&) = default;
   feature& operator=(const feature&) = default;
@@ -328,9 +344,24 @@ public:
   using const_audit_iterator =
       details::audit_features_iterator<const feature_value, const feature_index, const VW::audit_strings>;
 
+  // Name of the namespace
+  std::string namespace_name;
+
+  // Hash of the namespace name
+  // Except for special namespaces, this is the index used to access the features in the example object
+  VW::namespace_index namespace_hash = 0;
+
+  // Scaling factor for feature values
+  // This only affects new features that are added by add_feature() functions
+  float namespace_value = 1.f;
+
+  // Features data
   VW::v_array<feature_value> values;           // Always needed.
   VW::v_array<feature_index> indices;          // Optional for sparse data.
-  std::vector<VW::audit_strings> space_names;  // Optional for audit mode.
+
+  // Optional for audit mode
+  // add_audit_string() will add a string name for each feature
+  std::vector<VW::audit_strings> audit_info;
 
   float sum_feat_sq = 0.f;
 
@@ -338,9 +369,6 @@ public:
   ~features() = default;
   features(const features&) = default;
   features& operator=(const features&) = default;
-
-  // custom move operators required since we need to leave the old value in
-  // a null state to prevent freeing of shallow copied v_arrays
   features(features&& other) = default;
   features& operator=(features&& other) = default;
 
@@ -349,7 +377,46 @@ public:
   inline bool empty() const { return values.empty(); }
   inline bool nonempty() const { return !empty(); }
 
-  // default iterator for values & features
+  // Remove all features
+  void clear();
+
+  // These 3 overloads can be used if the sum_feat_sq of the removed section is known to avoid recalculating.
+  void truncate_to(const audit_iterator& pos, float sum_feat_sq_of_removed_section);
+  void truncate_to(const iterator& pos, float sum_feat_sq_of_removed_section);
+  void truncate_to(size_t i, float sum_feat_sq_of_removed_section);
+  void truncate_to(const audit_iterator& pos);
+  void truncate_to(const iterator& pos);
+  void truncate_to(size_t i);
+
+  void concat(const features& other);
+  bool sort(uint64_t parse_mask);
+
+  // Add a new feature without hashing
+  void add_feature_raw(feature_index i, feature_value v);
+  
+  // Add feature information for audit mode
+  // If using audit, this must be manually called after add_feature_raw()
+  void add_audit_string(std::string str);
+  void add_audit_string(std::string feature_name, std::string str_value);
+
+  // Add a new feature with integer index
+  void add_feature(feature_index i, feature_value v = 1.f, bool audit = false);
+
+  // Add a new feature with integer index and string value
+  void add_feature(feature_index i, VW::string_view str_value, bool audit = false);
+
+  // Add a new feature with string index
+  void add_feature(VW::string_view feature_name, feature_value v = 1.f, bool audit = false);
+
+  // Add a new feature with string index and string value (chain hashing)
+  void add_feature(VW::string_view feature_name, VW::string_view str_value, bool audit = false);
+
+  // Stash a copy of feature indices and values
+  // When the returned scope exit guard is destroyed, the stashed data is restored
+  // This is used to undo any changes to the features data
+  VW::scope_exit_guard stash_features();
+
+  // Default iterator for values & features
   inline iterator begin() { return {values.begin(), indices.begin()}; }
   inline const_iterator begin() const { return {values.begin(), indices.begin()}; }
   inline iterator end() { return {values.end(), indices.end()}; }
@@ -361,32 +428,19 @@ public:
   inline VW::generic_range<audit_iterator> audit_range() { return {audit_begin(), audit_end()}; }
   inline VW::generic_range<const_audit_iterator> audit_range() const { return {audit_cbegin(), audit_cend()}; }
 
-  inline audit_iterator audit_begin() { return {values.begin(), indices.begin(), space_names.data()}; }
-  inline const_audit_iterator audit_begin() const { return {values.begin(), indices.begin(), space_names.data()}; }
-  inline audit_iterator audit_end() { return {values.end(), indices.end(), space_names.data() + space_names.size()}; }
+  inline audit_iterator audit_begin() { return {values.begin(), indices.begin(), audit_info.data()}; }
+  inline const_audit_iterator audit_begin() const { return {values.begin(), indices.begin(), audit_info.data()}; }
+  inline audit_iterator audit_end() { return {values.end(), indices.end(), audit_info.data() + audit_info.size()}; }
   inline const_audit_iterator audit_end() const
   {
-    return {values.end(), indices.end(), space_names.data() + space_names.size()};
+    return {values.end(), indices.end(), audit_info.data() + audit_info.size()};
   }
 
-  inline const_audit_iterator audit_cbegin() const { return {values.begin(), indices.begin(), space_names.data()}; }
+  inline const_audit_iterator audit_cbegin() const { return {values.begin(), indices.begin(), audit_info.data()}; }
   inline const_audit_iterator audit_cend() const
   {
-    return {values.end(), indices.end(), space_names.data() + space_names.size()};
+    return {values.end(), indices.end(), audit_info.data() + audit_info.size()};
   }
-
-  void clear();
-  // These 3 overloads can be used if the sum_feat_sq of the removed section is known to avoid recalculating.
-  void truncate_to(const audit_iterator& pos, float sum_feat_sq_of_removed_section);
-  void truncate_to(const iterator& pos, float sum_feat_sq_of_removed_section);
-  void truncate_to(size_t i, float sum_feat_sq_of_removed_section);
-  void truncate_to(const audit_iterator& pos);
-  void truncate_to(const iterator& pos);
-  void truncate_to(size_t i);
-  void concat(const features& other);
-  void push_back(feature_value v, feature_index i);
-  void push_back(feature_value v, feature_index i, uint64_t ns_hash);
-  bool sort(uint64_t parse_mask);
 };
 
 /// Both fs1 and fs2 must be sorted.

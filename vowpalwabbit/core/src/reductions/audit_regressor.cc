@@ -100,12 +100,12 @@ void audit_regressor_lda(audit_regressor_data& rd, VW::LEARNER::learner& /* base
 
   std::ostringstream tempstream;
   auto& weights = rd.all->weights;
-  for (unsigned char* i = ec.indices.begin(); i != ec.indices.end(); i++)
+  for (auto ns : ec)
   {
-    auto& fs = ec.feature_space[*i];
+    auto& fs = ec[ns];
     for (size_t j = 0; j < fs.size(); ++j)
     {
-      tempstream << '\t' << fs.space_names[j].ns << '^' << fs.space_names[j].name << ':'
+      tempstream << '\t' << fs.audit_info[j].namespace_name << '^' << fs.audit_info[j].feature_name << ':'
                  << ((fs.indices[j] >> weights.stride_shift()) & all.runtime_state.parse_mask);
       for (size_t k = 0; k < all.reduction_state.lda; k++)
       {
@@ -135,14 +135,14 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
 
     while (rd.cur_class < rd.total_class_cnt)
     {
-      for (unsigned char* i = ec.indices.begin(); i != ec.indices.end(); ++i)
+      for (auto ns : ec)
       {
-        const auto& fs = ec.feature_space[static_cast<size_t>(*i)];
-        if (!fs.space_names.empty())
+        const auto& fs = ec[ns];
+        if (!fs.audit_info.empty())
         {
           for (size_t j = 0; j < fs.size(); ++j)
           {
-            audit_regressor_interaction(rd, &fs.space_names[j]);
+            audit_regressor_interaction(rd, &fs.audit_info[j]);
             audit_regressor_feature(rd, fs.values[j],
                 VW::details::feature_to_weight_index(fs.indices[j], ec.ft_index_scale, ec.ft_index_offset));
             audit_regressor_interaction(rd, nullptr);

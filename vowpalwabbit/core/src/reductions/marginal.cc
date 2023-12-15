@@ -19,6 +19,7 @@
 
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 
 using namespace VW::config;
 namespace
@@ -48,10 +49,7 @@ public:
       , update_before_learn(update_before_learn)
       , unweighted_marginals(unweighted_marginals)
       , compete(compete)
-      , m_all(all)
-  {
-    id_features.fill(false);
-  }
+      , m_all(all) {}
 
   float initial_numerator;
   float initial_denominator;
@@ -59,8 +57,8 @@ public:
   bool update_before_learn;
   bool unweighted_marginals;
 
-  std::array<bool, 256> id_features;
-  std::array<VW::features, 256> temp;  // temporary storage when reducing.
+  std::unordered_set<VW::namespace_index> id_features;
+  VW::feature_groups_type temp;  // temporary storage when reducing.
   std::map<uint64_t, marginal> marginals;
 
   // bookkeeping variables for experts
@@ -131,7 +129,7 @@ void make_marginal(data& sm, VW::example& ec)
           if (sm.m_all->output_config.hash_inv)
           {
             std::ostringstream ss;
-            std::vector<VW::audit_strings>& sn = sm.temp[n].space_names;
+            std::vector<VW::audit_strings>& sn = sm.temp[n].audit_info;
             ss << sn[inv_hash_idx].ns << "^" << sn[inv_hash_idx].name << "*" << sn[inv_hash_idx + 1].name;
             sm.inverse_hashes.insert(std::make_pair(key, ss.str()));
             inv_hash_idx += 2;
@@ -139,7 +137,7 @@ void make_marginal(data& sm, VW::example& ec)
         }
         const auto marginal_pred = static_cast<float>(sm.marginals[key].first / sm.marginals[key].second);
         f.push_back(marginal_pred, first_index);
-        if (!sm.temp[n].space_names.empty()) { f.space_names.push_back(sm.temp[n].space_names[2 * (f.size() - 1)]); }
+        if (!sm.temp[n].audit_info.empty()) { f.audit_info.push_back(sm.temp[n].audit_info[2 * (f.size() - 1)]); }
 
         if (sm.compete)  // compute the prediction from the marginals using the weights
         {
@@ -163,7 +161,7 @@ void undo_marginal(data& sm, VW::example& ec)
   for (auto i = ec.begin(); i != ec.end(); ++i)
   {
     const VW::namespace_index n = i.index();
-    if (sm.id_features[n]) { std::swap(sm.temp[n], *i); }
+    if (sm.id_features.find(n) != sm.id_features.end()) { std::swap(sm.temp[n], i.features()); }
   }
 }
 
@@ -201,7 +199,7 @@ void update_marginal(data& sm, VW::example& ec)
   for (VW::example::iterator i = ec.begin(); i != ec.end(); ++i)
   {
     const VW::namespace_index n = i.index();
-    if (sm.id_features[n])
+    if (sm.id_features.find(n) != sm.id_features.end())
     {
       for (auto j = sm.temp[n].begin(); j != sm.temp[n].end(); ++j)
       {
@@ -417,7 +415,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::marginal_setup(VW::setup_b
 
   marginal = VW::decode_inline_hex(marginal, all->logger);
   if (marginal.find(':') != std::string::npos) { THROW("Cannot use wildcard with marginal.") }
-  for (const auto ns : marginal) { d->id_features[static_cast<unsigned char>(ns)] = true; }
+  for (const auto ns : marginal) { d->id_features.insert(ns); }
 
   auto l = make_reduction_learner(std::move(d), require_singleline(stack_builder.setup_base_learner()),
       predict_or_learn<true>, predict_or_learn<false>, stack_builder.get_setupfn_name(marginal_setup))

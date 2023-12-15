@@ -90,30 +90,29 @@ void diag_kronecker_prod_fs_test(
   }
 }
 
-int cmpfunc(const void* a, const void* b) { return *(char*)a - *(char*)b; }
-
 void diag_kronecker_product_test(VW::example& ec1, VW::example& ec2, VW::example& ec, bool oas = false)
 {
   // copy_example_data(&ec, &ec1, oas); //no_feat false, oas: true
   copy_example_data(&ec, &ec1, oas);
 
-  ec.total_sum_feat_sq = 0.0;  // sort namespaces.  pass indices array into sort...template (leave this to the end)
+  ec.total_sum_feat_sq = 0.0;
 
-  qsort(ec1.indices.begin(), ec1.indices.size(), sizeof(VW::namespace_index), cmpfunc);
-  qsort(ec2.indices.begin(), ec2.indices.size(), sizeof(VW::namespace_index), cmpfunc);
+  auto ns1 = ec1.namespaces();
+  auto ns2 = ec2.namespaces();
+  std::sort(ns1.begin(), ns1.end());
+  std::sort(ns2.begin(), ns2.end());
 
   size_t idx1 = 0;
   size_t idx2 = 0;
-  while (idx1 < ec1.indices.size() && idx2 < ec2.indices.size())
-  // for (size_t idx1 = 0, idx2 = 0; idx1 < ec1.indices.size() && idx2 < ec2.indices.size(); idx1++)
+  while (idx1 < ns1.size() && idx2 < ns2.size())
   {
-    VW::namespace_index c1 = ec1.indices[idx1];
-    VW::namespace_index c2 = ec2.indices[idx2];
+    VW::namespace_index c1 = ns1[idx1];
+    VW::namespace_index c2 = ns2[idx2];
     if (c1 < c2) { idx1++; }
     else if (c1 > c2) { idx2++; }
     else
     {
-      diag_kronecker_prod_fs_test(ec1.feature_space[c1], ec2.feature_space[c2], ec.feature_space[c1],
+      diag_kronecker_prod_fs_test(ec1[c1], ec2[c2], ec[c1],
           ec.total_sum_feat_sq, ec1.get_total_sum_feat_sq(), ec2.get_total_sum_feat_sq());
       idx1++;
       idx2++;
@@ -1089,18 +1088,16 @@ void save_load_example(
   for (uint32_t i = 0; i < tag_number; i++) DEPRECATED_WRITEIT(ec->tag[i], "tag");
 
   // deal with tag:
-  DEPRECATED_WRITEITVAR(ec->indices.size(), "namespaces", namespace_size);
-  if (read)
-  {
-    ec->indices.clear();
-    for (uint32_t i = 0; i < namespace_size; i++) { ec->indices.push_back('\0'); }
-  }
-  for (uint32_t i = 0; i < namespace_size; i++) DEPRECATED_WRITEIT(ec->indices[i], "VW::namespace_index");
+  DEPRECATED_WRITEITVAR(ec->size(), "namespaces", namespace_size);
+  std::vector<VW::namespace_index> indices;
+  if (read) { indices.resize(namespace_size); }
+  else { indices = ec->namespaces(); }
+  for (uint32_t i = 0; i < namespace_size; i++) DEPRECATED_WRITEIT(indices[i], "VW::namespace_index");
 
   // deal with features
-  for (VW::namespace_index nc : ec->indices)
+  for (VW::namespace_index nc : *ec)
   {
-    VW::features* fs = &ec->feature_space[nc];
+    VW::features* fs = &((*ec)[nc]);
     DEPRECATED_WRITEITVAR(fs->size(), "features_", feat_size);
     if (read)
     {

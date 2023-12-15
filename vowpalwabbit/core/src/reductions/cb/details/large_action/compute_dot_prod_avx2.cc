@@ -142,12 +142,11 @@ float compute_dot_prod_avx2(uint64_t column_index, VW::workspace* _all, uint64_t
   const __m256i scales = _mm256_set1_epi64x(scale);
   const __m256i offsets = _mm256_set1_epi64x(offset);
 
-  const bool ignore_some_linear = _all->feature_tweaks_config.ignore_some_linear;
   const auto& ignore_linear = _all->feature_tweaks_config.ignore_linear;
   for (auto i = ex->begin(); i != ex->end(); ++i)
   {
-    if (ignore_some_linear && ignore_linear[i.index()]) { continue; }
-    const auto& features = *i;
+    if (ignore_linear.find(i.index()) != ignore_linear.end()) { continue; }
+    const auto& features = i.features();
     const size_t num_features = features.size();
     size_t j = 0;
     for (; j + 8 <= num_features; j += 8)
@@ -182,12 +181,14 @@ float compute_dot_prod_avx2(uint64_t column_index, VW::workspace* _all, uint64_t
     }
 
     const bool same_namespace = (!_all->feature_tweaks_config.permutations && (ns[0] == ns[1]));
-    const size_t num_features_ns0 = ex->feature_space[ns[0]].size();
-    const size_t num_features_ns1 = ex->feature_space[ns[1]].size();
-    const auto& ns0_indices = ex->feature_space[ns[0]].indices;
-    const auto& ns1_indices = ex->feature_space[ns[1]].indices;
-    const auto& ns0_values = ex->feature_space[ns[0]].values;
-    const auto& ns1_values = ex->feature_space[ns[1]].values;
+    const auto& ft0 = (*ex)[ns[0]];
+    const auto& ft1 = (*ex)[ns[1]];
+    const size_t num_features_ns0 = ft0.size();
+    const size_t num_features_ns1 = ft1.size();
+    const auto& ns0_indices = ft0.indices;
+    const auto& ns1_indices = ft1.indices;
+    const auto& ns0_values = ft0.values;
+    const auto& ns1_values = ft1.values;
 
     for (size_t i = 0; i < num_features_ns0; ++i)
     {

@@ -119,7 +119,7 @@ size_t VW::parsers::cache::details::read_cached_features(io_buf& input, features
     if (s_diff < 0) { sorted = false; }
     feat_idx = last + s_diff;
     last = feat_idx;
-    feats.push_back(feat_value, feat_idx);
+    feats.add_feature_raw(feat_idx, feat_value);
   }
   assert(read_head == end);
   input.set(read_head);
@@ -146,7 +146,7 @@ void VW::parsers::cache::details::cache_index(io_buf& cache, VW::namespace_index
   cache.write_value<VW::namespace_index>(index);
 }
 
-void VW::parsers::cache::details::cache_features(io_buf& cache, const features& feats, uint64_t mask)
+void VW::parsers::cache::details::cache_features(io_buf& cache, const features& feats)
 {
   size_t storage = feats.size() * INTS_SIZE;
   for (auto feat : feats.values)
@@ -163,7 +163,7 @@ void VW::parsers::cache::details::cache_features(io_buf& cache, const features& 
   uint64_t last = 0;
   for (const auto& feat_it : feats)
   {
-    feature_index feat_index = feat_it.index() & mask;
+    feature_index feat_index = feat_it.index();
     int64_t s_diff = (feat_index - last);
     uint64_t diff = zig_zag_encode(s_diff) << 2;
     last = feat_index;
@@ -184,19 +184,20 @@ void VW::parsers::cache::details::cache_features(io_buf& cache, const features& 
 }
 
 void VW::parsers::cache::write_example_to_cache(io_buf& output, example* ex_ptr, VW::label_parser& lbl_parser,
-    uint64_t parse_mask, VW::parsers::cache::details::cache_temp_buffer& temp_buffer)
+    VW::parsers::cache::details::cache_temp_buffer& temp_buffer)
 {
   temp_buffer.backing_buffer->clear();
   io_buf& temp_cache = temp_buffer.temporary_cache_buffer;
   lbl_parser.cache_label(ex_ptr->l, ex_ptr->ex_reduction_features, temp_cache, "_label", false);
   details::cache_tag(temp_cache, ex_ptr->tag);
   temp_cache.write_value<unsigned char>(ex_ptr->is_newline ? NEWLINE_EXAMPLE_INDICATOR : NON_NEWLINE_EXAMPLE_INDICATOR);
-  assert(ex_ptr->indices.size() < 256);
-  temp_cache.write_value<unsigned char>(static_cast<unsigned char>(ex_ptr->indices.size()));
-  for (VW::namespace_index ns_idx : ex_ptr->indices)
+  temp_cache.write_value<unsigned char>(static_cast<unsigned char>(ex_ptr->size()));
+  for (VW::namespace_index ns_idx : *ex_ptr)
   {
+    auto& ft = (*ex_ptr)[ns_idx];
     details::cache_index(temp_cache, ns_idx);
-    details::cache_features(temp_cache, ex_ptr->feature_space[ns_idx], parse_mask);
+    details::cache_index(temp_cache, ft.namespace_hash);
+    details::cache_features(temp_cache, ft);
   }
   temp_cache.flush();
 
@@ -229,10 +230,11 @@ int VW::parsers::cache::read_example_from_cache(VW::workspace* all, io_buf& inpu
   auto num_indices = input.read_value_and_accumulate_size<unsigned char>("num_indices", total);
   for (; num_indices > 0; num_indices--)
   {
-    unsigned char index = 0;
+    VW::namespace_index index = 0;
     total += details::read_cached_index(input, index);
-    examples[0]->indices.push_back(static_cast<size_t>(index));
-    total += details::read_cached_features(input, examples[0]->feature_space[index], examples[0]->sorted);
+    auto& ft = (*examples[0])[index];
+    total += details::read_cached_index(input, ft.namespace_hash);
+    total += details::read_cached_features(input, ft, examples[0]->sorted);
   }
 
   return static_cast<int>(total);

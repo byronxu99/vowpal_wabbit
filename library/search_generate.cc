@@ -296,17 +296,15 @@ public:
       VW::example ex;
 
       // length info
-      auto ns_hash_l = VW::hash_space(vw_obj, "l");
-      auto& fs_l = ex.feature_space['l'];
-      ex.indices.push_back('l');
+      auto ns_hash_l = VW::hash_namespace(vw_obj, "l");
+      auto& fs_l = ex['l'];
       fs_l.push_back(static_cast<float>(n), VW::hash_feature(vw_obj, "in", ns_hash_l));
       fs_l.push_back(static_cast<float>(m), VW::hash_feature(vw_obj, "out", ns_hash_l));
       if (n != m) { fs_l.push_back(static_cast<float>(n - m), VW::hash_feature(vw_obj, "diff", ns_hash_l)); }
 
       // suffixes thus far
-      auto ns_hash_s = VW::hash_space(vw_obj, "s");
-      auto& fs_s = ex.feature_space['s'];
-      ex.indices.push_back('s');
+      auto ns_hash_s = VW::hash_namespace(vw_obj, "s");
+      auto& fs_s = ex['s'];
       std::string tmp("$");
       for (int i = m; i >= m - 15 && i >= 0; i--)
       {
@@ -317,16 +315,14 @@ public:
       }
 
       // characters thus far
-      auto ns_hash_c = VW::hash_space(vw_obj, "c");
-      auto& fs_c = ex.feature_space['c'];
-      ex.indices.push_back('c');
+      auto ns_hash_c = VW::hash_namespace(vw_obj, "c");
+      auto& fs_c = ex['c'];
       for (char c : out) { fs_c.push_back(1.f, VW::hash_feature(vw_obj, "c=" + std::string(1, c), ns_hash_c)); }
       fs_c.push_back(1.f, VW::hash_feature(vw_obj, "c=$", ns_hash_c));
 
       // words thus far
-      auto ns_hash_w = VW::hash_space(vw_obj, "w");
-      auto& fs_w = ex.feature_space['w'];
-      ex.indices.push_back('w');
+      auto ns_hash_w = VW::hash_namespace(vw_obj, "w");
+      auto& fs_w = ex['w'];
       tmp = "";
       for (char c : out)
       {
@@ -346,9 +342,8 @@ public:
         next.clear();
         _dict->get_next(nullptr, next);
 
-        auto ns_hash_d = VW::hash_space(vw_obj, "d");
-        auto& fs_d = ex.feature_space['d'];
-        ex.indices.push_back('d');
+        auto ns_hash_d = VW::hash_namespace(vw_obj, "d");
+        auto& fs_d = ex['d'];
 
         char best_char = '~';
         float best_count = 0.;
@@ -376,9 +371,8 @@ public:
         ex("c=" + in.in[n]);
       ex("c=$");
       */
-      auto ns_hash_i = VW::hash_space(vw_obj, "i");
-      auto& fs_i = ex.feature_space['i'];
-      ex.indices.push_back('i');
+      auto ns_hash_i = VW::hash_namespace(vw_obj, "i");
+      auto& fs_i = ex['i'];
       tmp = "";
       for (char c : in.in)
       {

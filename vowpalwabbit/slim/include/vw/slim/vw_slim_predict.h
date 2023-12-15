@@ -14,6 +14,7 @@
 #include "vw/core/example_predict.h"
 #include "vw/core/gd_predict.h"
 #include "vw/core/interactions.h"
+#include "vw/core/scope_exit.h"
 #include "vw/explore/explore.h"
 
 namespace vw_slim
@@ -35,14 +36,15 @@ uint64_t ceil_log_2(uint64_t v);
 class namespace_copy_guard
 {
 public:
-  namespace_copy_guard(VW::example_predict& ex, unsigned char ns);
+  namespace_copy_guard(VW::example_predict& ex, VW::namespace_index ns);
   ~namespace_copy_guard();
 
   void feature_push_back(VW::feature_value v, VW::feature_index idx);
 
 private:
   VW::example_predict& _ex;
-  unsigned char _ns;
+  VW::namespace_index _ns;
+  VW::scope_exit_guard _restore_guard;
   bool _remove_ns;
 };
 
@@ -139,7 +141,7 @@ public:
 
     // VW performs the following transformation as a side-effect of looking for duplicates.
     // This affects how interaction hashes are generated.
-    std::vector<std::vector<VW::namespace_index>> vec_sorted;
+    VW::interaction_spec_type vec_sorted;
     for (auto& interaction : _interactions) { std::sort(std::begin(interaction), std::end(interaction)); }
 
     for (const auto& inter : _interactions)
@@ -302,7 +304,7 @@ public:
         auto ns_copy_guard = std::unique_ptr<namespace_copy_guard>(new namespace_copy_guard(*action, ns));
 
         // copy features
-        for (auto fs : shared.feature_space[ns]) { ns_copy_guard->feature_push_back(fs.value(), fs.index()); }
+        for (auto fs : shared[ns]) { ns_copy_guard->feature_push_back(fs.value(), fs.index()); }
 
         // keep guard around
         ns_copy_guards.push_back(std::move(ns_copy_guard));
@@ -471,11 +473,11 @@ private:
   std::string _id;
   std::string _version;
   std::string _command_line_arguments;
-  std::vector<std::vector<VW::namespace_index>> _interactions;
+  VW::interaction_spec_type _interactions;
   VW::details::generate_interactions_object_cache _generate_interactions_object_cache;
   VW::interactions_generator _generate_interactions;
   bool _contains_wildcard;
-  std::array<bool, VW::NUM_NAMESPACES> _ignore_linear;
+  std::unordered_set<VW::namespace_index> _ignore_linear;
   bool _no_constant;
 
   vw_predict_exploration _exploration;

@@ -139,7 +139,7 @@ uint64_t VowpalWabbit::HashSpaceNative(String^ s)
   auto handle = GCHandle::Alloc(bytes, GCHandleType::Pinned);
 
   try
-  { return VW::hash_space(*m_vw, reinterpret_cast<char*>(handle.AddrOfPinnedObject().ToPointer()));
+  { return VW::hash_namespace(*m_vw, reinterpret_cast<char*>(handle.AddrOfPinnedObject().ToPointer()));
   }
   CATCHRETHROW
   finally

@@ -7,6 +7,7 @@
 #include "vw/common/hash.h"
 #include "vw/config/options.h"
 #include "vw/core/debug_log.h"
+#include "vw/core/example_predict.h"
 #include "vw/core/prob_dist_cont.h"
 #include "vw/core/reductions/cb/cb_algs.h"
 #include "vw/core/setup_base.h"
@@ -34,7 +35,7 @@ namespace VW
 namespace reductions
 {
 void cbify_adf_data::init_adf_data(
-    std::size_t num_actions_, std::vector<std::vector<VW::namespace_index>>& interactions)
+    std::size_t num_actions_, VW::interaction_spec_type& interactions)
 {
   this->num_actions = num_actions_;
 

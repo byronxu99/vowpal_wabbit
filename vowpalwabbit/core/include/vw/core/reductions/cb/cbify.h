@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "vw/core/example_predict.h"
 #include "vw/core/feature_group.h"
 #include "vw/core/multi_ex.h"
 #include "vw/core/vw_fwd.h"
@@ -22,7 +23,7 @@ public:
   size_t feature_width_below = 0;
   uint64_t custom_index_mask = 0;
 
-  void init_adf_data(std::size_t num_actions, std::vector<std::vector<VW::namespace_index>>& interactions);
+  void init_adf_data(std::size_t num_actions, VW::interaction_spec_type& interactions);
 
   void copy_example_to_adf(VW::example& ec);
 

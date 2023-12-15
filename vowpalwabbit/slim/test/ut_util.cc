@@ -570,8 +570,7 @@ TEST(VowpalWabbitSlim, CbDataEpsilon0SkypeJb)
 
 void clear(VW::example_predict& ex)
 {
-  for (auto ns : ex.indices) { ex.feature_space[ns].clear(); }
-  ex.indices.clear();
+  ex.delete_all_namespaces();
 }
 
 void generate_cb_data_5(VW::example_predict& shared, VW::example_predict* ex)

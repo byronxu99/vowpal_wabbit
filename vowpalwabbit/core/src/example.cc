@@ -66,10 +66,10 @@ void VW::swap_prediction(VW::polyprediction& a, VW::polyprediction& b, VW::predi
 float calculate_total_sum_features_squared(bool permutations, VW::example& ec)
 {
   float sum_features_squared = 0.f;
-  for (const VW::features& fs : ec) { sum_features_squared += fs.sum_feat_sq; }
+  for (auto ns : ec) { sum_features_squared += ec[ns].sum_feat_sq; }
 
   float calculated_sum_features_squared =
-      VW::eval_sum_ft_squared_of_generated_ft(permutations, *ec.interactions, ec.feature_space);
+      VW::eval_sum_ft_squared_of_generated_ft(permutations, *ec.interactions, ec.feature_space());
   sum_features_squared += calculated_sum_features_squared;
   return sum_features_squared;
 }
@@ -149,14 +149,7 @@ void flatten_features(VW::workspace& all, example& ec, features& fs)
 
   // We want to call vec_ffs_store() with feature indices, not weight indices
   // Set feature index scale to 1 and offset to 0
-  auto old_ft_index_scale = ec.ft_index_scale;
-  auto old_ft_index_offset = ec.ft_index_offset;
-  auto restore_example = VW::scope_exit(
-      [&ec, old_ft_index_scale, old_ft_index_offset]()
-      {
-        ec.ft_index_scale = old_ft_index_scale;
-        ec.ft_index_offset = old_ft_index_offset;
-      });
+  auto restore_guard = ec.stash_scale_offset();
   ec.ft_index_scale = 1;
   ec.ft_index_offset = 0;
   VW::foreach_feature<full_features_and_source, uint64_t, vec_ffs_store>(all, ec, ffs);
@@ -184,25 +177,26 @@ void truncate_example_namespace(VW::example& ec, VW::namespace_index ns, const f
   // so we need to keep the ec.num_features correct,
   // so shared features are included in the reported number of "current features"
   // ec.num_features -= numf;
-  features& del_target = ec.feature_space[static_cast<size_t>(ns)];
+  auto& del_target = ec[ns];
   assert(del_target.size() >= fs.size());
-  assert(!ec.indices.empty());
-  if (ec.indices.back() == ns && ec.feature_space[static_cast<size_t>(ns)].size() == fs.size())
+  if (del_target.size() == fs.size())
   {
-    ec.indices.pop_back();
+    // remove the entire feature group
+    ec.delete_namespace(ns);
+  }
+  else
+  {
+    // remove only the features in fs from the feature group
+    del_target.truncate_to(del_target.size() - fs.size(), fs.sum_feat_sq);
   }
   ec.reset_total_sum_feat_sq();
   ec.num_features -= fs.size();
-  del_target.truncate_to(del_target.size() - fs.size(), fs.sum_feat_sq);
 }
 
 void append_example_namespace(VW::example& ec, VW::namespace_index ns, const features& fs)
 {
-  const auto index_it = std::find(ec.indices.begin(), ec.indices.end(), ns);
-  const bool has_ns = index_it != ec.indices.end();
-  if (!has_ns) { ec.indices.push_back(ns); }
-
-  features& add_fs = ec.feature_space[static_cast<size_t>(ns)];
+  // operator[] creates a new empty features object if it doesn't exist
+  features& add_fs = ec[ns];
   add_fs.concat(fs);
   ec.reset_total_sum_feat_sq();
   ec.num_features += fs.size();
@@ -210,25 +204,23 @@ void append_example_namespace(VW::example& ec, VW::namespace_index ns, const fea
 
 void append_example_namespaces_from_example(VW::example& target, const VW::example& source)
 {
-  for (VW::namespace_index idx : source.indices)
+  for (VW::namespace_index ns : source)
   {
-    if (idx == VW::details::CONSTANT_NAMESPACE) { continue; }
-    append_example_namespace(target, idx, source.feature_space[idx]);
+    if (ns == VW::details::CONSTANT_NAMESPACE) { continue; }
+    append_example_namespace(target, ns, source[ns]);
   }
 }
 
 void truncate_example_namespaces_from_example(VW::example& target, const VW::example& source)
 {
-  if (source.indices.empty())
+  if (source.empty())
   {  // making sure we can deal with empty shared example
     return;
   }
-  auto idx = source.indices.end();
-  idx--;
-  for (; idx >= source.indices.begin(); idx--)
+  for (VW::namespace_index ns : source)
   {
-    if (*idx == VW::details::CONSTANT_NAMESPACE) { continue; }
-    truncate_example_namespace(target, *idx, source.feature_space[*idx]);
+    if (ns == VW::details::CONSTANT_NAMESPACE) { continue; }
+    truncate_example_namespace(target, ns, source[ns]);
   }
 }
 }  // namespace details

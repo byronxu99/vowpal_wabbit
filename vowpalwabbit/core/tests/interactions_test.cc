@@ -64,8 +64,9 @@ void eval_count_of_generated_ft_naive(
   new_features_cnt = 0;
   new_features_value = 0.;
 
+  auto indices = ec.namespaces();
   auto interactions = VW::details::compile_interactions<generate_func, leave_duplicate_interactions>(
-      all.feature_tweaks_config.interactions, std::set<VW::namespace_index>(ec.indices.begin(), ec.indices.end()));
+      all.feature_tweaks_config.interactions, std::unordered_set<VW::namespace_index>(indices.begin(), indices.end()));
 
   VW::v_array<float> results;
 
@@ -88,13 +89,14 @@ TEST(Interactions, EvalCountOfGeneratedFtTest)
   eval_count_of_generated_ft_naive<VW::details::generate_namespace_combinations_with_repetition<VW::namespace_index>,
       false>(*vw, *ex, naive_features_count, naive_features_value);
 
+  auto indices = ex->namespaces();
   auto interactions =
       VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
           vw->feature_tweaks_config.interactions,
-          std::set<VW::namespace_index>(ex->indices.begin(), ex->indices.end()));
+          std::unordered_set<VW::namespace_index>(indices.begin(), indices.end()));
   ex->interactions = &interactions;
   float fast_features_value = VW::eval_sum_ft_squared_of_generated_ft(
-      vw->feature_tweaks_config.permutations, *ex->interactions, ex->feature_space);
+      vw->feature_tweaks_config.permutations, *ex->interactions, ex->feature_space());
   ex->interactions = &vw->feature_tweaks_config.interactions;
 
   EXPECT_FLOAT_EQ(naive_features_value, fast_features_value);
@@ -107,10 +109,10 @@ TEST(Interactions, EvalCountOfGeneratedFtTest)
 
 // TEST(InteractionsTests, InteractionGenericExpandWildcardOnly)
 // {
-//   std::set<VW::namespace_index> namespaces = {'a', 'b'};
+//   std::unordered_set<VW::namespace_index> namespaces = {'a', 'b'};
 //   auto result = VW::details::generate_namespace_combinations_with_repetition(namespaces, 2);
 
-//   std::vector<std::vector<VW::namespace_index>> compare_set = {{'b', 'a'}, {'a', 'a'}, {'b', 'b'}};
+//   VW::interaction_spec_type compare_set = {{'b', 'a'}, {'a', 'a'}, {'b', 'b'}};
 
 //   std::sort(compare_set.begin(), compare_set.end());
 //   std::sort(result.begin(), result.end());
@@ -119,10 +121,10 @@ TEST(Interactions, EvalCountOfGeneratedFtTest)
 
 TEST(Interactions, InteractionGenericWithDuplicatesExpandWildcardOnly)
 {
-  std::set<VW::namespace_index> namespaces = {'a', 'b'};
+  std::unordered_set<VW::namespace_index> namespaces = {'a', 'b'};
   auto result = VW::details::generate_namespace_permutations_with_repetition(namespaces, 2);
 
-  std::vector<std::vector<VW::namespace_index>> compare_set = {{'b', 'a'}, {'a', 'b'}, {'a', 'a'}, {'b', 'b'}};
+  VW::interaction_spec_type compare_set = {{'b', 'a'}, {'a', 'b'}, {'a', 'a'}, {'b', 'b'}};
 
   std::sort(compare_set.begin(), compare_set.end());
   std::sort(result.begin(), result.end());
@@ -131,13 +133,13 @@ TEST(Interactions, InteractionGenericWithDuplicatesExpandWildcardOnly)
 
 TEST(Interactions, SortAndFilterInteractions)
 {
-  std::vector<std::vector<VW::namespace_index>> input = {{'b', 'a'}, {'a', 'b', 'a'}, {'a', 'a'}, {'b', 'b'}};
+  VW::interaction_spec_type input = {{'b', 'a'}, {'a', 'b', 'a'}, {'a', 'a'}, {'b', 'b'}};
 
   size_t removed_count = 0;
   size_t sorted_count = 0;
   VW::details::sort_and_filter_duplicate_interactions(input, false, removed_count, sorted_count);
 
-  std::vector<std::vector<VW::namespace_index>> compare_set = {{'b', 'a'}, {'a', 'a', 'b'}, {'a', 'a'}, {'b', 'b'}};
+  VW::interaction_spec_type compare_set = {{'b', 'a'}, {'a', 'a', 'b'}, {'a', 'a'}, {'b', 'b'}};
   EXPECT_THAT(input, ContainerEq(compare_set));
 }
 
@@ -150,8 +152,8 @@ void sort_all(std::vector<std::vector<T>>& interactions)
 
 TEST(Interactions, CompileInteractionsQuadraticPermutationsAndCombinationsSame)
 {
-  std::set<VW::namespace_index> indices = {'a', 'b', 'c', 'd'};
-  std::vector<std::vector<VW::namespace_index>> interactions = {{':', 'a'}};
+  std::unordered_set<VW::namespace_index> indices = {'a', 'b', 'c', 'd'};
+  VW::interaction_spec_type interactions = {{':', 'a'}};
 
   // Permutations implies leave duplicate interactions (second template arg)
   auto result_perms =
@@ -161,7 +163,7 @@ TEST(Interactions, CompileInteractionsQuadraticPermutationsAndCombinationsSame)
       VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
           interactions, indices);
 
-  std::vector<std::vector<VW::namespace_index>> compare_set = {{'a', 'a'}, {'b', 'a'}, {'c', 'a'}, {'d', 'a'}};
+  VW::interaction_spec_type compare_set = {{'a', 'a'}, {'b', 'a'}, {'c', 'a'}, {'d', 'a'}};
 
   sort_all(compare_set);
   sort_all(result_perms);
@@ -172,13 +174,13 @@ TEST(Interactions, CompileInteractionsQuadraticPermutationsAndCombinationsSame)
 
 TEST(Interactions, CompileInteractionsQuadraticCombinations)
 {
-  std::set<VW::namespace_index> indices = {'a', 'b', 'c', 'd'};
-  std::vector<std::vector<VW::namespace_index>> interactions = {{':', ':'}};
+  std::unordered_set<VW::namespace_index> indices = {'a', 'b', 'c', 'd'};
+  VW::interaction_spec_type interactions = {{':', ':'}};
 
   auto result = VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
       interactions, indices);
 
-  std::vector<std::vector<VW::namespace_index>> compare_set = {{'a', 'a'}, {'a', 'b'}, {'a', 'c'}, {'a', 'd'},
+  VW::interaction_spec_type compare_set = {{'a', 'a'}, {'a', 'b'}, {'a', 'c'}, {'a', 'd'},
       {'b', 'b'}, {'b', 'c'}, {'b', 'd'}, {'c', 'c'}, {'c', 'd'}, {'d', 'd'}};
 
   sort_all(compare_set);
@@ -188,13 +190,13 @@ TEST(Interactions, CompileInteractionsQuadraticCombinations)
 
 TEST(Interactions, CompileInteractionsQuadraticPermutations)
 {
-  std::set<VW::namespace_index> indices = {'a', 'b', 'c', 'd'};
-  std::vector<std::vector<VW::namespace_index>> interactions = {{':', ':'}};
+  std::unordered_set<VW::namespace_index> indices = {'a', 'b', 'c', 'd'};
+  VW::interaction_spec_type interactions = {{':', ':'}};
 
   auto result = VW::details::compile_interactions<VW::details::generate_namespace_permutations_with_repetition, true>(
       interactions, indices);
 
-  std::vector<std::vector<VW::namespace_index>> compare_set = {{'a', 'a'}, {'a', 'b'}, {'a', 'c'}, {'a', 'd'},
+  VW::interaction_spec_type compare_set = {{'a', 'a'}, {'a', 'b'}, {'a', 'c'}, {'a', 'd'},
       {'b', 'a'}, {'b', 'b'}, {'b', 'c'}, {'b', 'd'}, {'c', 'a'}, {'c', 'b'}, {'c', 'c'}, {'c', 'd'}, {'d', 'a'},
       {'d', 'b'}, {'d', 'c'}, {'d', 'd'}};
 
@@ -205,13 +207,13 @@ TEST(Interactions, CompileInteractionsQuadraticPermutations)
 
 TEST(Interactions, CompileInteractionsCubicCombinations)
 {
-  std::set<VW::namespace_index> indices = {'a', 'b', 'c', 'd'};
-  std::vector<std::vector<VW::namespace_index>> interactions = {{':', ':', ':'}};
+  std::unordered_set<VW::namespace_index> indices = {'a', 'b', 'c', 'd'};
+  VW::interaction_spec_type interactions = {{':', ':', ':'}};
 
   auto result = VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
       interactions, indices);
 
-  std::vector<std::vector<VW::namespace_index>> compare_set = {
+  VW::interaction_spec_type compare_set = {
       {'a', 'a', 'a'},
       {'a', 'a', 'b'},
       {'a', 'a', 'c'},
@@ -241,13 +243,13 @@ TEST(Interactions, CompileInteractionsCubicCombinations)
 
 TEST(Interactions, CompileInteractionsCubicPermutations)
 {
-  std::set<VW::namespace_index> indices = {'a', 'b', 'c', 'd'};
-  std::vector<std::vector<VW::namespace_index>> interactions = {{':', ':', ':'}};
+  std::unordered_set<VW::namespace_index> indices = {'a', 'b', 'c', 'd'};
+  VW::interaction_spec_type interactions = {{':', ':', ':'}};
 
   auto result = VW::details::compile_interactions<VW::details::generate_namespace_permutations_with_repetition, true>(
       interactions, indices);
 
-  std::vector<std::vector<VW::namespace_index>> compare_set = {
+  VW::interaction_spec_type compare_set = {
       {'a', 'a', 'a'}, {'a', 'a', 'b'}, {'a', 'a', 'c'}, {'a', 'a', 'd'}, {'a', 'b', 'a'}, {'a', 'b', 'b'},
       {'a', 'b', 'c'}, {'a', 'b', 'd'}, {'a', 'c', 'a'}, {'a', 'c', 'b'}, {'a', 'c', 'c'}, {'a', 'c', 'd'},
       {'a', 'd', 'a'}, {'a', 'd', 'b'}, {'a', 'd', 'c'}, {'a', 'd', 'd'}, {'b', 'a', 'a'}, {'b', 'a', 'b'},
@@ -275,22 +277,22 @@ TEST(Interactions, ParseFullNameInteractionsTest)
   {
     auto a = VW::details::parse_full_name_interactions(*vw, "a|b");
     std::vector<VW::extent_term> expected = {
-        VW::extent_term{'a', VW::hash_space(*vw, "a")}, VW::extent_term{'b', VW::hash_space(*vw, "b")}};
+        VW::extent_term{'a', VW::hash_namespace(*vw, "a")}, VW::extent_term{'b', VW::hash_namespace(*vw, "b")}};
     EXPECT_THAT(a, ContainerEq(expected));
   }
 
   {
     auto a = VW::details::parse_full_name_interactions(*vw, "art|bat|and");
-    std::vector<VW::extent_term> expected = {VW::extent_term{'a', VW::hash_space(*vw, "art")},
-        VW::extent_term{'b', VW::hash_space(*vw, "bat")}, VW::extent_term{'a', VW::hash_space(*vw, "and")}};
+    std::vector<VW::extent_term> expected = {VW::extent_term{'a', VW::hash_namespace(*vw, "art")},
+        VW::extent_term{'b', VW::hash_namespace(*vw, "bat")}, VW::extent_term{'a', VW::hash_namespace(*vw, "and")}};
     EXPECT_THAT(a, ContainerEq(expected));
   }
 
   {
     auto a = VW::details::parse_full_name_interactions(*vw, "art|:|and");
-    std::vector<VW::extent_term> expected = {VW::extent_term{'a', VW::hash_space(*vw, "art")},
+    std::vector<VW::extent_term> expected = {VW::extent_term{'a', VW::hash_namespace(*vw, "art")},
         VW::extent_term{VW::details::WILDCARD_NAMESPACE, VW::details::WILDCARD_NAMESPACE},
-        VW::extent_term{'a', VW::hash_space(*vw, "and")}};
+        VW::extent_term{'a', VW::hash_namespace(*vw, "and")}};
     EXPECT_THAT(a, ContainerEq(expected));
   }
 

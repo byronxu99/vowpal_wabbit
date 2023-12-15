@@ -10,6 +10,7 @@
 #include "vw/core/constant.h"
 #include "vw/core/global_data.h"
 #include "vw/core/parser.h"
+#include "vw/core/parse_primitives.h"
 
 #include <cfloat>
 #include <fstream>
@@ -164,59 +165,68 @@ void parser::parse_multi_example(VW::workspace* all, example* ae, const MultiExa
   _multi_ex_index++;
 }
 
-namespace_index get_namespace_index(const Namespace* ns)
-{
-  if (flatbuffers::IsFieldPresent(ns, Namespace::VT_NAME)) { return static_cast<uint8_t>(ns->name()->c_str()[0]); }
-  else if (flatbuffers::IsFieldPresent(ns, Namespace::VT_HASH)) { return ns->hash(); }
-
-  THROW("Either name or hash field must be specified to get the namespace index.");
-}
-
-bool get_namespace_hash(VW::workspace* all, const Namespace* ns, uint64_t& hash)
+VW::features& get_or_create_namespace(VW::example& ae, const Namespace* ns)
 {
   if (flatbuffers::IsFieldPresent(ns, Namespace::VT_NAME))
   {
-    hash = all->parser_runtime.example_parser->hasher(
-        ns->name()->c_str(), ns->name()->size(), all->runtime_config.hash_seed);
-    return true;
+    // String name available
+    auto ns_name = ns->name()->str();
+    return ae[ns_name];
   }
   else if (flatbuffers::IsFieldPresent(ns, Namespace::VT_FULL_HASH))
   {
-    hash = ns->full_hash();
-    return true;
+    // Full hash available
+    auto ns_index = ns->full_hash();
+    return ae[ns_index];
   }
-  return false;
+  else if (flatbuffers::IsFieldPresent(ns, Namespace::VT_HASH))
+  {
+    // Only 8 bit hash available
+    auto ns_index = ns->hash();
+    return ae[ns_index];
+  }
+
+  THROW("Either full_hash, name, or hash field must be specified to get the namespace index.");
 }
 
 void parser::parse_namespaces(VW::workspace* all, example* ae, const Namespace* ns)
 {
-  const namespace_index index = get_namespace_index(ns);
-  uint64_t hash = 0;
-  const auto hash_found = get_namespace_hash(all, ns, hash);
-  if (hash_found) { _c_hash = hash; }
-  if (std::find(ae->indices.begin(), ae->indices.end(), index) == ae->indices.end()) { ae->indices.push_back(index); }
-
-  auto& fs = ae->feature_space[index];
-
+  auto& fs = get_or_create_namespace(*ae, ns);
   for (const auto& feature : *(ns->features()))
   {
-    parse_features(all, fs, feature, (all->output_config.audit || all->output_config.hash_inv) ? ns->name() : nullptr);
+    parse_features(all, fs, feature, ns->name(), all->output_config.audit || all->output_config.hash_inv);
   }
 }
 
-void parser::parse_features(VW::workspace* all, features& fs, const Feature* feature, const flatbuffers::String* ns)
+void parser::parse_features(VW::workspace* all, features& fs, const Feature* feature, const flatbuffers::String* ns_name, bool audit)
 {
+  VW::feature_value fv = flatbuffers::IsFieldPresent(feature, Feature::VT_VALUE) ? feature->value() : 1.0f;
   if (flatbuffers::IsFieldPresent(feature, Feature::VT_NAME))
   {
-    uint64_t word_hash =
-        all->parser_runtime.example_parser->hasher(feature->name()->c_str(), feature->name()->size(), _c_hash);
-    fs.push_back(feature->value(), word_hash);
-    if ((all->output_config.audit || all->output_config.hash_inv) && ns != nullptr)
+    // If hash_all is specified, then we always treat the feature name as a string
+    if (all->parser_runtime.hash_all)
     {
-      fs.space_names.push_back(audit_strings(ns->c_str(), feature->name()->c_str()));
+      fs.add_feature(feature->name()->str(), fv, audit);
+    }
+    // Otherwise we check if the string is an integer
+    else
+    {
+      if (VW::details::is_string_integer(feature->name()->str()))
+      {
+        VW::feature_index fi = std::strtoll(feature->name()->c_str(), nullptr, 10);
+        fs.add_feature(fi, fv, audit);
+      }
+      else { fs.add_feature(feature->name()->str(), fv); }
     }
   }
-  else { fs.push_back(feature->value(), feature->hash()); }
+  else
+  {
+    fs.add_feature_raw(feature->hash(), fv);
+    if (audit && ns_name != nullptr)
+    {
+      fs.add_audit_string(ns_name->str());
+    }
+  }
 }
 
 void parser::parse_flat_label(shared_data* sd, example* ae, const Example* eg, VW::io::logger& logger)

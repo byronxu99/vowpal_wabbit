@@ -43,8 +43,10 @@ private:
   kskip_ngram_transformer(std::vector<std::string> grams, std::vector<std::string> skips);
 
   std::vector<size_t> gram_mask;
-  std::array<uint32_t, NUM_NAMESPACES> ngram_definition;
-  std::array<uint32_t, NUM_NAMESPACES> skip_definition;
+  std::unordered_map<VW::namespace_index, uint32_t> ngram_definition;
+  std::unordered_map<VW::namespace_index, uint32_t> skip_definition;
+  uint32_t ngram_default = 0;
+  uint32_t skip_default = 0;
   std::vector<std::string> initial_ngram_definitions;
   std::vector<std::string> initial_skip_definitions;
 };

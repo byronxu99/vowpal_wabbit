@@ -4,6 +4,7 @@
 
 #include "vw/core/feature_group.h"
 
+#include "vw/core/hash.h"
 #include "vw/core/v_array.h"
 
 #include <algorithm>
@@ -16,7 +17,7 @@ void VW::features::clear()
   sum_feat_sq = 0.f;
   values.clear();
   indices.clear();
-  space_names.clear();
+  audit_info.clear();
 }
 
 void VW::features::truncate_to(const audit_iterator& pos, float sum_feat_sq_of_removed_section)
@@ -38,7 +39,7 @@ void VW::features::truncate_to(size_t i, float sum_feat_sq_of_removed_section)
   values.resize(i);
   if (indices.end() != indices.begin()) { indices.resize(i); }
 
-  if (space_names.size() > i) { space_names.erase(space_names.begin() + i, space_names.end()); }
+  if (audit_info.size() > i) { audit_info.erase(audit_info.begin() + i, audit_info.end()); }
 }
 
 void VW::features::truncate_to(const audit_iterator& pos) { truncate_to(std::distance(audit_begin(), pos)); }
@@ -64,7 +65,7 @@ void VW::features::concat(const features& other)
   //  - empty() && !other.audit -> push val, idx
 
   // Cannot merge two feature groups if one has audit info and the other does not.
-  assert(!(!empty() && (space_names.empty() != other.space_names.empty())));
+  assert(!(!empty() && (audit_info.empty() != other.audit_info.empty())));
   sum_feat_sq += other.sum_feat_sq;
 
   for (size_t i = 0; i < other.size(); ++i)
@@ -73,24 +74,55 @@ void VW::features::concat(const features& other)
     indices.push_back(other.indices[i]);
   }
 
-  if (!other.space_names.empty())
+  if (!other.audit_info.empty())
   {
-    space_names.insert(space_names.end(), other.space_names.begin(), other.space_names.end());
+    audit_info.insert(audit_info.end(), other.audit_info.begin(), other.audit_info.end());
   }
 }
 
-void VW::features::push_back(feature_value v, feature_index i)
+void VW::features::add_feature_raw(feature_index i, feature_value v)
 {
   values.push_back(v);
   indices.push_back(i);
   sum_feat_sq += v * v;
 }
 
-void VW::features::push_back(feature_value v, feature_index i, uint64_t hash)
+void VW::features::add_audit_string(std::string feature_name)
 {
-  values.push_back(v);
-  indices.push_back(i);
-  sum_feat_sq += v * v;
+  audit_info.emplace_back(namespace_name, namespace_hash, std::move(feature_name));
+}
+
+void VW::features::add_audit_string(std::string feature_name, std::string str_value)
+{
+  audit_info.emplace_back(namespace_name, namespace_hash, std::move(feature_name), std::move(str_value));
+}
+
+void VW::features::add_feature(feature_index i, feature_value v, bool audit)
+{
+  VW::feature_index index = VW::hash_feature(i, namespace_hash);
+  add_feature_raw(index, v * namespace_value);
+  if (audit) { add_audit_string(std::to_string(i)); }
+}
+
+void VW::features::add_feature(feature_index i, VW::string_view str_value, bool audit)
+{
+  VW::feature_index index = VW::chain_hash_feature(i, str_value, namespace_hash);
+  add_feature_raw(index, namespace_value);
+  if (audit) { add_audit_string(std::to_string(i), std::string(str_value)); }
+}
+
+void VW::features::add_feature(VW::string_view feature_name, feature_value v, bool audit)
+{
+  VW::feature_index index = VW::hash_feature(feature_name, namespace_hash);
+  add_feature_raw(index, v * namespace_value);
+  if (audit) { add_audit_string(std::string(feature_name)); }
+}
+
+void VW::features::add_feature(VW::string_view feature_name, VW::string_view str_value, bool audit)
+{
+  VW::feature_index index = VW::chain_hash_feature(feature_name, str_value, namespace_hash);
+  add_feature_raw(index, namespace_value);
+  if (audit) { add_audit_string(std::string(feature_name), std::string(str_value)); }
 }
 
 // https://stackoverflow.com/questions/17074324/how-can-i-sort-two-vectors-in-the-same-way-with-criteria-that-uses-only-one-of
@@ -164,7 +196,7 @@ bool VW::features::sort(uint64_t parse_mask)
         ((masked_index_first == masked_index_second) && (value_first < value_second));
   };
   const auto dest_index_vec = sort_permutation(indices, values, comparator);
-  if (!space_names.empty()) { apply_permutation_in_place(dest_index_vec, values, indices, space_names); }
+  if (!audit_info.empty()) { apply_permutation_in_place(dest_index_vec, values, indices, audit_info); }
   else { apply_permutation_in_place(dest_index_vec, values, indices); }
   return true;
 }
@@ -192,4 +224,18 @@ float VW::features_dot_product(const features& fs1, const features& fs2)
     }
   }
   return dotprod;
+}
+
+VW::scope_exit_guard VW::features::stash_features()
+{
+  auto values_copy = values;
+  auto indices_copy = indices;
+  auto audit_info_copy = audit_info;
+  return VW::scope_exit_guard([this, values_copy = std::move(values_copy), indices_copy = std::move(indices_copy),
+                                 audit_info_copy = std::move(audit_info_copy), sum_feat_sq_copy = sum_feat_sq]() mutable {
+    values = std::move(values_copy);
+    indices = std::move(indices_copy);
+    audit_info = std::move(audit_info_copy);
+    sum_feat_sq = sum_feat_sq_copy;
+  });
 }

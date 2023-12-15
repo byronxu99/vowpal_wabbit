@@ -221,17 +221,18 @@ bool has_action(VW::multi_ex& cb_ex) { return !cb_ex.empty(); }
 // Copy other slot namespaces to shared
 void inject_slot_features(VW::example* shared, VW::example* slot)
 {
-  for (auto index : slot->indices)
+  for (auto ns : *slot)
   {
     // constant namespace should be ignored, as it already exists and we don't want to double it up.
-    if (index == VW::details::CONSTANT_NAMESPACE) { continue; }
+    if (ns == VW::details::CONSTANT_NAMESPACE) { continue; }
 
-    if (index == VW::details::DEFAULT_NAMESPACE)  // slot default namespace has a special namespace in shared
+    auto& ft = (*slot)[ns];
+    // slot default namespace has a special namespace in shared
+    if (ns == VW::details::DEFAULT_NAMESPACE)
     {
-      VW::details::append_example_namespace(
-          *shared, VW::details::CCB_SLOT_NAMESPACE, slot->feature_space[VW::details::DEFAULT_NAMESPACE]);
+      VW::details::append_example_namespace(*shared, VW::details::CCB_SLOT_NAMESPACE, ft);
     }
-    else { VW::details::append_example_namespace(*shared, index, slot->feature_space[index]); }
+    else { VW::details::append_example_namespace(*shared, ns, ft); }
   }
 }
 
@@ -250,15 +251,13 @@ void inject_slot_id(ccb_data& data, VW::example* shared, size_t id)
   }
   else { index = data.slot_id_hashes[id]; }
 
-  shared->feature_space[VW::details::CCB_ID_NAMESPACE].push_back(1., index, VW::details::CCB_ID_NAMESPACE);
-  shared->indices.push_back(VW::details::CCB_ID_NAMESPACE);
+  (*shared)[VW::details::CCB_ID_NAMESPACE].push_back(1., index, VW::details::CCB_ID_NAMESPACE);
   if (id == 0) { shared->num_features++; }
 
   if (audit)
   {
     auto current_index_str = "index" + std::to_string(id);
-    shared->feature_space[VW::details::CCB_ID_NAMESPACE].space_names.emplace_back(
-        data.id_namespace_audit_str, current_index_str);
+    (*shared)[VW::details::CCB_ID_NAMESPACE].push_audit_str(current_index_str);
   }
 }
 
@@ -266,23 +265,23 @@ void inject_slot_id(ccb_data& data, VW::example* shared, size_t id)
 template <bool audit>
 void remove_slot_id(VW::example* shared)
 {
-  shared->feature_space[VW::details::CCB_ID_NAMESPACE].clear();
-  shared->indices.pop_back();
+  shared->delete_namespace(VW::details::CCB_ID_NAMESPACE);
 }
 
 void remove_slot_features(VW::example* shared, VW::example* slot)
 {
-  for (auto index : slot->indices)
+  for (auto ns : *slot)
   {
     // constant namespace should be ignored, as it already exists and we don't want to double it up.
-    if (index == VW::details::CONSTANT_NAMESPACE) { continue; }
+    if (ns == VW::details::CONSTANT_NAMESPACE) { continue; }
 
-    if (index == VW::details::DEFAULT_NAMESPACE)  // slot default namespace has a special namespace in shared
+    auto& ft = (*slot)[ns];
+    // slot default namespace has a special namespace in shared
+    if (ns == VW::details::DEFAULT_NAMESPACE)
     {
-      VW::details::truncate_example_namespace(
-          *shared, VW::details::CCB_SLOT_NAMESPACE, slot->feature_space[VW::details::DEFAULT_NAMESPACE]);
+      VW::details::truncate_example_namespace(*shared, VW::details::CCB_SLOT_NAMESPACE, ns);
     }
-    else { VW::details::truncate_example_namespace(*shared, index, slot->feature_space[index]); }
+    else { VW::details::truncate_example_namespace(*shared, ns, ft); }
   }
 }
 
@@ -489,7 +488,7 @@ void learn_or_predict(ccb_data& data, learner& base, VW::multi_ex& examples)
           {
             slot->num_features += ex->num_features;
             slot->num_features_from_interactions += ex->num_features_from_interactions;
-            slot->num_features -= ex->feature_space[VW::details::CONSTANT_NAMESPACE].size();
+            slot->num_features -= (*ex)[VW::details::CONSTANT_NAMESPACE].size();
           }
         }
         clear_pred_and_label(data);
@@ -689,7 +688,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::ccb_explore_adf_setup(VW::
 
   data->id_namespace_str = "_id";
   data->id_namespace_audit_str = "_ccb_slot_index";
-  data->id_namespace_hash = VW::hash_space(all, data->id_namespace_str);
+  data->id_namespace_hash = VW::hash_namespace(all, data->id_namespace_str);
 
   auto l = make_reduction_learner(std::move(data), base, learn_or_predict<true>, learn_or_predict<false>,
       stack_builder.get_setupfn_name(ccb_explore_adf_setup))
@@ -710,10 +709,10 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::ccb_explore_adf_setup(VW::
 // CCB adds the following interactions:
 //   1. Every existing interaction + VW::details::CCB_ID_NAMESPACE
 //   2. wildcard_namespace + VW::details::CCB_ID_NAMESPACE
-void VW::reductions::ccb::insert_ccb_interactions(std::vector<std::vector<VW::namespace_index>>& interactions_to_add_to)
+void VW::reductions::ccb::insert_ccb_interactions(VW::interaction_spec_type& interactions_to_add_to)
 {
   const auto reserve_size = interactions_to_add_to.size() * 2;
-  std::vector<std::vector<VW::namespace_index>> new_interactions;
+  VW::interaction_spec_type new_interactions;
   new_interactions.reserve(reserve_size);
   for (const auto& inter : interactions_to_add_to)
   {

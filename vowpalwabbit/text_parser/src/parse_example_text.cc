@@ -18,6 +18,9 @@
 
 #include <cctype>
 #include <cmath>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 namespace
 {
@@ -25,25 +28,22 @@ template <bool audit>
 class tc_parser
 {
 private:
-  VW::string_view _line;
-  size_t _read_idx;
-  float _cur_channel_v;
-  bool _new_index;
-  size_t _anon;
-  uint64_t _channel_hash;
-  VW::string_view _base;
-  unsigned char _index;
-  float _v;
-  bool _redefine_some;
-  std::array<unsigned char, VW::NUM_NAMESPACES>* _redefine;
-  VW::parser* _p;
-  VW::example* _ae;
-  std::array<uint64_t, VW::NUM_NAMESPACES>* _affix_features;
-  std::array<bool, VW::NUM_NAMESPACES>* _spelling_features;
+  // Parser state
+  VW::string_view _line; // String being parsed
+  size_t _read_idx; // Current index into _line
+  size_t _anon; // Counter for anonymous features
+  VW::namespace_index _namespace_index; // Index of current namespace being parsed
+
+  // Pointers to global configuration data
+  std::unordered_map<VW::namespace_index, std::string>* _redefine;
+  std::unordered_map<VW::namespace_index, uint64_t>* _affix_features;
+  std::unordered_set<VW::namespace_index>* _spelling_features;
   VW::v_array<char> _spelling;
-  uint32_t _hash_seed;
-  uint64_t _parse_mask;
-  std::array<std::vector<std::shared_ptr<VW::details::feature_dict>>, VW::NUM_NAMESPACES>* _namespace_dictionaries;
+  std::unordered_map<VW::namespace_index, std::vector<std::shared_ptr<VW::details::feature_dict>>>* _namespace_dictionaries;
+  bool _hash_all; // if true, hash integer feature indices as strings
+
+  VW::parser* _p;
+  VW::example* _ae; // Parsed data written to this example
   VW::io::logger* _logger;
 
   // TODO: Currently this function is called by both warning and error conditions. We only log
@@ -84,7 +84,7 @@ private:
     return sv.substr(0, end_idx);
   }
 
-  inline FORCE_INLINE bool is_feature_value_float(float& float_feature_value)
+  inline FORCE_INLINE bool is_feature_value_float(VW::feature_value& float_feature_value)
   {
     if (_read_idx >= _line.size() || _line[_read_idx] == ' ' || _line[_read_idx] == '\t' || _line[_read_idx] == '|' ||
         _line[_read_idx] == '\r')
@@ -99,11 +99,11 @@ private:
       ++_read_idx;
       size_t end_read = 0;
       VW::string_view sv = _line.substr(_read_idx);
-      _v = float_feature_value = VW::details::parse_float(sv.data(), end_read, sv.data() + sv.size());
+      float_feature_value = VW::details::parse_float(sv.data(), end_read, sv.data() + sv.size());
       if (end_read == 0) { return false; }
-      if (std::isnan(_v))
+      if (std::isnan(float_feature_value))
       {
-        _v = float_feature_value = 0.f;
+        float_feature_value = 0.f;
         parser_warning("Invalid feature value:\"", _line.substr(_read_idx), "\" read as NaN. Replacing with 0.",
             _ae->example_counter, *_logger);
       }
@@ -112,7 +112,7 @@ private:
     }
     else
     {
-      _v = float_feature_value = 0.f;
+      float_feature_value = 0.f;
       // syntax error
       parser_warning("malformed example! '|', ':', space, or EOL expected after : \"", _line.substr(0, _read_idx), "\"",
           _ae->example_counter, *_logger);
@@ -142,96 +142,108 @@ private:
     else
     {
       // maybeFeature --> 'String' FeatureValue
-      VW::string_view feature_name = read_name();
-      VW::string_view str_feat_value;
 
-      float float_feature_value = 0.f;
-      bool is_feature_float = is_feature_value_float(float_feature_value);
+      // Get the feature index
+      VW::string_view str_feature_index = read_name();
+      VW::feature_index int_feature_index;
+      bool feature_index_is_int;
 
-      if (!is_feature_float)
+      // Empty feature name is a valid feature name
+      // Increment a counter to get an integer feature index
+      if (str_feature_index.empty())
       {
-        str_feat_value = string_feature_value(_line.substr(_read_idx));
-        _v = 1;
+        feature_index_is_int = true;
+        int_feature_index = _anon++;
       }
-      else { _v = _cur_channel_v * float_feature_value; }
-
-      uint64_t word_hash;
-      // Case where string:string or :string
-      if (!str_feat_value.empty())
+      // If _hash_all is set, always hash the feature index as a string
+      else if (_hash_all)
       {
-        // chain hash is hash(feature_value, hash(feature_name, namespace_hash)) & parse_mask
-        word_hash = (_p->hasher(str_feat_value.data(), str_feat_value.length(),
-                         _p->hasher(feature_name.data(), feature_name.length(), _channel_hash)) &
-            _parse_mask);
+        feature_index_is_int = false;
       }
-      // Case where string:float
-      else if (!feature_name.empty())
+      // Otherwise check if the feature index is an integer or string
+      else
       {
-        word_hash = (_p->hasher(feature_name.data(), feature_name.length(), _channel_hash) & _parse_mask);
+        feature_index_is_int = VW::details::is_string_integer(str_feature_index);
+        if (feature_index_is_int)
+        {
+          int_feature_index = std::strtoll(str_feature_index.data(), nullptr, 10);
+        }
       }
-      // Case where :float
-      else { word_hash = _channel_hash + _anon++; }
 
-      if (_v == 0)
+      // Get the feature value
+      VW::string_view str_feature_value;
+      VW::feature_value float_feature_value = 0.f;
+      bool feature_value_is_float = is_feature_value_float(float_feature_value);
+
+      if (!feature_value_is_float)
+      {
+        str_feature_value = string_feature_value(_line.substr(_read_idx));
+        float_feature_value = 1;
+      }
+      else if (float_feature_value == 0)
       {
         return;  // dont add 0 valued features to list of features
       }
 
-      auto& fs = _ae->feature_space[_index];
-      fs.push_back(_v, word_hash);
-
-      if (audit)
+      // Add the feature
+      auto& fs = (*_ae)[_namespace_index];
+      if (feature_index_is_int)
       {
-        if (!str_feat_value.empty())
-        {
-          std::stringstream ss;
-          fs.space_names.push_back(
-              VW::audit_strings(std::string{_base}, std::string{feature_name}, std::string{str_feat_value}));
-        }
-        else { fs.space_names.push_back(VW::audit_strings(std::string{_base}, std::string{feature_name})); }
+        if (feature_value_is_float) { fs.add_feature(int_feature_index, float_feature_value, audit); }
+        else { fs.add_feature(int_feature_index, str_feature_value, audit); }
+      }
+      else
+      {
+        if (feature_value_is_float) { fs.add_feature(str_feature_index, float_feature_value, audit); }
+        else { fs.add_feature(str_feature_index, str_feature_value, audit); }
       }
 
-      if (((*_affix_features)[_index] > 0) && (!feature_name.empty()))
+      // Add affix features
+      bool has_affix = _affix_features->find(_namespace_index) != _affix_features->end();
+      if (has_affix && !str_feature_index.empty())
       {
-        auto& affix_fs = _ae->feature_space[VW::details::AFFIX_NAMESPACE];
-        if (affix_fs.size() == 0) { _ae->indices.push_back(VW::details::AFFIX_NAMESPACE); }
-        uint64_t affix = (*_affix_features)[_index];
+        auto& affix_fs = (*_ae)[VW::details::AFFIX_NAMESPACE];
+        uint64_t affix = (*_affix_features)[_namespace_index];
 
         while (affix > 0)
         {
           bool is_prefix = affix & 0x1;
           uint64_t len = (affix >> 1) & 0x7;
-          VW::string_view affix_name(feature_name);
+          VW::string_view affix_name(str_feature_index);
           if (affix_name.size() > len)
           {
             if (is_prefix) { affix_name.remove_suffix(affix_name.size() - len); }
             else { affix_name.remove_prefix(affix_name.size() - len); }
           }
 
-          word_hash = _p->hasher(affix_name.data(), affix_name.length(), (uint64_t)_channel_hash) *
+          VW::feature_index affix_hash = VW::uniform_hash(affix_name, fs.namespace_hash) *
               (VW::details::AFFIX_CONSTANT + (affix & 0xF) * VW::details::QUADRATIC_CONSTANT);
-          affix_fs.push_back(_v, word_hash, VW::details::AFFIX_NAMESPACE);
+
+          // Must manually scale feature value by namespace value when using add_feature_raw()
+          affix_fs.add_feature_raw(affix_hash, float_feature_value * fs.namespace_value);
+
+          // Must manually add audit string when using add_feature_raw()
           if (audit)
           {
             VW::v_array<char> affix_v;
-            if (_index != ' ') { affix_v.push_back(_index); }
+            if (_namespace_index != VW::details::DEFAULT_NAMESPACE) { affix_v.push_back(_namespace_index); }
             affix_v.push_back(is_prefix ? '+' : '-');
             affix_v.push_back('0' + static_cast<char>(len));
             affix_v.push_back('=');
             affix_v.insert(affix_v.end(), affix_name.begin(), affix_name.end());
             affix_v.push_back('\0');
-            affix_fs.space_names.emplace_back("affix", affix_v.begin());
+            affix_fs.add_audit_string(affix_v.begin());
           }
           affix >>= 4;
         }
       }
-      if ((*_spelling_features)[_index])
+
+      // Add spelling features
+      if (_spelling_features->find(_namespace_index) != _spelling_features->end())
       {
-        auto& spell_fs = _ae->feature_space[VW::details::SPELLING_NAMESPACE];
-        if (spell_fs.empty()) { _ae->indices.push_back(VW::details::SPELLING_NAMESPACE); }
-        // v_array<char> spelling;
+        auto& spell_fs = (*_ae)[VW::details::SPELLING_NAMESPACE];
         _spelling.clear();
-        for (char c : feature_name)
+        for (char c : str_feature_index)
         {
           char d = 0;
           if ((c >= '0') && (c <= '9')) { d = '0'; }
@@ -244,47 +256,55 @@ private:
         }
 
         VW::string_view spelling_strview(_spelling.data(), _spelling.size());
-        word_hash =
-            VW::details::hashstring(spelling_strview.data(), spelling_strview.length(), (uint64_t)_channel_hash);
-        spell_fs.push_back(_v, word_hash, VW::details::SPELLING_NAMESPACE);
+        VW::feature_index spelling_index = VW::uniform_hash(spelling_strview, fs.namespace_hash);
+
+        // Must manually scale feature value by namespace value when using add_feature_raw()
+        spell_fs.add_feature_raw(spelling_index, float_feature_value * fs.namespace_value);
+
+        // Must manually add audit string when using add_feature_raw()
         if (audit)
         {
           VW::v_array<char> spelling_v;
-          if (_index != ' ')
+          if (_namespace_index != VW::details::DEFAULT_NAMESPACE)
           {
-            spelling_v.push_back(_index);
+            spelling_v.push_back(_namespace_index);
             spelling_v.push_back('_');
           }
           spelling_v.insert(spelling_v.end(), spelling_strview.begin(), spelling_strview.end());
           spelling_v.push_back('\0');
-          spell_fs.space_names.emplace_back("spelling", spelling_v.begin());
+          spell_fs.add_audit_string(spelling_v.begin());
         }
       }
-      if ((*_namespace_dictionaries)[_index].size() > 0)
+
+      // Add dictionary features
+      if (_namespace_dictionaries->find(_namespace_index) != _namespace_dictionaries->end())
       {
         // Heterogeneous lookup not yet implemented in std
         // http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0919r0.html
-        const std::string feature_name_str(feature_name);
-        for (const auto& map : (*_namespace_dictionaries)[_index])
+        const std::string feature_name_str(str_feature_index);
+        for (const auto& map : (*_namespace_dictionaries)[_namespace_index])
         {
           const auto& feats_it = map->find(feature_name_str);
           if ((feats_it != map->end()) && (feats_it->second->values.size() > 0))
           {
             const auto& feats = feats_it->second;
-            auto& dict_fs = _ae->feature_space[VW::details::DICTIONARY_NAMESPACE];
-            if (dict_fs.empty()) { _ae->indices.push_back(VW::details::DICTIONARY_NAMESPACE); }
+            auto& dict_fs = (*_ae)[VW::details::DICTIONARY_NAMESPACE];
+
+            // Manually modify variables inside of features object
             dict_fs.values.insert(dict_fs.values.end(), feats->values.begin(), feats->values.end());
             dict_fs.indices.insert(dict_fs.indices.end(), feats->indices.begin(), feats->indices.end());
             dict_fs.sum_feat_sq += feats->sum_feat_sq;
+
+            // Manually add audit strings
             if (audit)
             {
               for (const auto& id : feats->indices)
               {
                 std::stringstream ss;
-                ss << _index << '_';
-                ss << feature_name;
+                ss << fs.namespace_name << '_';
+                ss << str_feature_index;
                 ss << '=' << id;
-                dict_fs.space_names.emplace_back("dictionary", ss.str());
+                dict_fs.push_audit_string(ss.str());
               }
             }
           }
@@ -306,18 +326,19 @@ private:
       ++_read_idx;
       size_t end_read = 0;
       VW::string_view sv = _line.substr(_read_idx);
-      _cur_channel_v = VW::details::parse_float(sv.data(), end_read, sv.data() + sv.size());
+      float ns_value = VW::details::parse_float(sv.data(), end_read, sv.data() + sv.size());
       if (end_read + _read_idx >= _line.size())
       {
         parser_warning("malformed example! Float expected after : \"", _line.substr(0, _read_idx), "\"",
             _ae->example_counter, *_logger);
       }
-      if (std::isnan(_cur_channel_v))
+      if (std::isnan(ns_value))
       {
-        _cur_channel_v = 1.f;
+        ns_value = 1.f;
         parser_warning("Invalid namespace value:\"", _line.substr(_read_idx), "\" read as NaN. Replacing with 1.",
             _ae->example_counter, *_logger);
       }
+      (*_ae)[_namespace_index].namespace_value = ns_value;
       _read_idx += end_read;
     }
     else
@@ -340,15 +361,30 @@ private:
     else
     {
       // NameSpaceInfo --> 'String' NameSpaceInfoValue
-      _index = (unsigned char)(_line[_read_idx]);
-      if (_redefine_some)
-      {
-        _index = (*_redefine)[_index];  // redefine _index
-      }
-      if (_ae->feature_space[_index].size() == 0) { _new_index = true; }
       VW::string_view name = read_name();
-      if (audit) { _base = name; }
-      _channel_hash = _p->hasher(name.data(), name.length(), this->_hash_seed);
+      if (name.empty())
+      {
+        // syntax error
+        parser_warning("malformed example! String expected after : \"", _line.substr(0, _read_idx), "\"",
+            _ae->example_counter, *_logger);
+      }
+      
+      // Check if the namespace is redefined
+      auto ns_hash = _ae->hash_namespace(name);
+      if (_redefine->find(ns_hash) != _redefine->end())
+      {
+        name = (*_redefine)[ns_hash];
+      }
+
+      // Check if there is a wildcard redefine
+      else if (_redefine->find(VW::details::WILDCARD_NAMESPACE) != _redefine->end())
+      {
+        name = (*_redefine)[VW::details::WILDCARD_NAMESPACE];
+      }
+
+      // Create the namespace and get its index
+      _namespace_index = (*_ae)[name].namespace_hash;
+
       name_space_info_value();
     }
   }
@@ -371,23 +407,21 @@ private:
 
   inline FORCE_INLINE void name_space()
   {
-    _cur_channel_v = 1.0;
-    _index = 0;
-    _new_index = false;
     _anon = 0;
     if (_read_idx >= _line.size() || _line[_read_idx] == ' ' || _line[_read_idx] == '\t' || _line[_read_idx] == '|' ||
         _line[_read_idx] == '\r')
     {
       // NameSpace --> ListFeatures
-      _index = static_cast<unsigned char>(' ');
-      if (_ae->feature_space[_index].size() == 0) { _new_index = true; }
-      if (audit)
+      // Check if default namespace is redefined
+      if (_redefine->find(VW::details::DEFAULT_NAMESPACE) != _redefine->end())
       {
-        // TODO: c++17 allows VW::string_view literals, eg: " "sv
-        static const char* space = " ";
-        _base = space;
+        auto ns_name = (*_redefine)[VW::details::DEFAULT_NAMESPACE];
+        _namespace_index = (*_ae)[ns_name].namespace_hash;
       }
-      _channel_hash = this->_hash_seed == 0 ? 0 : VW::uniform_hash("", 0, this->_hash_seed);
+      else
+      {
+        _namespace_index = VW::details::DEFAULT_NAMESPACE;
+      }
       list_features();
     }
     else if (_line[_read_idx] != ':')
@@ -402,8 +436,6 @@ private:
       parser_warning("malformed example! '|',String,space, or EOL expected after : \"", _line.substr(0, _read_idx),
           "\"", _ae->example_counter, *_logger);
     }
-
-    if (_new_index && _ae->feature_space[_index].size() > 0) { _ae->indices.push_back(_index); }
   }
 
   inline FORCE_INLINE void list_name_space()
@@ -428,15 +460,13 @@ public:
     {
       this->_read_idx = 0;
       this->_p = all.parser_runtime.example_parser.get();
-      this->_redefine_some = all.feature_tweaks_config.redefine_some;
       this->_redefine = &all.feature_tweaks_config.redefine;
       this->_ae = ae;
       this->_affix_features = &all.feature_tweaks_config.affix_features;
       this->_spelling_features = &all.feature_tweaks_config.spelling_features;
       this->_namespace_dictionaries = &all.feature_tweaks_config.namespace_dictionaries;
-      this->_hash_seed = all.runtime_config.hash_seed;
-      this->_parse_mask = all.runtime_state.parse_mask;
       this->_logger = &all.logger;
+      this->_hash_all = all.parser_runtime.hash_all;
       list_name_space();
     }
     else { ae->is_newline = true; }

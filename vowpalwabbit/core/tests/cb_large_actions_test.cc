@@ -64,12 +64,12 @@ TEST(Las, CreationOfTheOgAMatrix)
     auto* ex = examples[action_index];
     // test sanity - test assumes no shared features
     EXPECT_EQ(!VW::ec_is_example_header_cb(*ex), true);
-    for (auto ns : ex->indices)
+    for (auto ns : *ex)
     {
-      for (size_t i = 0; i < ex->feature_space[ns].indices.size(); i++)
+      for (size_t i = 0; i < (*ex)[ns].indices.size(); i++)
       {
-        auto ft_index = ex->feature_space[ns].indices[i];
-        auto ft_value = ex->feature_space[ns].values[i];
+        auto ft_index = (*ex)[ns].indices[i];
+        auto ft_value = (*ex)[ns].values[i];
 
         if (ns == VW::details::DEFAULT_NAMESPACE) { EXPECT_FLOAT_EQ(ft_value, ft_values[i]); }
         else if (ns == VW::details::CONSTANT_NAMESPACE) { EXPECT_FLOAT_EQ(ft_value, 1.f); }
@@ -268,7 +268,7 @@ TEST(Las, CheckAtTimesOmegaIsY)
         auto* ex = examples[action_index];
         // test sanity - test assumes no shared features
         EXPECT_EQ(!VW::ec_is_example_header_cb(*ex), true);
-        for (auto ns : ex->indices)
+        for (auto ns : *ex)
         {
           _UNUSED(ns);
           for (uint64_t col = 0; col < d; col++)

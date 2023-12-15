@@ -113,7 +113,7 @@ std::string ns_to_str(unsigned char ns)
   else { return std::string(1, ns); }
 }
 
-std::set<std::string> interaction_vec_t_to_set(const std::vector<std::vector<VW::namespace_index>>& interactions)
+std::set<std::string> interaction_vec_t_to_set(const VW::interaction_spec_type& interactions)
 {
   std::set<std::string> result;
   std::stringstream ss;

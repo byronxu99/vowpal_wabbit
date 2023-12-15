@@ -26,8 +26,8 @@ int main(int argc, char* argv[])
   s->name = 's';
   t->name = 't';
 
-  uint32_t s_hash = static_cast<uint32_t>(VW::hash_space(*model, "s"));
-  uint32_t t_hash = static_cast<uint32_t>(VW::hash_space(*model, "t"));
+  uint32_t s_hash = static_cast<uint32_t>(VW::hash_namespace(*model, "s"));
+  uint32_t t_hash = static_cast<uint32_t>(VW::hash_namespace(*model, "t"));
   s->fs = new VW::feature[3];
   s->len = 3;
   t->fs = new VW::feature[3];

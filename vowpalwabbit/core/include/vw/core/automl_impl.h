@@ -5,6 +5,7 @@
 
 #include "vw/common/random.h"
 #include "vw/core/array_parameters_dense.h"
+#include "vw/core/example_predict.h"
 #include "vw/core/learner.h"
 
 #include <fstream>
@@ -22,8 +23,6 @@ namespace
 constexpr uint64_t MAX_CONFIGS = 129;
 }  // namespace
 
-using interaction_vec_t = std::vector<std::vector<namespace_index>>;
-
 template <typename estimator_impl>
 class aml_estimator
 {
@@ -32,7 +31,7 @@ public:
   aml_estimator() : _estimator(estimator_impl()) {}
   aml_estimator(double tol_x, bool is_brentq, double alpha) : _estimator(estimator_impl(tol_x, is_brentq, alpha)) {}
   aml_estimator(
-      estimator_impl sc, uint64_t config_index, bool eligible_to_inactivate, interaction_vec_t& live_interactions)
+      estimator_impl sc, uint64_t config_index, bool eligible_to_inactivate, VW::interaction_spec_type& live_interactions)
       : _estimator(sc)
   {
     this->config_index = config_index;
@@ -41,7 +40,7 @@ public:
   }
   uint64_t config_index = 0;
   bool eligible_to_inactivate = false;
-  interaction_vec_t live_interactions;  // Live pre-allocated vectors in use
+  VW::interaction_spec_type live_interactions;  // Live pre-allocated vectors in use
 
   void persist(metric_sink&, const std::string&, bool);
   static bool better(estimator_impl& challenger, estimator_impl& other)
@@ -91,12 +90,12 @@ public:
     this->state = VW::reductions::automl::config_state::New;
     this->conf_type = conf_type;
   }
-  static interaction_vec_t gen_quadratic_interactions(
+  static VW::interaction_spec_type gen_quadratic_interactions(
       const std::map<namespace_index, uint64_t>& ns_counter, const set_ns_list_t& exclusions);
-  static interaction_vec_t gen_cubic_interactions(
+  static VW::interaction_spec_type gen_cubic_interactions(
       const std::map<namespace_index, uint64_t>& ns_counter, const set_ns_list_t& exclusions);
   static void apply_config_to_interactions(const bool ccb_on, const std::map<namespace_index, uint64_t>& ns_counter,
-      const std::string& interaction_type, const ns_based_config& config, interaction_vec_t& interactions);
+      const std::string& interaction_type, const ns_based_config& config, VW::interaction_spec_type& interactions);
 };
 
 using priority_func = std::function<float(const ns_based_config&, const std::map<namespace_index, uint64_t>&)>;
@@ -122,7 +121,7 @@ public:
   config_oracle(uint64_t default_lease, priority_func calc_priority, const std::string& interaction_type,
       const std::string& oracle_type, std::shared_ptr<VW::rand_state>& rand_state, config_type conf_type);
 
-  void gen_configs(const interaction_vec_t& champ_interactions, const std::map<namespace_index, uint64_t>& ns_counter);
+  void gen_configs(const VW::interaction_spec_type& champ_interactions, const std::map<namespace_index, uint64_t>& ns_counter);
   bool insert_config(set_ns_list_t&& new_elements, const std::map<namespace_index, uint64_t>& ns_counter,
       VW::reductions::automl::config_type conf_type, bool allow_dups = false);
   bool repopulate_index_queue(const std::map<namespace_index, uint64_t>& ns_counter);
@@ -157,18 +156,18 @@ class oracle_rand_impl
 {
 public:
   size_t last_seen_ns_count = 0;
-  VW::reductions::automl::interaction_vec_t total_space;
+  VW::interaction_spec_type total_space;
   std::shared_ptr<VW::rand_state> random_state;
   oracle_rand_impl(std::shared_ptr<VW::rand_state> random_state) : random_state(std::move(random_state)) {}
-  void gen_ns_groupings_at(const interaction_vec_t& all_interactions, const size_t num, set_ns_list_t& copy_champ);
+  void gen_ns_groupings_at(const VW::interaction_spec_type& all_interactions, const size_t num, set_ns_list_t& copy_champ);
 };
 class one_diff_impl
 {
 public:
-  void gen_ns_groupings_at(const interaction_vec_t& champ_interactions, const size_t num,
+  void gen_ns_groupings_at(const VW::interaction_spec_type& champ_interactions, const size_t num,
       set_ns_list_t::iterator& exclusion, const set_ns_list_t::iterator& exclusion_end, set_ns_list_t& new_elements);
   Iterator begin() { return Iterator(); }
-  Iterator end(const interaction_vec_t& champ_interactions, const set_ns_list_t& champ_exclusions)
+  Iterator end(const VW::interaction_spec_type& champ_interactions, const set_ns_list_t& champ_exclusions)
   {
     return Iterator(champ_interactions.size() + champ_exclusions.size());
   }
@@ -183,19 +182,19 @@ public:
 class one_diff_inclusion_impl
 {
 public:
-  void gen_ns_groupings_at(const interaction_vec_t& champ_interactions, const size_t num, set_ns_list_t& copy_champ);
+  void gen_ns_groupings_at(const VW::interaction_spec_type& champ_interactions, const size_t num, set_ns_list_t& copy_champ);
   Iterator begin() { return Iterator(); }
-  Iterator end(const interaction_vec_t& all_interactions) { return Iterator(all_interactions.size()); }
+  Iterator end(const VW::interaction_spec_type& all_interactions) { return Iterator(all_interactions.size()); }
 };
 
 class qbase_cubic
 {
 public:
   size_t last_seen_ns_count = 0;
-  VW::reductions::automl::interaction_vec_t total_space;
+  VW::interaction_spec_type total_space;
   std::shared_ptr<VW::rand_state> random_state;
   qbase_cubic(std::shared_ptr<VW::rand_state> random_state) : random_state(std::move(random_state)) {}
-  void gen_ns_groupings_at(const interaction_vec_t& all_interactions, const size_t num, set_ns_list_t& copy_champ);
+  void gen_ns_groupings_at(const VW::interaction_spec_type& all_interactions, const size_t num, set_ns_list_t& copy_champ);
 };
 
 template <typename config_oracle_impl, typename estimator_impl>
@@ -255,7 +254,7 @@ private:
 };
 
 bool count_namespaces(const multi_ex& ecs, std::map<namespace_index, uint64_t>& ns_counter);
-void apply_config(example* ec, interaction_vec_t* live_interactions);
+void apply_config(example* ec, VW::interaction_spec_type* live_interactions);
 bool is_allowed_to_remove(const namespace_index ns);
 void clear_non_champ_weights(dense_parameters& weights, uint32_t total, uint32_t& feature_width);
 bool worse();
@@ -298,7 +297,7 @@ public:
 namespace util
 {
 void fail_if_enabled(VW::workspace& all, const std::set<std::string>& not_compat);
-std::string interaction_vec_t_to_string(const VW::reductions::automl::interaction_vec_t& interactions);
+std::string VW::interaction_spec_type_to_string(const VW::interaction_spec_type& interactions);
 std::string elements_to_string(const automl::set_ns_list_t& elements, const char* const delim = ", ");
 }  // namespace util
 }  // namespace reductions

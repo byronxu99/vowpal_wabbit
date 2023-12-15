@@ -14,7 +14,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <limits>
-#include <set>
+#include <unordered_set>
 #include <vector>
 
 namespace VW
@@ -26,7 +26,7 @@ constexpr unsigned char INTERACTION_NS_START = ' ';
 constexpr unsigned char INTERACTION_NS_END = '~';
 }  // namespace details
 
-inline constexpr bool is_interaction_ns(const unsigned char ns)
+inline constexpr bool is_interaction_ns(const VW::namespace_index ns)
 {
   return (ns >= details::INTERACTION_NS_START && ns <= details::INTERACTION_NS_END) ||
       (ns == VW::details::CCB_SLOT_NAMESPACE);
@@ -39,17 +39,17 @@ inline bool contains_wildcard(const std::vector<VW::namespace_index>& interactio
 
 // function estimates how many new features will be generated for example and their sum(value^2).
 float eval_sum_ft_squared_of_generated_ft(bool permutations,
-    const std::vector<std::vector<VW::namespace_index>>& interactions,
-    const std::array<VW::features, VW::NUM_NAMESPACES>& feature_spaces);
+    const VW::interaction_spec_type& interactions,
+    const VW::feature_groups_type& feature_spaces);
 
 template <typename T>
-using generate_func_t = std::vector<std::vector<T>>(const std::set<T>& namespaces, size_t num_to_pick);
+using generate_func_t = std::vector<std::vector<T>>(const std::unordered_set<T>& namespaces, size_t num_to_pick);
 
 namespace details
 {
 
 template <typename T>
-std::vector<T> indices_to_values_one_based(const std::vector<size_t>& indices, const std::set<T>& values)
+std::vector<T> indices_to_values_one_based(const std::vector<size_t>& indices, const std::unordered_set<T>& values)
 {
   std::vector<T> result;
   result.reserve(indices.size());
@@ -63,7 +63,7 @@ std::vector<T> indices_to_values_one_based(const std::vector<size_t>& indices, c
 }
 
 template <typename T>
-std::vector<T> indices_to_values_ignore_last_index(const std::vector<size_t>& indices, const std::set<T>& values)
+std::vector<T> indices_to_values_ignore_last_index(const std::vector<size_t>& indices, const std::unordered_set<T>& values)
 {
   std::vector<T> result;
   result.reserve(indices.size() - 1);
@@ -177,7 +177,7 @@ void sort_and_filter_duplicate_interactions(
 
 template <typename T>
 std::vector<std::vector<T>> generate_namespace_combinations_with_repetition(
-    const std::set<T>& namespaces, size_t num_to_pick)
+    const std::unordered_set<T>& namespaces, size_t num_to_pick)
 {
   std::vector<std::vector<T>> result;
   // This computation involves factorials and so can only be done with relatively small inputs.
@@ -220,7 +220,7 @@ std::vector<std::vector<T>> generate_namespace_combinations_with_repetition(
 
 template <typename T>
 std::vector<std::vector<T>> generate_namespace_permutations_with_repetition(
-    const std::set<T>& namespaces, size_t num_to_pick)
+    const std::unordered_set<T>& namespaces, size_t num_to_pick)
 {
   std::vector<std::vector<T>> result;
   result.reserve(VW::math::number_of_permutations_with_repetition(namespaces.size(), num_to_pick));
@@ -255,14 +255,14 @@ std::vector<std::vector<T>> generate_namespace_permutations_with_repetition(
   return result;
 }
 
-std::vector<std::vector<VW::namespace_index>> expand_quadratics_wildcard_interactions(
-    bool leave_duplicate_interactions, const std::set<VW::namespace_index>& new_example_indices);
+VW::interaction_spec_type expand_quadratics_wildcard_interactions(
+    bool leave_duplicate_interactions, const std::unordered_set<VW::namespace_index>& new_example_namespaces);
 
 bool sort_interactions_comparator(const std::vector<VW::namespace_index>& a, const std::vector<VW::namespace_index>& b);
 
 template <generate_func_t<VW::namespace_index> generate_func, bool leave_duplicate_interactions>
-std::vector<std::vector<VW::namespace_index>> compile_interaction(
-    const std::vector<VW::namespace_index>& interaction, const std::set<VW::namespace_index>& indices)
+VW::interaction_spec_type compile_interaction(
+    const std::vector<VW::namespace_index>& interaction, const std::unordered_set<VW::namespace_index>& indices)
 {
   std::vector<size_t> insertion_indices;
   std::vector<VW::namespace_index> insertion_ns;
@@ -289,10 +289,10 @@ std::vector<std::vector<VW::namespace_index>> compile_interaction(
 
 // Compiling an interaction means to expand out wildcards (:) for each index present
 template <generate_func_t<VW::namespace_index> generate_func, bool leave_duplicate_interactions>
-std::vector<std::vector<VW::namespace_index>> compile_interactions(
-    const std::vector<std::vector<VW::namespace_index>>& interactions, const std::set<VW::namespace_index>& indices)
+VW::interaction_spec_type compile_interactions(
+    const VW::interaction_spec_type& interactions, const std::unordered_set<VW::namespace_index>& indices)
 {
-  std::vector<std::vector<VW::namespace_index>> final_interactions;
+  VW::interaction_spec_type final_interactions;
 
   for (const auto& inter : interactions)
   {
@@ -316,15 +316,15 @@ std::vector<std::vector<VW::namespace_index>> compile_interactions(
 class interactions_generator
 {
 public:
-  std::vector<std::vector<VW::namespace_index>> generated_interactions;
+  VW::interaction_spec_type generated_interactions;
   bool store_in_reduction_features = false;
 
   template <generate_func_t<VW::namespace_index> generate_func, bool leave_duplicate_interactions>
-  void update_interactions_if_new_namespace_seen(const std::vector<std::vector<VW::namespace_index>>& interactions,
-      const VW::v_array<VW::namespace_index>& new_example_indices)
+  void update_interactions_if_new_namespace_seen(const VW::interaction_spec_type& interactions,
+      const std::vector<VW::namespace_index>& new_example_namespaces)
   {
     auto prev_count = _all_seen_namespaces.size();
-    _all_seen_namespaces.insert(new_example_indices.begin(), new_example_indices.end());
+    _all_seen_namespaces.insert(new_example_namespaces.begin(), new_example_namespaces.end());
 
     if (prev_count != _all_seen_namespaces.size())
     {
@@ -332,7 +332,7 @@ public:
       // generally they are used for implementation details and special behavior
       // and not user inputted features. The two exceptions are default_namespace
       // and ccb_slot_namespace (the default namespace for CCB slots)
-      std::set<VW::namespace_index> indices_to_interact;
+      std::unordered_set<VW::namespace_index> indices_to_interact;
       for (auto ns_index : _all_seen_namespaces)
       {
         if (is_interaction_ns(ns_index)) { indices_to_interact.insert(ns_index); }
@@ -347,7 +347,7 @@ public:
   }
 
 private:
-  std::set<VW::namespace_index> _all_seen_namespaces;
+  std::unordered_set<VW::namespace_index> _all_seen_namespaces;
 };
 
 }  // namespace VW
@@ -355,7 +355,7 @@ private:
 namespace INTERACTIONS  // NOLINT
 {
 VW_DEPRECATED("Moved to VW namespace")
-inline constexpr bool is_interaction_ns(const unsigned char ns) { return VW::is_interaction_ns(ns); }
+inline constexpr bool is_interaction_ns(const VW::namespace_index ns) { return VW::is_interaction_ns(ns); }
 
 VW_DEPRECATED("Moved to VW namespace")
 inline bool contains_wildcard(const std::vector<VW::namespace_index>& interaction)
@@ -365,8 +365,8 @@ inline bool contains_wildcard(const std::vector<VW::namespace_index>& interactio
 
 VW_DEPRECATED("Moved to VW namespace")
 inline float eval_sum_ft_squared_of_generated_ft(bool permutations,
-    const std::vector<std::vector<VW::namespace_index>>& interactions,
-    const std::array<VW::features, VW::NUM_NAMESPACES>& feature_spaces)
+    const VW::interaction_spec_type& interactions,
+    const VW::feature_groups_type& feature_spaces)
 {
   return VW::eval_sum_ft_squared_of_generated_ft(permutations, interactions, feature_spaces);
 }
@@ -374,7 +374,7 @@ inline float eval_sum_ft_squared_of_generated_ft(bool permutations,
 template <typename T>
 VW_DEPRECATED("Moved to VW namespace")
 void sort_and_filter_duplicate_interactions(
-    std::vector<std::vector<T>>& vec, bool filter_duplicates, size_t& removed_cnt, size_t& sorted_cnt)
+    VW::interaction_spec_type_duplicates, size_t& removed_cnt, size_t& sorted_cnt)
 {
   VW::details::sort_and_filter_duplicate_interactions(vec, filter_duplicates, removed_cnt, sorted_cnt);
 }

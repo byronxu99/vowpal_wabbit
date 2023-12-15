@@ -85,15 +85,16 @@ private:
   std::shared_ptr<VW::LEARNER::learner> _ik_base;
 };
 
-std::vector<std::vector<VW::namespace_index>> get_ik_interactions(
-    const std::vector<std::vector<VW::namespace_index>>& interactions, const VW::example& observation_ex)
+VW::interaction_spec_type get_ik_interactions(
+    const VW::interaction_spec_type& interactions, const VW::example& observation_ex)
 {
-  std::vector<std::vector<VW::namespace_index>> new_interactions;
+  VW::interaction_spec_type new_interactions;
   for (const auto& interaction : interactions)
   {
-    for (auto obs_ns : observation_ex.indices)
+    for (auto obs_ns : observation_ex)
     {
-      if (obs_ns == VW::details::DEFAULT_NAMESPACE) { obs_ns = VW::details::IGL_FEEDBACK_NAMESPACE; }
+      if (obs_ns == VW::details::DEFAULT_NAMESPACE)
+      { obs_ns = VW::details::IGL_FEEDBACK_NAMESPACE; }
 
       new_interactions.push_back(interaction);
       new_interactions.back().push_back(obs_ns);
@@ -105,19 +106,17 @@ std::vector<std::vector<VW::namespace_index>> get_ik_interactions(
 
 void add_obs_features_to_ik_ex(VW::example& ik_ex, const VW::example& obs_ex)
 {
-  for (auto obs_ns : obs_ex.indices)
+  for (auto obs_ns : obs_ex)
   {
-    ik_ex.indices.push_back(obs_ns);
-
-    for (size_t i = 0; i < obs_ex.feature_space[obs_ns].indices.size(); i++)
+    for (size_t i = 0; i < obs_ex[obs_ns].size(); i++)
     {
-      auto feature_hash = obs_ex.feature_space[obs_ns].indices[i];
-      auto feature_val = obs_ex.feature_space[obs_ns].values[i];
+      auto feature_hash = obs_ex[obs_ns].indices[i];
+      auto feature_val = obs_ex[obs_ns].values[i];
 
       if (obs_ns == VW::details::DEFAULT_NAMESPACE) { obs_ns = VW::details::IGL_FEEDBACK_NAMESPACE; }
 
-      ik_ex.feature_space[obs_ns].indices.push_back(feature_hash);
-      ik_ex.feature_space[obs_ns].values.push_back(feature_val);
+      ik_ex[obs_ns].indices.push_back(feature_hash);
+      ik_ex[obs_ns].values.push_back(feature_val);
     }
   }
 }
@@ -325,7 +324,7 @@ void update_stats_igl(const VW::workspace& /* all */, VW::shared_data& sd, const
     if (VW::ec_is_example_header_cb_with_observations(*example))
     {
       num_features += (ec_seq.size() - 1) *
-          (example->get_num_features() - example->feature_space[VW::details::CONSTANT_NAMESPACE].size());
+          (example->get_num_features() - (*example)[VW::details::CONSTANT_NAMESPACE].size());
     }
     else { num_features += example->get_num_features(); }
   }

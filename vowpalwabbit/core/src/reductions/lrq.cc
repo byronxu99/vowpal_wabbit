@@ -17,6 +17,8 @@
 
 #include <cfloat>
 #include <cstring>
+#include <unordered_map>
+#include <unordered_set>
 
 using namespace VW::LEARNER;
 using namespace VW::config;
@@ -27,18 +29,14 @@ class lrq_state
 {
 public:
   VW::workspace* all = nullptr;  // feature creation, audit, hash_inv
-  bool lrindices[256];
-  size_t orig_size[256];
-  std::set<std::string> lrpairs;
+  std::unordered_set<VW::namespace_index> lrindices;
+  std::unordered_map<VW::namespace_index, size_t> orig_size;
+  std::unordered_set<std::string> lrpairs;
   bool dropout = false;
   uint64_t seed = 0;
   uint64_t initial_seed = 0;
 
-  lrq_state()
-  {
-    std::fill(lrindices, lrindices + 256, false);
-    std::fill(orig_size, orig_size + 256, 0);
-  }
+  lrq_state() = default;
 };
 
 bool valid_int(const char* s)
@@ -94,11 +92,9 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
       });
 
   // Remember original features
-
-  memset(lrq.orig_size, 0, sizeof(lrq.orig_size));
-  for (VW::namespace_index i : ec.indices)
+  for (VW::namespace_index i : ec)
   {
-    if (lrq.lrindices[i]) { lrq.orig_size[i] = ec.feature_space[i].size(); }
+    if (lrq.lrindices.find(i) != lrq.lrindices.end()) { lrq.orig_size[i] = ec[i].size(); }
   }
 
   size_t which = (is_learn && !example_is_test(ec)) ? ec.example_counter : 0;
@@ -125,7 +121,7 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
       unsigned char right = i[(which + 1) % 2];
       unsigned int k = atoi(i.c_str() + 2);
 
-      auto& left_fs = ec.feature_space[left];
+      auto& left_fs = ec[left];
       for (unsigned int lfn = 0; lfn < lrq.orig_size[left]; ++lfn)
       {
         float lfx = left_fs.values[lfn];
@@ -146,7 +142,7 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
               }
             }
 
-            auto& right_fs = ec.feature_space[right];
+            auto& right_fs = ec[right];
             for (unsigned int rfn = 0; rfn < lrq.orig_size[right]; ++rfn)
             {
               // unlike for lw, ec.ft_index_offset will be added by base learner
@@ -158,8 +154,8 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
               if (all.output_config.audit || all.output_config.hash_inv)
               {
                 std::stringstream new_feature_buffer;
-                new_feature_buffer << right << '^' << right_fs.space_names[rfn].name << '^' << n;
-                right_fs.space_names.emplace_back("lrq", new_feature_buffer.str());
+                new_feature_buffer << right << '^' << right_fs.audit_info[rfn].name << '^' << n;
+                right_fs.audit_info.emplace_back("lrq", new_feature_buffer.str());
               }
             }
           }
@@ -187,7 +183,7 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
     for (std::string const& i : lrq.lrpairs)
     {
       unsigned char right = i[(which + 1) % 2];
-      ec.feature_space[right].truncate_to(lrq.orig_size[right]);
+      ec[right].truncate_to(lrq.orig_size[right]);
     }
   }  // end for(max_iter)
 }
@@ -238,8 +234,8 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::lrq_setup(VW::setup_base_i
 
     unsigned int k = atoi(i.c_str() + 2);
 
-    lrq->lrindices[static_cast<int>(i[0])] = true;
-    lrq->lrindices[static_cast<int>(i[1])] = true;
+    lrq->lrindices.insert(i[0]);
+    lrq->lrindices.insert(i[1]);
 
     maxk = std::max(maxk, k);
   }

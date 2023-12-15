@@ -451,7 +451,7 @@ public:
 
       if ((actions.size() != 0) && (probs.size() != 0))
       {
-        auto* outcome = new VW::ccb_outcome();
+        auto outcome = VW::make_unique<VW::ccb_outcome>();
         outcome->cost = cb_label.cost;
         if (actions.size() != probs.size()) { THROW("Actions and probabilities must be the same length."); }
 
@@ -459,7 +459,7 @@ public:
         actions.clear();
         probs.clear();
 
-        ld.outcome = outcome;
+        ld.outcome = outcome.release();
         cb_label = VW::cb_class{};
       }
     }
@@ -624,7 +624,7 @@ public:
         case ' ':
         case '\t':
           *p = '\0';
-          if (p - start > 0) { ns.add_feature(start, ctx._hash_func, ctx._parse_mask); }
+          if (p - start > 0) { ns.add_feature(start); }
 
           start = p + 1;
           break;
@@ -636,7 +636,7 @@ public:
       }
     }
 
-    if (start < end) { ns.add_feature(start, ctx._hash_func, ctx._parse_mask); }
+    if (start < end) { ns.add_feature(start); }
 
     return ctx.previous_state;
   }
@@ -842,7 +842,7 @@ public:
 
     ctx.PushNamespace(ctx.key, ctx.previous_state);
 
-    array_hash = ctx.CurrentNamespace().namespace_hash;
+    counter = 0;
 
     return this;
   }
@@ -852,12 +852,13 @@ public:
     if (audit)
     {
       std::stringstream str;
-      str << '[' << (array_hash - ctx.CurrentNamespace().namespace_hash) << ']';
+      str << '[' << counter << ']';
 
-      ctx.CurrentNamespace().add_feature(f, array_hash, str.str().c_str());
+      ctx.CurrentNamespace().add_feature(counter, f, str.str());
     }
-    else { ctx.CurrentNamespace().add_feature(f, array_hash, nullptr); }
-    array_hash++;
+    else { ctx.CurrentNamespace().add_feature(counter, f); }
+
+    counter++;
 
     return this;
   }
@@ -884,7 +885,7 @@ public:
   }
 
 private:
-  VW::feature_index array_hash;
+  VW::feature_index counter;
 };
 
 // only 0 is valid as DefaultState::Ignore injected that into the source stream
@@ -1099,13 +1100,13 @@ public:
         (ctx.ignore_features->find(ns) == ctx.ignore_features->end() ||
             ctx.ignore_features->at(ns).find(ctx.key) == ctx.ignore_features->at(ns).end()))
     {
-      if (ctx._chain_hash) { ctx.CurrentNamespace().add_feature(ctx.key, str, ctx._hash_func, ctx._parse_mask); }
+      if (ctx._chain_hash) { ctx.CurrentNamespace().add_feature(ctx.key, str); }
       else
       {
         char* prepend = const_cast<char*>(str) - ctx.key_length;
         memmove(prepend, ctx.key, ctx.key_length);
 
-        ctx.CurrentNamespace().add_feature(prepend, ctx._hash_func, ctx._parse_mask);
+        ctx.CurrentNamespace().add_feature(prepend);
       }
     }
 
@@ -1114,7 +1115,7 @@ public:
 
   BaseState<audit>* Bool(Context<audit>& ctx, bool b) override
   {
-    if (b) { ctx.CurrentNamespace().add_feature(ctx.key, ctx._hash_func, ctx._parse_mask); }
+    if (b) { ctx.CurrentNamespace().add_feature(ctx.key); }
 
     return this;
   }
@@ -1174,11 +1175,11 @@ public:
           ctx.ex->l.conditional_contextual_bandit.type = VW::ccb_example_type::SLOT;
           ctx.examples->push_back(ctx.ex);
 
-          auto outcome = new VW::ccb_outcome();
+          auto outcome = VW::make_unique<VW::ccb_outcome>();
           outcome->cost = ctx.label_object_state.cb_label.cost;
           outcome->probabilities.push_back(
               {ctx.label_object_state.cb_label.action - 1, ctx.label_object_state.cb_label.probability});
-          ctx.ex->l.conditional_contextual_bandit.outcome = outcome;
+          ctx.ex->l.conditional_contextual_bandit.outcome = outcome.release();
         }
       }
     }
@@ -1190,8 +1191,7 @@ public:
   BaseState<audit>* Float(Context<audit>& ctx, float f) override
   {
     auto& ns = ctx.CurrentNamespace();
-    auto hash_index = ctx._hash_func(ctx.key, strlen(ctx.key), ns.namespace_hash) & ctx._parse_mask;
-    ns.add_feature(f, hash_index, ctx.key);
+    ns.add_feature(ctx.key, f);
     return this;
   }
 
@@ -1385,15 +1385,16 @@ public:
 
   BaseState<audit>* Uint(Context<audit>& ctx, unsigned i) override
   {
-    auto* new_ex = ctx.examples->back();
+    auto& new_ex = *ctx.examples->back();
 
     if (ctx.dedup_examples->find(i) == ctx.dedup_examples->end()) { THROW("dedup id not found: " << i); }
 
-    auto* stored_ex = ctx.dedup_examples->at(i);
+    auto& stored_ex = *ctx.dedup_examples->at(i);
 
-    new_ex->indices = stored_ex->indices;
-    for (auto& ns : new_ex->indices) { new_ex->feature_space[ns] = stored_ex->feature_space[ns]; }
-    new_ex->ft_index_offset = stored_ex->ft_index_offset;
+    new_ex.delete_all_namespaces();
+    for (auto& ns : stored_ex) { new_ex[ns] = stored_ex[ns]; }
+    new_ex.ft_index_scale = stored_ex.ft_index_scale;
+    new_ex.ft_index_offset = stored_ex.ft_index_offset;
     return return_state;
   }
 };
@@ -1651,9 +1652,7 @@ class Context
 {
 public:
   VW::label_parser _label_parser;
-  VW::hash_func_t _hash_func;
-  uint64_t _hash_seed;
-  uint64_t _parse_mask;
+  bool _hash_all;
   bool _chain_hash;
 
   VW::label_parser_reuse_mem* _reuse_mem;
@@ -1724,15 +1723,13 @@ public:
     root_state = &default_state;
   }
 
-  void init(const VW::label_parser& lbl_parser, VW::hash_func_t hash_func, uint64_t hash_seed, uint64_t parse_mask,
+  void init(const VW::label_parser& lbl_parser, bool hash_all,
       bool chain_hash, VW::label_parser_reuse_mem* reuse_mem, const VW::named_labels* ldict, VW::io::logger* logger)
   {
     assert(reuse_mem != nullptr);
     assert(logger != nullptr);
     _label_parser = lbl_parser;
-    _hash_func = hash_func;
-    _hash_seed = hash_seed;
-    _parse_mask = parse_mask;
+    _hash_all = hash_all;
     _chain_hash = chain_hash;
     _reuse_mem = reuse_mem;
     _ldict = ldict;
@@ -1758,13 +1755,13 @@ public:
 
   void PushNamespace(const char* ns, BaseState<audit>* return_state)
   {
-    push_ns(ex, ns, namespace_path, _hash_func, _hash_seed);
+    namespace_path.emplace_back(ex, ns, _hash_all);
     return_path.push_back(return_state);
   }
 
   BaseState<audit>* PopNamespace()
   {
-    pop_ns(ex, namespace_path);
+    namespace_path.pop_back();
     auto return_state = return_path.back();
     return_path.pop_back();
     return return_state;
@@ -1792,13 +1789,13 @@ class VWReaderHandler : public rapidjson::BaseReaderHandler<rapidjson::UTF8<>, V
 public:
   Context<audit> ctx;
 
-  void init(const VW::label_parser& lbl_parser, VW::hash_func_t hash_func, uint64_t hash_seed, uint64_t parse_mask,
+  void init(const VW::label_parser& lbl_parser, bool hash_all,
       bool chain_hash, VW::label_parser_reuse_mem* reuse_mem, const VW::named_labels* ldict, VW::io::logger* logger,
       VW::multi_ex* examples, rapidjson::InsituStringStream* stream, const char* stream_end,
       VW::example_factory_t example_factory, std::unordered_map<std::string, std::set<std::string>>* ignore_features,
       const std::unordered_map<uint64_t, VW::example*>* dedup_examples = nullptr)
   {
-    ctx.init(lbl_parser, hash_func, hash_seed, parse_mask, chain_hash, reuse_mem, ldict, logger);
+    ctx.init(lbl_parser, hash_all, chain_hash, reuse_mem, ldict, logger);
     ctx.examples = examples;
     ctx.ex = (*examples)[0];
     lbl_parser.default_label(ctx.ex->l);
@@ -1852,15 +1849,15 @@ public:
 }  // namespace
 
 template <bool audit>
-void VW::parsers::json::read_line_json(const VW::label_parser& lbl_parser, hash_func_t hash_func, uint64_t hash_seed,
-    uint64_t parse_mask, bool chain_hash, VW::label_parser_reuse_mem* reuse_mem, const VW::named_labels* ldict,
+void VW::parsers::json::read_line_json(const VW::label_parser& lbl_parser, bool hash_all,
+    bool chain_hash, VW::label_parser_reuse_mem* reuse_mem, const VW::named_labels* ldict,
     VW::multi_ex& examples, char* line, size_t length, example_factory_t example_factory, VW::io::logger& logger,
     std::unordered_map<std::string, std::set<std::string>>* ignore_features,
     const std::unordered_map<uint64_t, VW::example*>* dedup_examples)
 {
   if (lbl_parser.label_type == VW::label_type_t::SLATES)
   {
-    VW::parsers::json::details::parse_slates_example_json<audit>(lbl_parser, hash_func, hash_seed, parse_mask,
+    VW::parsers::json::details::parse_slates_example_json<audit>(lbl_parser, hash_all,
         chain_hash, examples, line, length, std::move(example_factory), dedup_examples);
     return;
   }
@@ -1872,7 +1869,7 @@ void VW::parsers::json::read_line_json(const VW::label_parser& lbl_parser, hash_
 
   VWReaderHandler<audit>& handler = parser.handler;
 
-  handler.init(lbl_parser, hash_func, hash_seed, parse_mask, chain_hash, reuse_mem, ldict, &logger, &examples, &ss,
+  handler.init(lbl_parser, hash_all, chain_hash, reuse_mem, ldict, &logger, &examples, &ss,
       line + length, example_factory, ignore_features, dedup_examples);
 
   ParseResult result =
@@ -1896,8 +1893,8 @@ template <bool audit>
 void VW::parsers::json::read_line_json(VW::workspace& all, VW::multi_ex& examples, char* line, size_t length,
     example_factory_t example_factory, const std::unordered_map<uint64_t, VW::example*>* dedup_examples)
 {
-  return read_line_json<audit>(all.parser_runtime.example_parser->lbl_parser, all.parser_runtime.example_parser->hasher,
-      all.runtime_config.hash_seed, all.runtime_state.parse_mask, all.parser_runtime.chain_hash_json,
+  return read_line_json<audit>(all.parser_runtime.example_parser->lbl_parser, all.parser_runtime.hash_all,
+      all.parser_runtime.chain_hash_json,
       &all.parser_runtime.example_parser->parser_memory_to_reuse, all.sd->ldict.get(), examples, line, length,
       std::move(example_factory), all.logger, &all.feature_tweaks_config.ignore_features_dsjson, dedup_examples);
 }
@@ -1951,8 +1948,8 @@ bool VW::parsers::json::read_line_decision_service_json(VW::workspace& all, VW::
   json_parser<audit> parser;
 
   VWReaderHandler<audit>& handler = parser.handler;
-  handler.init(all.parser_runtime.example_parser->lbl_parser, all.parser_runtime.example_parser->hasher,
-      all.runtime_config.hash_seed, all.runtime_state.parse_mask, all.parser_runtime.chain_hash_json,
+  handler.init(all.parser_runtime.example_parser->lbl_parser, all.parser_runtime.hash_all,
+      all.parser_runtime.chain_hash_json,
       &all.parser_runtime.example_parser->parser_memory_to_reuse, all.sd->ldict.get(), &all.logger, &examples, &ss,
       line + length, example_factory, &all.feature_tweaks_config.ignore_features_dsjson);
 
@@ -2165,13 +2162,13 @@ int VW::parsers::json::read_features_json(VW::workspace* all, io_buf& buf, VW::m
 }
 
 // Explicitly instantiate templates only in this source file
-template void VW::parsers::json::read_line_json<true>(const VW::label_parser& lbl_parser, hash_func_t hash_func,
-    uint64_t hash_seed, uint64_t parse_mask, bool chain_hash, VW::label_parser_reuse_mem* reuse_mem,
+template void VW::parsers::json::read_line_json<true>(const VW::label_parser& lbl_parser, bool hash_all,
+    bool chain_hash, VW::label_parser_reuse_mem* reuse_mem,
     const VW::named_labels* ldict, VW::multi_ex& examples, char* line, size_t length, example_factory_t example_factory,
     VW::io::logger& logger, std::unordered_map<std::string, std::set<std::string>>* ignore_features,
     const std::unordered_map<uint64_t, VW::example*>* dedup_examples);
-template void VW::parsers::json::read_line_json<false>(const VW::label_parser& lbl_parser, hash_func_t hash_func,
-    uint64_t hash_seed, uint64_t parse_mask, bool chain_hash, VW::label_parser_reuse_mem* reuse_mem,
+template void VW::parsers::json::read_line_json<false>(const VW::label_parser& lbl_parser, bool hash_all,
+    bool chain_hash, VW::label_parser_reuse_mem* reuse_mem,
     const VW::named_labels* ldict, VW::multi_ex& examples, char* line, size_t length, example_factory_t example_factory,
     VW::io::logger& logger, std::unordered_map<std::string, std::set<std::string>>* ignore_features,
     const std::unordered_map<uint64_t, VW::example*>* dedup_examples);

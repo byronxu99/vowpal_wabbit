@@ -52,7 +52,7 @@ public:
     for (ptag i = 0; i < input_example.size(); i++)
     {
       VW::example ex;
-      auto ns_hash_w = VW::hash_space(vw_obj, "w");
+      auto ns_hash_w = VW::hash_namespace(vw_obj, "w");
       auto& fs_w = ex.feature_space['w'];
       ex.indices.push_back('w');
       fs_w.push_back(1.f, VW::hash_feature(vw_obj, input_example[i].word, ns_hash_w));

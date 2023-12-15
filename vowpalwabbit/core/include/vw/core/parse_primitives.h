@@ -21,6 +21,16 @@ namespace VW
 namespace details
 {
 
+// Check if a string consists only of digits 0-9
+inline bool is_string_integer(VW::string_view s)
+{
+  for (auto c : s)
+  {
+    if (!std::isdigit(c)) { return false; }
+  }
+  return true;
+}
+
 // This function returns a vector of strings (not string_views) because we need to remove the escape characters
 std::vector<std::string> escaped_tokenize(char delim, VW::string_view s, bool allow_empty = false);
 

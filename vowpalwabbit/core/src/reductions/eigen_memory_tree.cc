@@ -106,8 +106,8 @@ emt_example::emt_example(VW::workspace& all, VW::example* ex)
 {
   label = ex->l.multi.label;
 
-  std::vector<std::vector<VW::namespace_index>>* full_interactions = ex->interactions;
-  std::vector<std::vector<VW::namespace_index>> base_interactions;
+  VW::interaction_spec_type* full_interactions = ex->interactions;
+  VW::interaction_spec_type base_interactions;
 
   ex->interactions = &base_interactions;
   VW::features fs;
@@ -169,9 +169,8 @@ emt_tree::emt_tree(VW::workspace* all, std::shared_ptr<VW::rand_state> random_st
   // we set this up for repeated use later in the scorer.
   // we will populate this examples features over and over.
   ex = VW::make_unique<VW::example>();
-  empty_interactions_for_ex = VW::make_unique<std::vector<std::vector<VW::namespace_index>>>();
+  empty_interactions_for_ex = VW::make_unique<VW::interaction_spec_type>();
   ex->interactions = empty_interactions_for_ex.get();
-  ex->indices.push_back(0);
 }
 ////////////////////////end of definitions/////////////////
 ///////////////////////////////////////////////////////////
@@ -491,7 +490,7 @@ void scorer_features(const emt_feats& f1, VW::features& out)
 {
   for (auto p : f1)
   {
-    if (p.second != 0) { out.push_back(p.second, p.first); }
+    if (p.second != 0) { out.add_feature_raw(p.first, p.second); }
   }
 }
 
@@ -504,17 +503,17 @@ void scorer_features(const emt_feats& f1, const emt_feats& f2, VW::features& out
   {
     if (iter1->first < iter2->first)
     {
-      if (iter1->second != 0) { out.push_back(iter1->second, iter1->first); }
+      if (iter1->second != 0) { out.add_feature_raw(iter1->first, iter1->second); }
       iter1++;
     }
     else if (iter2->first < iter1->first)
     {
-      if (iter2->second != 0) { out.push_back(iter2->second, iter2->first); }
+      if (iter2->second != 0) { out.add_feature_raw(iter2->first, iter2->second); }
       iter2++;
     }
     else
     {
-      if (iter1->second != iter2->second) { out.push_back(std::abs(iter1->second - iter2->second), iter1->first); }
+      if (iter1->second != iter2->second) { out.add_feature_raw(iter1->first, std::abs(iter1->second - iter2->second)); }
       iter1++;
       iter2++;
     }
@@ -522,13 +521,13 @@ void scorer_features(const emt_feats& f1, const emt_feats& f2, VW::features& out
 
   while (iter1 != f1.end())
   {
-    if (iter1->second != 0) { out.push_back(std::abs(iter1->second), iter1->first); }
+    if (iter1->second != 0) { out.add_feature_raw(iter1->first, std::abs(iter1->second)); }
     iter1++;
   }
 
   while (iter2 != f2.end())
   {
-    if (iter2->second != 0) { out.push_back(std::abs(iter2->second), iter2->first); }
+    if (iter2->second != 0) { out.add_feature_raw(iter2->second, std::abs(iter2->second)); }
     iter2++;
   }
 }
@@ -540,20 +539,17 @@ void scorer_example(emt_tree& b, const emt_example& ex1, const emt_example& ex2)
   static constexpr VW::namespace_index X_NS = 'x';
   static constexpr VW::namespace_index Z_NS = 'z';
 
-  out.feature_space[X_NS].clear();
-  out.feature_space[Z_NS].clear();
+  out[X_NS].clear();
+  out[Z_NS].clear();
 
   if (b.scorer_type == emt_scorer_type::SELF_CONSISTENT_RANK)
   {
-    out.indices.clear();
-    out.indices.push_back(X_NS);
-
     out.interactions->clear();
 
-    scorer_features(ex1.full, ex2.full, out.feature_space[X_NS]);
+    scorer_features(ex1.full, ex2.full, out[X_NS]);
 
-    out.total_sum_feat_sq = out.feature_space[X_NS].sum_feat_sq;
-    out.num_features = out.feature_space[X_NS].size();
+    out.total_sum_feat_sq = out[X_NS].sum_feat_sq;
+    out.num_features = out[X_NS].size();
 
     auto initial = emt_initial(b.initial_type, ex1.full, ex2.full);
     out.ex_reduction_features.get<VW::simple_label_reduction_features>().initial = initial;
@@ -561,28 +557,23 @@ void scorer_example(emt_tree& b, const emt_example& ex1, const emt_example& ex2)
 
   if (b.scorer_type == emt_scorer_type::NOT_SELF_CONSISTENT_RANK)
   {
-    out.indices.clear();
-    out.indices.push_back(X_NS);
-    out.indices.push_back(Z_NS);
-
     out.interactions->clear();
     out.interactions->push_back({X_NS, Z_NS});
 
-    b.all->feature_tweaks_config.ignore_some_linear = true;
-    b.all->feature_tweaks_config.ignore_linear[X_NS] = true;
-    b.all->feature_tweaks_config.ignore_linear[Z_NS] = true;
+    b.all->feature_tweaks_config.ignore_linear.insert(X_NS);
+    b.all->feature_tweaks_config.ignore_linear.insert(Z_NS);
 
-    scorer_features(ex1.full, out.feature_space[X_NS]);
-    scorer_features(ex2.full, out.feature_space[Z_NS]);
+    scorer_features(ex1.full, out[X_NS]);
+    scorer_features(ex2.full, out[Z_NS]);
 
     // when we receive ex1 and ex2 their features are indexed on top of eachother. In order
     // to make sure VW recognizes the features from the two examples as separate features
     // we apply a map of multiplying by 2 and then offseting by 1 on the second example.
-    for (auto& j : out.feature_space[X_NS].indices) { j = j * 2; }
-    for (auto& j : out.feature_space[Z_NS].indices) { j = j * 2 + 1; }
+    for (auto& j : out[X_NS].indices) { j = j * 2; }
+    for (auto& j : out[Z_NS].indices) { j = j * 2 + 1; }
 
-    out.total_sum_feat_sq = out.feature_space[X_NS].sum_feat_sq + out.feature_space[Z_NS].sum_feat_sq;
-    out.num_features = out.feature_space[X_NS].size() + out.feature_space[Z_NS].size();
+    out.total_sum_feat_sq = out[X_NS].sum_feat_sq + out[Z_NS].sum_feat_sq;
+    out.num_features = out[X_NS].size() + out[Z_NS].size();
 
     auto initial = emt_initial(b.initial_type, ex1.full, ex2.full);
     out.ex_reduction_features.get<VW::simple_label_reduction_features>().initial = initial;
@@ -601,9 +592,9 @@ void scorer_example(emt_tree& b, const emt_example& ex1, const emt_example& ex2)
   // with metadata.
   if (floats_per_feature_index != 1)
   {
-    for (VW::features& fs : out)
+    for (auto ns : out)
     {
-      for (auto& j : fs.indices) { j *= floats_per_feature_index; }
+      for (auto& j : out[ns].indices) { j *= floats_per_feature_index; }
     }
   }
 }
@@ -781,7 +772,7 @@ void node_predict(emt_tree& b, learner& base, emt_node& cn, emt_example& ex, VW:
 
 void emt_predict(emt_tree& b, learner& base, VW::example& ec)
 {
-  b.all->feature_tweaks_config.ignore_some_linear = false;
+  b.all->feature_tweaks_config.ignore_linear.clear();
   emt_example ex(*b.all, &ec);
 
   emt_node& cn = *tree_route(b, ex);
@@ -791,7 +782,7 @@ void emt_predict(emt_tree& b, learner& base, VW::example& ec)
 
 void emt_learn(emt_tree& b, learner& base, VW::example& ec)
 {
-  b.all->feature_tweaks_config.ignore_some_linear = false;
+  b.all->feature_tweaks_config.ignore_linear.clear();
   auto ex = VW::make_unique<emt_example>(*b.all, &ec);
 
   emt_node& cn = *tree_route(b, *ex);

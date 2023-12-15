@@ -12,6 +12,7 @@
 #include "vw/core/feature_group.h"
 #include "vw/core/interaction_generation_state.h"
 #include "vw/core/object_pool.h"
+#include "vw/core/vw_fwd.h"
 
 #include <cstdint>
 #include <stack>
@@ -54,19 +55,20 @@ inline void call_func_t(
   FuncT(dat, ft_value, wt_idx);
 }
 
-inline bool term_is_empty(VW::namespace_index term, const std::array<VW::features, VW::NUM_NAMESPACES>& feature_groups)
+inline bool term_is_empty(VW::namespace_index term, const VW::feature_groups_type& feature_groups)
 {
-  return feature_groups[term].empty();
+  auto iter = feature_groups.find(term);
+  return iter == feature_groups.end() || iter->second.empty();
 }
 
-inline bool has_empty_interaction_quadratic(const std::array<VW::features, VW::NUM_NAMESPACES>& feature_groups,
+inline bool has_empty_interaction_quadratic(const VW::feature_groups_type& feature_groups,
     const std::vector<VW::namespace_index>& namespace_indexes)
 {
   assert(namespace_indexes.size() == 2);
   return term_is_empty(namespace_indexes[0], feature_groups) || term_is_empty(namespace_indexes[1], feature_groups);
 }
 
-inline bool has_empty_interaction_cubic(const std::array<VW::features, VW::NUM_NAMESPACES>& feature_groups,
+inline bool has_empty_interaction_cubic(const VW::feature_groups_type& feature_groups,
     const std::vector<VW::namespace_index>& namespace_indexes)
 {
   assert(namespace_indexes.size() == 3);
@@ -75,7 +77,7 @@ inline bool has_empty_interaction_cubic(const std::array<VW::features, VW::NUM_N
   ;
 }
 
-inline bool has_empty_interaction(const std::array<VW::features, VW::NUM_NAMESPACES>& feature_groups,
+inline bool has_empty_interaction(const VW::feature_groups_type& feature_groups,
     const std::vector<VW::namespace_index>& namespace_indexes)
 {
   return std::any_of(namespace_indexes.begin(), namespace_indexes.end(),
@@ -103,32 +105,40 @@ constexpr inline VW::feature_index feature_to_weight_index(
 
 // #define GEN_INTER_LOOP
 
+// These functions are only called after we have verified that all namespaces exist in the feature groups
+// Use const_cast to remove const-ness of feature_groups so we can use operator[]
+// If a namespace didn't exist, operator[] will create it and thus modify the feature group
 std::tuple<VW::details::features_range_t, VW::details::features_range_t> inline generate_quadratic_char_combination(
-    const std::array<VW::features, VW::NUM_NAMESPACES>& feature_groups, VW::namespace_index ns_idx1,
+    const VW::feature_groups_type& feature_groups, VW::namespace_index ns_idx1,
     VW::namespace_index ns_idx2)
 {
-  return {std::make_tuple(std::make_pair(feature_groups[ns_idx1].audit_begin(), feature_groups[ns_idx1].audit_end()),
-      std::make_pair(feature_groups[ns_idx2].audit_begin(), feature_groups[ns_idx2].audit_end()))};
+  const auto& ft1 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx1];
+  const auto& ft2 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx2];
+  return {std::make_tuple(std::make_pair(ft1.audit_begin(), ft2.audit_end()),
+      std::make_pair(ft2.audit_begin(), ft2.audit_end()))};
 }
 
 std::tuple<VW::details::features_range_t, VW::details::features_range_t,
-    VW::details::features_range_t> inline generate_cubic_char_combination(const std::array<VW::features,
-                                                                              VW::NUM_NAMESPACES>& feature_groups,
+    VW::details::features_range_t> inline generate_cubic_char_combination(const VW::feature_groups_type& feature_groups,
     VW::namespace_index ns_idx1, VW::namespace_index ns_idx2, VW::namespace_index ns_idx3)
 {
-  return {std::make_tuple(std::make_pair(feature_groups[ns_idx1].audit_begin(), feature_groups[ns_idx1].audit_end()),
-      std::make_pair(feature_groups[ns_idx2].audit_begin(), feature_groups[ns_idx2].audit_end()),
-      std::make_pair(feature_groups[ns_idx3].audit_begin(), feature_groups[ns_idx3].audit_end()))};
+  const auto& ft1 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx1];
+  const auto& ft2 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx2];
+  const auto& ft3 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx3];
+  return {std::make_tuple(std::make_pair(ft1.audit_begin(), ft1.audit_end()),
+              std::make_pair(ft2.audit_begin(), ft2.audit_end()),
+              std::make_pair(ft3.audit_begin(), ft3.audit_end()))};
 }
 
 std::vector<VW::details::features_range_t> inline generate_generic_char_combination(
-    const std::array<VW::features, VW::NUM_NAMESPACES>& feature_groups, const std::vector<VW::namespace_index>& terms)
+    const VW::feature_groups_type& feature_groups, const std::vector<VW::namespace_index>& terms)
 {
   std::vector<VW::details::features_range_t> inter;
   inter.reserve(terms.size());
   for (const auto& term : terms)
   {
-    inter.emplace_back(feature_groups[term].audit_begin(), feature_groups[term].audit_end());
+    const auto& fts = const_cast<VW::feature_groups_type&>(feature_groups)[term];
+    inter.emplace_back(fts.audit_begin(), fts.audit_end());
   }
   return inter;
 }
@@ -344,7 +354,7 @@ size_t process_generic_interaction(const std::vector<VW::details::features_range
 template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_value, WeightOrIndexT), bool audit,
     void (*audit_func)(DataT&, const VW::audit_strings*),
     class WeightsT>  // nullptr func can't be used as template param in old compilers
-inline void generate_interactions(const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations,
+inline void generate_interactions(const VW::interaction_spec_type& interactions, bool permutations,
     VW::example_predict& ec, DataT& dat, WeightsT& weights, size_t& num_features,
     VW::details::generate_interactions_object_cache&
         cache)  // default value removed to eliminate ambiguity in old complers
@@ -372,26 +382,26 @@ inline void generate_interactions(const std::vector<std::vector<VW::namespace_in
     if (len == 2)  // special case of pairs
     {
       // Skip over any interaction with an empty namespace.
-      if (details::has_empty_interaction_quadratic(ec.feature_space, ns)) { continue; }
+      if (details::has_empty_interaction_quadratic(ec.feature_space(), ns)) { continue; }
       num_features += details::process_quadratic_interaction<audit>(
-          details::generate_quadratic_char_combination(ec.feature_space, ns[0], ns[1]), permutations, inner_kernel_func,
+          details::generate_quadratic_char_combination(ec.feature_space(), ns[0], ns[1]), permutations, inner_kernel_func,
           depth_audit_func);
     }
     else if (len == 3)  // special case for triples
     {
       // Skip over any interaction with an empty namespace.
-      if (details::has_empty_interaction_cubic(ec.feature_space, ns)) { continue; }
+      if (details::has_empty_interaction_cubic(ec.feature_space(), ns)) { continue; }
       num_features += details::process_cubic_interaction<audit>(
-          details::generate_cubic_char_combination(ec.feature_space, ns[0], ns[1], ns[2]), permutations,
+          details::generate_cubic_char_combination(ec.feature_space(), ns[0], ns[1], ns[2]), permutations,
           inner_kernel_func, depth_audit_func);
     }
     else  // generic case: quatriples, etc.
 #endif
     {
       // Skip over any interaction with an empty namespace.
-      if (details::has_empty_interaction(ec.feature_space, ns)) { continue; }
+      if (details::has_empty_interaction(ec.feature_space(), ns)) { continue; }
       num_features +=
-          details::process_generic_interaction<audit>(details::generate_generic_char_combination(ec.feature_space, ns),
+          details::process_generic_interaction<audit>(details::generate_generic_char_combination(ec.feature_space(), ns),
               permutations, inner_kernel_func, depth_audit_func, cache.state_data);
     }
   }
@@ -406,7 +416,7 @@ template <class DataT, class WeightOrIndexT, void (*FuncT)(DataT&, VW::feature_v
     void (*audit_func)(DataT&, const VW::audit_strings*),
     class WeightsT>  // nullptr func can't be used as template param in old compilers
 VW_DEPRECATED("Moved into VW namespace") inline void generate_interactions(
-    const std::vector<std::vector<VW::namespace_index>>& interactions, bool permutations, VW::example_predict& ec,
+    const VW::interaction_spec_type& interactions, bool permutations, VW::example_predict& ec,
     DataT& dat, WeightsT& weights, size_t& num_features,
     VW::details::generate_interactions_object_cache&
         cache)  // default value removed to eliminate ambiguity in old complers

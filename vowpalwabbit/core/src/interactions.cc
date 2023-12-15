@@ -4,14 +4,13 @@
 
 #include "vw/core/interactions.h"
 
-#include "vw/core/v_array.h"
 #include "vw/core/vw_math.h"
 
 #include <algorithm>
 #include <cfloat>
 #include <cstdint>
 #include <iterator>
-#include <map>
+#include <set>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -22,19 +21,21 @@ namespace
 {
 template <typename FuncT>
 void for_each_value(
-    const std::array<VW::features, VW::NUM_NAMESPACES>& feature_spaces, VW::namespace_index term, const FuncT& func)
+    const VW::feature_groups_type& feature_spaces, VW::namespace_index term, const FuncT& func)
 {
   for (auto value : feature_spaces[term].values) { func(value); }
 }
 
 float calc_sum_ft_squared_for_term(
-    const std::array<VW::features, VW::NUM_NAMESPACES>& feature_spaces, VW::namespace_index term)
+    const VW::feature_groups_type& feature_spaces, VW::namespace_index term)
 {
-  return feature_spaces[term].sum_feat_sq;
+  auto iter = feature_spaces.find(term);
+  if (iter == feature_spaces.end()) { return 0.f; }
+  return iter->second.sum_feat_sq;
 }
 
 template <typename InteractionTermT>
-float calculate_count_and_sum_ft_sq_for_permutations(const std::array<VW::features, VW::NUM_NAMESPACES>& feature_spaces,
+float calculate_count_and_sum_ft_sq_for_permutations(const VW::feature_groups_type& feature_spaces,
     const std::vector<std::vector<InteractionTermT>>& interactions)
 {
   float sum_feat_sq_in_inter_outer = 0.;
@@ -49,7 +50,7 @@ float calculate_count_and_sum_ft_sq_for_permutations(const std::array<VW::featur
 }
 
 template <typename InteractionTermT>
-float calculate_count_and_sum_ft_sq_for_combinations(const std::array<VW::features, VW::NUM_NAMESPACES>& feature_spaces,
+float calculate_count_and_sum_ft_sq_for_combinations(const VW::feature_groups_type& feature_spaces,
     const std::vector<std::vector<InteractionTermT>>& interactions)
 {
   std::vector<float> results;
@@ -107,8 +108,8 @@ float calculate_count_and_sum_ft_sq_for_combinations(const std::array<VW::featur
 
 // returns number of new features that will be generated for example and sum of their squared values
 float VW::eval_sum_ft_squared_of_generated_ft(bool permutations,
-    const std::vector<std::vector<VW::namespace_index>>& interactions,
-    const std::array<VW::features, VW::NUM_NAMESPACES>& feature_spaces)
+    const VW::interaction_spec_type& interactions,
+    const VW::feature_groups_type& feature_spaces)
 {
   float sum_ft_sq = 0.f;
 
@@ -124,9 +125,10 @@ bool VW::details::sort_interactions_comparator(
   return a < b;
 }
 
-std::vector<std::vector<VW::namespace_index>> VW::details::expand_quadratics_wildcard_interactions(
-    bool leave_duplicate_interactions, const std::set<VW::namespace_index>& new_example_indices)
+VW::interaction_spec_type VW::details::expand_quadratics_wildcard_interactions(
+    bool leave_duplicate_interactions, const std::unordered_set<VW::namespace_index>& new_example_indices)
 {
+  // C++ doesn't support unordered_set of vectors
   std::set<std::vector<VW::namespace_index>> interactions;
 
   for (auto it = new_example_indices.begin(); it != new_example_indices.end(); ++it)
@@ -142,5 +144,5 @@ std::vector<std::vector<VW::namespace_index>> VW::details::expand_quadratics_wil
       if (leave_duplicate_interactions) { interactions.insert({idx2, idx1}); }
     }
   }
-  return std::vector<std::vector<VW::namespace_index>>(interactions.begin(), interactions.end());
+  return VW::interaction_spec_type(interactions.begin(), interactions.end());
 }

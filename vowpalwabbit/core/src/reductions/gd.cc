@@ -374,12 +374,12 @@ void print_lda_features(VW::workspace& all, VW::example& ec)
   uint32_t stride_shift = weights.stride_shift();
 
   size_t count = 0;
-  for (VW::features& fs : ec) { count += fs.size(); }
+  for (auto ns : ec) { count += ec[ns].size(); }
 
   // TODO: Where should audit stuff output to?
-  for (VW::features& fs : ec)
+  for (auto ns : ec)
   {
-    for (const auto& f : fs.audit_range())
+    for (const auto& f : ec[ns].audit_range())
     {
       std::cout << '\t' << VW::to_string(*f.audit()) << ':'
                 << (((ec.ft_index_scale * f.index()) >> stride_shift) & all.runtime_state.parse_mask) << ':'
@@ -403,11 +403,11 @@ void VW::details::print_features(VW::workspace& all, VW::example& ec)
   {
     audit_results dat(all, ec.ft_index_offset);
 
-    for (VW::features& fs : ec)
+    for (auto ns : ec)
     {
-      if (fs.space_names.size() > 0)
+      if (ec[ns].audit_info.size() > 0)
       {
-        for (const auto& f : fs.audit_range())
+        for (const auto& f : ec[ns].audit_range())
         {
           audit_interaction(dat, f.audit());
           audit_feature(
@@ -417,7 +417,7 @@ void VW::details::print_features(VW::workspace& all, VW::example& ec)
       }
       else
       {
-        for (const auto& f : fs)
+        for (const auto& f : ec[ns])
         {
           audit_feature(
               dat, f.value(), VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset));

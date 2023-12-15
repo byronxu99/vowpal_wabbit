@@ -4,44 +4,61 @@
 #pragma once
 
 #include "vw/common/future_compat.h"
+#include "vw/core/vw_fwd.h"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
 namespace VW
 {
 using weight = float;
-constexpr size_t NUM_NAMESPACES = 256;
 namespace details
 {
-constexpr int QUADRATIC_CONSTANT = 27942141;
-constexpr int CUBIC_CONSTANT = 21791;
-constexpr int CUBIC_CONSTANT2 = 37663;
-constexpr int AFFIX_CONSTANT = 13903957;
+constexpr uint64_t QUADRATIC_CONSTANT = 27942141;
+constexpr uint64_t CUBIC_CONSTANT = 21791;
+constexpr uint64_t CUBIC_CONSTANT2 = 37663;
+constexpr uint64_t AFFIX_CONSTANT = 13903957;
 
 // Index of the constant feature is always zero
 constexpr uint64_t CONSTANT = 0;
 
 constexpr float PROBABILITY_TOLERANCE = 1e-5f;
 
-constexpr unsigned char DEFAULT_NAMESPACE = 32;
-constexpr unsigned char WILDCARD_NAMESPACE = 58;  // :
-constexpr unsigned char WAP_LDF_NAMESPACE = 126;
-constexpr unsigned char HISTORY_NAMESPACE = 127;
-constexpr unsigned char CONSTANT_NAMESPACE = 128;
-constexpr unsigned char NN_OUTPUT_NAMESPACE = 129;
-constexpr unsigned char AUTOLINK_NAMESPACE = 130;
-constexpr unsigned char NEIGHBOR_NAMESPACE =
+constexpr const char* DEFAULT_NAMESPACE_STR = " ";
+constexpr const char* WILDCARD_NAMESPACE_STR = ":";
+
+constexpr VW::namespace_index DEFAULT_NAMESPACE = 32;   // ' ' (space)
+constexpr VW::namespace_index WILDCARD_NAMESPACE = 58;  // ':'
+constexpr VW::namespace_index WAP_LDF_NAMESPACE = 126;
+constexpr VW::namespace_index HISTORY_NAMESPACE = 127;
+constexpr VW::namespace_index CONSTANT_NAMESPACE = 128;
+constexpr VW::namespace_index NN_OUTPUT_NAMESPACE = 129;
+constexpr VW::namespace_index AUTOLINK_NAMESPACE = 130;
+constexpr VW::namespace_index NEIGHBOR_NAMESPACE =
     131;  // this is \x83 -- to do quadratic, say "-q a`printf "\x83"` on the command line
-constexpr unsigned char AFFIX_NAMESPACE = 132;                     // this is \x84
-constexpr unsigned char SPELLING_NAMESPACE = 133;                  // this is \x85
-constexpr unsigned char CONDITIONING_NAMESPACE = 134;              // this is \x86
-constexpr unsigned char DICTIONARY_NAMESPACE = 135;                // this is \x87
-constexpr unsigned char NODE_ID_NAMESPACE = 136;                   // this is \x88
-constexpr unsigned char BASELINE_ENABLED_MESSAGE_NAMESPACE = 137;  // this is \x89
-constexpr unsigned char CCB_SLOT_NAMESPACE = 139;
-constexpr unsigned char CCB_ID_NAMESPACE = 140;
-constexpr unsigned char IGL_FEEDBACK_NAMESPACE = 141;
+constexpr VW::namespace_index AFFIX_NAMESPACE = 132;                     // this is \x84
+constexpr VW::namespace_index SPELLING_NAMESPACE = 133;                  // this is \x85
+constexpr VW::namespace_index CONDITIONING_NAMESPACE = 134;              // this is \x86
+constexpr VW::namespace_index DICTIONARY_NAMESPACE = 135;                // this is \x87
+constexpr VW::namespace_index NODE_ID_NAMESPACE = 136;                   // this is \x88
+constexpr VW::namespace_index BASELINE_ENABLED_MESSAGE_NAMESPACE = 137;  // this is \x89
+constexpr VW::namespace_index CCB_SLOT_NAMESPACE = 139;
+constexpr VW::namespace_index CCB_ID_NAMESPACE = 140;
+constexpr VW::namespace_index IGL_FEEDBACK_NAMESPACE = 141;
+
+constexpr std::array<VW::namespace_index, 17> SPECIAL_NAMESPACES {{
+    DEFAULT_NAMESPACE,
+    WILDCARD_NAMESPACE, WAP_LDF_NAMESPACE,
+    HISTORY_NAMESPACE, CONSTANT_NAMESPACE,
+    NN_OUTPUT_NAMESPACE, AUTOLINK_NAMESPACE,
+    NEIGHBOR_NAMESPACE, AFFIX_NAMESPACE,
+    SPELLING_NAMESPACE, CONDITIONING_NAMESPACE,
+    DICTIONARY_NAMESPACE, NODE_ID_NAMESPACE,
+    BASELINE_ENABLED_MESSAGE_NAMESPACE,
+    CCB_SLOT_NAMESPACE, CCB_ID_NAMESPACE,
+    IGL_FEEDBACK_NAMESPACE
+}};
 
 constexpr const char* CCB_LABEL = "ccb";
 constexpr const char* SLATES_LABEL = "slates";
@@ -64,6 +81,3 @@ static constexpr const int AS_MANY_AS_NEEDED_FLOAT_FORMATTING_DECIMAL_PRECISION 
 }  // namespace VW
 
 using weight VW_DEPRECATED("weight renamed to VW::weight") = VW::weight;
-
-VW_DEPRECATED("NUM_NAMESPACES renamed to VW::NUM_NAMESPACES")
-constexpr size_t NUM_NAMESPACES = 256;

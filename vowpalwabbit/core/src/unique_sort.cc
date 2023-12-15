@@ -31,7 +31,7 @@ void VW::unique_features(features& fs, int max)
       {
         fs.values[last_index] = fs.values[i];
         fs.indices[last_index] = fs.indices[i];
-        if (!fs.space_names.empty()) { fs.space_names[last_index] = std::move(fs.space_names[i]); }
+        if (!fs.audit_info.empty()) { fs.audit_info[last_index] = std::move(fs.audit_info[i]); }
       }
 
       const auto unique_items_found = last_index + 1;
@@ -45,9 +45,9 @@ void VW::unique_features(features& fs, int max)
 
 void VW::unique_sort_features(uint64_t parse_mask, VW::example& ae)
 {
-  for (features& fs : ae)
+  for (auto ns : ae)
   {
-    if (fs.sort(parse_mask)) { unique_features(fs); }
+    if (ae[ns].sort(parse_mask)) { unique_features(ae[ns]); }
   }
 
   ae.sorted = true;

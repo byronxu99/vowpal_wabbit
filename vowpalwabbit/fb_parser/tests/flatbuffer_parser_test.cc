@@ -92,8 +92,10 @@ TEST(FlatbufferParser, FlatbufferStandaloneExample)
   const auto& red_features = examples[0]->ex_reduction_features.template get<VW::simple_label_reduction_features>();
   EXPECT_FLOAT_EQ(red_features.weight, 1.f);
 
-  EXPECT_EQ(examples[0]->indices[0], VW::details::CONSTANT_NAMESPACE);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[examples[0]->indices[0]].values[0], 2.23f);
+  EXPECT_TRUE(examples[0]->contains(VW::details::CONSTANT_NAMESPACE));
+  auto namespaces = examples[0]->namespaces();
+  EXPECT_EQ(namespaces.size(), 1);
+  EXPECT_FLOAT_EQ((*examples[0])[namespaces[0]].values[0], 2.23f);
 
   VW::finish_example(*all, *examples[0]);
 }
@@ -132,8 +134,10 @@ TEST(FlatbufferParser, FlatbufferCollection)
   const auto& red_features = examples[0]->ex_reduction_features.template get<VW::simple_label_reduction_features>();
   EXPECT_FLOAT_EQ(red_features.weight, 1.f);
 
-  EXPECT_EQ(examples[0]->indices[0], VW::details::CONSTANT_NAMESPACE);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[examples[0]->indices[0]].values[0], 2.23f);
+  EXPECT_TRUE(examples[0]->contains(VW::details::CONSTANT_NAMESPACE));
+  auto namespaces = examples[0]->namespaces();
+  EXPECT_EQ(namespaces.size(), 1);
+  EXPECT_FLOAT_EQ((*examples[0])[namespaces[0]].values[0], 2.23f);
 
   VW::finish_example(*all, *examples[0]);
 }
