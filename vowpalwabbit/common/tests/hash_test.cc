@@ -2,7 +2,7 @@
 // individual contributors. All rights reserved. Released under a BSD (revised)
 // license as described in the file LICENSE.
 
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

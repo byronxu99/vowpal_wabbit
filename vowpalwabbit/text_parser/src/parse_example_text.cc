@@ -5,11 +5,12 @@
 #include "vw/text_parser/parse_example_text.h"
 
 #include "vw/common/future_compat.h"
-#include "vw/common/hash.h"
 #include "vw/common/string_view.h"
 #include "vw/common/text_utils.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/core/constant.h"
 #include "vw/core/global_data.h"
+#include "vw/core/hash.h"
 #include "vw/core/parse_primitives.h"
 #include "vw/core/parser.h"
 #include "vw/core/shared_data.h"
@@ -299,7 +300,7 @@ private:
                 ss << fs.namespace_name << '_';
                 ss << str_feature_index;
                 ss << '=' << id;
-                dict_fs.push_audit_string(ss.str());
+                dict_fs.add_audit_string(ss.str());
               }
             }
           }
@@ -365,8 +366,8 @@ private:
       }
 
       // Check if the namespace is redefined
-      auto ns_hash = _ae->hash_namespace(name);
-      if (_redefine->find(ns_hash) != _redefine->end()) { name = (*_redefine)[ns_hash]; }
+      auto ns_index = _ae->namespace_string_to_index(name);
+      if (_redefine->find(ns_index) != _redefine->end()) { name = (*_redefine)[ns_index]; }
 
       // Check if there is a wildcard redefine
       else if (_redefine->find(VW::details::WILDCARD_NAMESPACE) != _redefine->end())
@@ -374,8 +375,8 @@ private:
         name = (*_redefine)[VW::details::WILDCARD_NAMESPACE];
       }
 
-      // Create the namespace and get its index
-      _namespace_index = (*_ae)[name].namespace_hash;
+      // Convert the possible updated name to index
+      _namespace_index = _ae->namespace_string_to_index(name);
 
       name_space_info_value();
     }

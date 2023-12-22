@@ -243,8 +243,8 @@ void add_edge_features_group_fn(task_data& D, float fv, uint64_t fx)
   for (size_t k = 0; k < D.numN; k++)
   {
     if (D.neighbor_predictions[k] == 0.) { continue; }
-    node[VW::details::NEIGHBOR_NAMESPACE].push_back(
-        fv * D.neighbor_predictions[k], static_cast<uint64_t>(fx + 348919043 * k));
+    node[VW::details::NEIGHBOR_NAMESPACE].add_feature_raw(
+        static_cast<uint64_t>(fx + 348919043 * k), fv * D.neighbor_predictions[k]);
   }
 }
 
@@ -253,7 +253,7 @@ void add_edge_features_single_fn(task_data& D, float fv, uint64_t fx)
   VW::example& node = *D.cur_node;
   auto& fs = node[VW::details::NEIGHBOR_NAMESPACE];
   size_t k = static_cast<size_t>(D.neighbor_predictions[0]);
-  fs.push_back(fv, static_cast<uint32_t>(fx + 348919043 * k));
+  fs.add_feature_raw(static_cast<uint32_t>(fx + 348919043 * k), fv);
 }
 
 void add_edge_features(Search::search& sch, task_data& D, size_t n, VW::multi_ex& ec)

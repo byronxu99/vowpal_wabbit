@@ -59,7 +59,7 @@ void autolink::prepare_example(VW::LEARNER::learner& base, VW::example& ec) cons
   {
     if (base_pred != 0.f)
     {
-      fs.push_back(base_pred, AUTOCONSTANT + (i << _stride_shift), VW::details::AUTOLINK_NAMESPACE);
+      fs.add_feature_raw(AUTOCONSTANT + i, base_pred);
       base_pred *= ec.pred.scalar;
     }
   }

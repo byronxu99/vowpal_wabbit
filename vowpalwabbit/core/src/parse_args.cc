@@ -269,14 +269,12 @@ void parse_affix_argument(VW::workspace& all, const std::string& str)
       if ((q[0] < '1') || (q[0] > '7')) THROW("malformed affix argument (length must be 1..7): " << p)
 
       auto len = static_cast<uint16_t>(q[0] - '0');
-      auto ns = static_cast<uint16_t>(' ');  // default namespace
+      auto ns = VW::details::DEFAULT_NAMESPACE;  // default namespace
       if (q[1] != 0)
       {
-        if (VW::valid_ns(q[1])) { ns = static_cast<uint16_t>(q[1]); }
+        if (VW::valid_ns(q + 1)) { ns = VW::namespace_string_to_index(q + 1, all.runtime_config.hash_seed); }
         else
           THROW("malformed affix argument (invalid namespace): " << p)
-
-        if (q[2] != 0) THROW("malformed affix argument (too long): " << p)
       }
 
       uint16_t afx = (len << 1) | (prefix & 0x1);
@@ -493,45 +491,33 @@ std::tuple<std::string, std::string> extract_ignored_feature(VW::string_view nam
 }  // namespace details
 }  // namespace VW
 
-std::vector<VW::namespace_index> parse_char_interactions(VW::string_view input, VW::io::logger& logger)
+std::vector<VW::namespace_index> parse_interactions(VW::string_view input, uint64_t hash_seed, VW::io::logger& logger)
 {
-  std::vector<VW::namespace_index> result;
-
-  auto decoded = VW::decode_inline_hex(input, logger);
-  result.insert(result.begin(), decoded.begin(), decoded.end());
-  return result;
-}
-
-/*
-std::vector<VW::extent_term> VW::details::parse_full_name_interactions(VW::workspace& all, VW::string_view str)
-{
-  std::vector<extent_term> result;
-  auto encoded = VW::decode_inline_hex(str, all.logger);
-
   std::vector<VW::string_view> tokens;
-  VW::tokenize('|', str, tokens, true);
-  for (const auto& token : tokens)
+  auto str = VW::decode_inline_hex(input, logger);
+
+  // If the string contains '|', treat it as specifying full name interactions
+  if (str.find('|') != std::string::npos) { VW::tokenize('|', str, tokens, true); }
+  // Otherwise, assume single character namespaces
+  else
   {
-    if (token.empty()) { THROW("A term in --experimental_full_name_interactions cannot be empty. Given: " << str) }
-    if (std::find(token.begin(), token.end(), ':') != token.end())
-    {
-      if (token.size() != 1)
-      {
-        THROW(
-            "A wildcard term in --experimental_full_name_interactions cannot contain characters other than ':'. Found: "
-            << token)
-      }
-      result.emplace_back(VW::details::WILDCARD_NAMESPACE, VW::details::WILDCARD_NAMESPACE);
-    }
-    else
-    {
-      const auto ns_hash = VW::hash_namespace(all, std::string{token});
-      result.emplace_back(static_cast<VW::namespace_index>(token[0]), ns_hash);
-    }
+    tokens.reserve(str.size());
+    for (const auto& c : str) { tokens.emplace_back(&c, 1); }
   }
+
+  std::vector<VW::namespace_index> result;
+  result.reserve(tokens.size());
+
+  for (auto str : tokens)
+  {
+    if (str.empty()) { THROW("Interaction cannot include empty term: " << input) }
+
+    auto ns_index = VW::namespace_string_to_index(str, hash_seed);
+    result.push_back(ns_index);
+  }
+
   return result;
 }
-*/
 
 void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interactions_settings_duplicated,
     std::vector<std::string>& dictionary_nses)
@@ -568,16 +554,14 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
                .help("How to hash the features"))
       .add(
           make_option("hash_seed", all.runtime_config.hash_seed).keep().default_value(0).help("Seed for hash function"))
-      .add(make_option("ignore", ignores).keep().help("Ignore namespaces beginning with character <arg>"))
-      .add(make_option("ignore_linear", ignore_linears)
-               .keep()
-               .help("Ignore namespaces beginning with character <arg> for linear terms only"))
+      .add(make_option("ignore", ignores).keep().help("Ignore namespaces"))
+      .add(make_option("ignore_linear", ignore_linears).keep().help("Ignore namespaces for linear terms only"))
       .add(make_option("ignore_features_dsjson_experimental", ignore_features_dsjson)
                .keep()
                .help("Ignore specified features from namespace. To ignore a feature arg should be "
                      "<namespace>|<feature>. <namespace> should be empty for default")
                .experimental())
-      .add(make_option("keep", keeps).keep().help("Keep namespaces beginning with character <arg>"))
+      .add(make_option("keep", keeps).keep().help("Ignore all namespaces except for those specified with --keep"))
       .add(make_option("redefine", redefines)
                .keep()
                .help("Redefine namespaces beginning with characters of std::string S as namespace N. <arg> shall be in "
@@ -638,8 +622,8 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
     for (auto& spelling_n : spelling_ns)
     {
       spelling_n = VW::decode_inline_hex(spelling_n, all.logger);
-      if (spelling_n[0] == '_') { all.feature_tweaks_config.spelling_features[static_cast<unsigned char>(' ')] = true; }
-      else { all.feature_tweaks_config.spelling_features[static_cast<size_t>(spelling_n[0])] = true; }
+      if (spelling_n[0] == '_') { all.feature_tweaks_config.spelling_features.insert(VW::details::DEFAULT_NAMESPACE); }
+      else { all.feature_tweaks_config.spelling_features.insert(VW::namespace_string_to_index(all, spelling_n)); }
     }
   }
 
@@ -666,14 +650,14 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
         [&](const std::string& arg) { return VW::decode_inline_hex(arg, all.logger); });
 
     all.feature_tweaks_config.skip_gram_transformer =
-        VW::make_unique<VW::kskip_ngram_transformer>(VW::kskip_ngram_transformer::build(
-            hex_decoded_ngram_strings, hex_decoded_skip_strings, all.output_config.quiet, all.logger));
+        VW::make_unique<VW::kskip_ngram_transformer>(VW::kskip_ngram_transformer::build(hex_decoded_ngram_strings,
+            hex_decoded_skip_strings, all.runtime_config.hash_seed, all.output_config.quiet, all.logger));
   }
 
   if (options.was_supplied("feature_limit"))
   {
-    VW::details::compile_limits(
-        all.feature_tweaks_config.limit_strings, all.feature_tweaks_config.limit, all.output_config.quiet, all.logger);
+    VW::details::compile_limits(all.feature_tweaks_config.limit_strings, all.feature_tweaks_config.limit,
+        all.runtime_config.hash_seed, all.output_config.quiet, all.logger);
   }
 
   if (options.was_supplied("bit_precision"))
@@ -707,7 +691,7 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
   {
     for (auto& i : quadratics)
     {
-      auto parsed = parse_char_interactions(i, all.logger);
+      auto parsed = parse_interactions(i, all.runtime_config.hash_seed, all.logger);
       if (parsed.size() != 2) { THROW("error, quadratic features must involve two sets.)") }
       decoded_interactions.emplace_back(parsed.begin(), parsed.end());
     }
@@ -723,7 +707,7 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
   {
     for (const auto& i : cubics)
     {
-      auto parsed = parse_char_interactions(i, all.logger);
+      auto parsed = parse_interactions(i, all.runtime_config.hash_seed, all.logger);
       if (parsed.size() != 3) { THROW("Cubic features must involve three sets.") }
       decoded_interactions.emplace_back(parsed.begin(), parsed.end());
     }
@@ -739,7 +723,7 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
   {
     for (const auto& i : interactions)
     {
-      auto parsed = parse_char_interactions(i, all.logger);
+      auto parsed = parse_interactions(i, all.runtime_config.hash_seed, all.logger);
       if (parsed.size() < 2) { THROW("Feature interactions must involve at least two namespaces.") }
       decoded_interactions.emplace_back(parsed.begin(), parsed.end());
     }
@@ -784,35 +768,13 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
     if (sorted_cnt > 0 && !all.output_config.quiet)
     {
       all.logger.err_warn(
-          "Some interactions contain duplicate characters and their characters order has been changed. Interactions "
+          "Some interactions contain duplicate namespaces and their order has been changed. Interactions "
           "affected: {}.",
           sorted_cnt);
     }
 
     all.feature_tweaks_config.interactions = std::move(decoded_interactions);
   }
-
-  /*
-  if (options.was_supplied("experimental_full_name_interactions"))
-  {
-    for (const auto& i : full_name_interactions)
-    {
-      auto parsed = VW::details::parse_full_name_interactions(all, i);
-      if (parsed.size() < 2) { THROW("Feature interactions must involve at least two namespaces") }
-      std::sort(parsed.begin(), parsed.end());
-      all.feature_tweaks_config.extent_interactions.push_back(parsed);
-    }
-    std::sort(
-        all.feature_tweaks_config.extent_interactions.begin(), all.feature_tweaks_config.extent_interactions.end());
-    if (!leave_duplicate_interactions)
-    {
-      all.feature_tweaks_config.extent_interactions.erase(
-          std::unique(all.feature_tweaks_config.extent_interactions.begin(),
-              all.feature_tweaks_config.extent_interactions.end()),
-          all.feature_tweaks_config.extent_interactions.end());
-    }
-  }
-  */
 
   all.feature_tweaks_config.ignore.clear();
   all.feature_tweaks_config.ignore_linear.clear();
@@ -822,17 +784,14 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
     for (auto& i : ignores)
     {
       i = VW::decode_inline_hex(i, all.logger);
-      for (auto j : i) { all.feature_tweaks_config.ignore.insert(static_cast<size_t>(static_cast<unsigned char>(j))); }
-    }
+      all.feature_tweaks_config.ignore.insert(VW::namespace_string_to_index(all, i));
 
-    if (!all.output_config.quiet)
-    {
-      *(all.output_runtime.trace_message) << "ignoring namespaces beginning with:";
-      for (auto i : all.feature_tweaks_config.ignore)
+      if (!all.output_config.quiet)
       {
-        *(all.output_runtime.trace_message) << " " << static_cast<unsigned char>(i);
+        *(all.output_runtime.trace_message) << "ignoring namespace: ";
+        *(all.output_runtime.trace_message) << i;
+        *(all.output_runtime.trace_message) << endl;
       }
-      *(all.output_runtime.trace_message) << endl;
     }
   }
 
@@ -841,20 +800,14 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
     for (auto& i : ignore_linears)
     {
       i = VW::decode_inline_hex(i, all.logger);
-      for (auto j : i)
-      {
-        all.feature_tweaks_config.ignore_linear.insert(static_cast<size_t>(static_cast<unsigned char>(j)));
-      }
-    }
+      all.feature_tweaks_config.ignore_linear.insert(VW::namespace_string_to_index(all, i));
 
-    if (!all.output_config.quiet)
-    {
-      *(all.output_runtime.trace_message) << "ignoring linear terms for namespaces beginning with:";
-      for (auto i : all.feature_tweaks_config.ignore_linear)
+      if (!all.output_config.quiet)
       {
-        *(all.output_runtime.trace_message) << " " << static_cast<unsigned char>(i);
+        *(all.output_runtime.trace_message) << "ignoring linear terms for namespace: ";
+        *(all.output_runtime.trace_message) << i;
+        *(all.output_runtime.trace_message) << endl;
       }
-      *(all.output_runtime.trace_message) << endl;
     }
   }
 
@@ -882,24 +835,19 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
     // invert the functionality of the ignore set
     // only keep namespaces in the set
     all.feature_tweaks_config.invert_ignore_as_keep = true;
+    all.feature_tweaks_config.ignore.clear();
 
     for (auto& i : keeps)
     {
       i = VW::decode_inline_hex(i, all.logger);
-      for (const auto& j : i)
-      {
-        all.feature_tweaks_config.ignore.insert(static_cast<size_t>(static_cast<unsigned char>(j)));
-      }
-    }
+      all.feature_tweaks_config.ignore.insert(VW::namespace_string_to_index(all, i));
 
-    if (!all.output_config.quiet)
-    {
-      *(all.output_runtime.trace_message) << "using namespaces beginning with:";
-      for (auto i : all.feature_tweaks_config.ignore)
+      if (!all.output_config.quiet)
       {
-        *(all.output_runtime.trace_message) << " " << static_cast<unsigned char>(i);
+        *(all.output_runtime.trace_message) << "ignoring all namespaces but keeping namespace: ";
+        *(all.output_runtime.trace_message) << i;
+        *(all.output_runtime.trace_message) << endl;
       }
-      *(all.output_runtime.trace_message) << endl;
     }
   }
 
@@ -907,7 +855,7 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
   if (options.was_supplied("redefine"))
   {
     // note: --redefine declaration order is matter
-    // so --redefine :=L --redefine ab:=M  --ignore L  will ignore all except a and b under new M namspace
+    // so --redefine L:= --redefine M:=ab  --ignore L  will ignore all except a and b under new M namspace
 
     for (const auto& arg : redefines)
     {
@@ -916,96 +864,90 @@ void parse_feature_tweaks(options_i& options, VW::workspace& all, bool interacti
 
       size_t operator_pos = 0;  // keeps operator pos + 1 to stay unsigned type
       bool operator_found = false;
-      unsigned char new_namespace = ' ';
+      VW::namespace_index new_namespace = VW::details::DEFAULT_NAMESPACE;
 
       // let's find operator ':=' position in N:=S
+      // case ':=S' doesn't require any additional code as new_namespace = ' ' by default
       for (size_t i = 0; i < arg_len; i++)
       {
         if (operator_found)
         {
-          if (i > 2) { new_namespace = argument[0]; }  // N is not empty
+          if (i > 2)
+          {
+            // N is not empty
+            new_namespace = VW::namespace_string_to_index(all, argument.substr(0, i - 2));
+          }
           break;
         }
         else if (argument[i] == ':') { operator_pos = i + 1; }
         else if ((argument[i] == '=') && (operator_pos == i)) { operator_found = true; }
       }
-
       if (!operator_found) THROW("argument of --redefine is malformed. Valid format is N:=S, :=S or N:=")
 
-      if (++operator_pos > 3)  // seek operator end
-      {
-        all.logger.err_warn(
-            "Multiple namespaces are used in target part of --redefine argument. Only first one ('{}') will be used as "
-            "target namespace.",
-            new_namespace);
-      }
-
-      // case ':=S' doesn't require any additional code as new_namespace = ' ' by default
-
+      operator_pos += 1;  // first character after ':='
       if (operator_pos == arg_len)
-      {  // S is empty, default namespace shall be used
+      {
+        // S is empty, default namespace shall be used
         all.feature_tweaks_config.redefine[VW::details::DEFAULT_NAMESPACE] = new_namespace;
       }
       else
       {
-        for (size_t i = operator_pos; i < arg_len; i++)
+        // tokenize S by '|' and redefine each token
+        std::string old_namespaces = argument.substr(operator_pos);
+        std::vector<VW::string_view> tokens;
+        VW::tokenize('|', old_namespaces, tokens, false);
+
+        for (auto token : tokens)
         {
           // all namespaces from S are redefined to N
-          VW::namespace_index c = argument[i];
-          if (c != ':') { all.feature_tweaks_config.redefine[c] = new_namespace; }
-          else
-          {
-            // wildcard found: redefine all except default and break
-            all.feature_tweaks_config.redefine[VW::details::WILDCARD_NAMESPACE] = new_namespace;
-          }
-          break;  // break processing S
+          VW::namespace_index idx = VW::namespace_string_to_index(token, all.runtime_config.hash_seed);
+          all.feature_tweaks_config.redefine[idx] = new_namespace;
         }
       }
     }
   }
-}
 
-if (options.was_supplied("dictionary"))
-{
-  if (options.was_supplied("dictionary_path"))
+  if (options.was_supplied("dictionary"))
   {
-    for (const std::string& path : dictionary_path)
+    if (options.was_supplied("dictionary_path"))
     {
-      if (directory_exists(path)) { all.feature_tweaks_config.dictionary_path.push_back(path); }
+      for (const std::string& path : dictionary_path)
+      {
+        if (directory_exists(path)) { all.feature_tweaks_config.dictionary_path.push_back(path); }
+      }
     }
-  }
-  if (directory_exists(".")) { all.feature_tweaks_config.dictionary_path.emplace_back("."); }
+    if (directory_exists(".")) { all.feature_tweaks_config.dictionary_path.emplace_back("."); }
 
 #if _WIN32
-  std::string path_env_var;
-  char* buf;
-  size_t buf_size;
-  auto err = _dupenv_s(&buf, &buf_size, "PATH");
-  if (!err && buf_size != 0)
-  {
-    path_env_var = std::string(buf, buf_size);
-    free(buf);
-  }
-  const char delimiter = ';';
-#else
-  const std::string path_env_var = getenv("PATH");
-  const char delimiter = ':';
-#endif
-  if (!path_env_var.empty())
-  {
-    size_t previous = 0;
-    size_t index = path_env_var.find(delimiter);
-    while (index != std::string::npos)
+    std::string path_env_var;
+    char* buf;
+    size_t buf_size;
+    auto err = _dupenv_s(&buf, &buf_size, "PATH");
+    if (!err && buf_size != 0)
     {
-      all.feature_tweaks_config.dictionary_path.push_back(path_env_var.substr(previous, index - previous));
-      previous = index + 1;
-      index = path_env_var.find(delimiter, previous);
+      path_env_var = std::string(buf, buf_size);
+      free(buf);
     }
-    all.feature_tweaks_config.dictionary_path.push_back(path_env_var.substr(previous));
+    const char delimiter = ';';
+#else
+    const std::string path_env_var = getenv("PATH");
+    const char delimiter = ':';
+#endif
+    if (!path_env_var.empty())
+    {
+      size_t previous = 0;
+      size_t index = path_env_var.find(delimiter);
+      while (index != std::string::npos)
+      {
+        all.feature_tweaks_config.dictionary_path.push_back(path_env_var.substr(previous, index - previous));
+        previous = index + 1;
+        index = path_env_var.find(delimiter, previous);
+      }
+      all.feature_tweaks_config.dictionary_path.push_back(path_env_var.substr(previous));
+    }
   }
-}
 
-if (noconstant) { all.feature_tweaks_config.add_constant = false; }
+  if (noconstant) { all.feature_tweaks_config.add_constant = false; }
 }
 
 void parse_example_tweaks(options_i& options, VW::workspace& all)

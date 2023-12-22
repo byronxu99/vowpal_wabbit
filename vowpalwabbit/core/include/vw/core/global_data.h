@@ -3,7 +3,6 @@
 // license as described in the file LICENSE.
 #pragma once
 
-#include "vw/allreduce/allreduce_type.h"
 #include "vw/common/future_compat.h"
 #include "vw/common/string_view.h"
 #include "vw/core/array_parameters.h"
@@ -388,7 +387,7 @@ void print_result_by_ref(
     VW::io::writer* f, float res, float weight, const VW::v_array<char>& tag, VW::io::logger& logger);
 
 void compile_limits(std::vector<std::string> limits, std::unordered_map<VW::namespace_index, uint32_t>& dest,
-    bool quiet, VW::io::logger& logger);
+    uint64_t hash_seed, bool quiet, VW::io::logger& logger);
 }  // namespace details
 }  // namespace VW
 

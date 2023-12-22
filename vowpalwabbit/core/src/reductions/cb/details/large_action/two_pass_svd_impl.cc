@@ -98,8 +98,7 @@ bool two_pass_svd_impl::generate_Y(const multi_ex& examples, const std::vector<f
         Y_triplet_constructor tc(_all->weights.sparse_weights.weight_mask(), row_index, col, _seed, _triplets,
             max_non_zero_col, non_zero_rows, shrink_factors);
         VW::foreach_feature<Y_triplet_constructor, uint64_t, triplet_construction, sparse_parameters>(
-            _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_some_linear,
-            _all->feature_tweaks_config.ignore_linear,
+            _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);
@@ -109,8 +108,7 @@ bool two_pass_svd_impl::generate_Y(const multi_ex& examples, const std::vector<f
         Y_triplet_constructor tc(_all->weights.dense_weights.weight_mask(), row_index, col, _seed, _triplets,
             max_non_zero_col, non_zero_rows, shrink_factors);
         VW::foreach_feature<Y_triplet_constructor, uint64_t, triplet_construction, dense_parameters>(
-            _all->weights.dense_weights, _all->feature_tweaks_config.ignore_some_linear,
-            _all->feature_tweaks_config.ignore_linear,
+            _all->weights.dense_weights, _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);
@@ -154,8 +152,7 @@ void two_pass_svd_impl::generate_B(const multi_ex& examples, const std::vector<f
       {
         B_triplet_constructor tc(_all->weights.sparse_weights.weight_mask(), col, Y, final_dot_prod);
         VW::foreach_feature<B_triplet_constructor, uint64_t, triplet_construction, sparse_parameters>(
-            _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_some_linear,
-            _all->feature_tweaks_config.ignore_linear,
+            _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);
@@ -164,8 +161,7 @@ void two_pass_svd_impl::generate_B(const multi_ex& examples, const std::vector<f
       {
         B_triplet_constructor tc(_all->weights.dense_weights.weight_mask(), col, Y, final_dot_prod);
         VW::foreach_feature<B_triplet_constructor, uint64_t, triplet_construction, dense_parameters>(
-            _all->weights.dense_weights, _all->feature_tweaks_config.ignore_some_linear,
-            _all->feature_tweaks_config.ignore_linear,
+            _all->weights.dense_weights, _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);

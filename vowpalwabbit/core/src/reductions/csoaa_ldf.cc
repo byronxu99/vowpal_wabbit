@@ -70,9 +70,9 @@ void compute_wap_values(std::vector<VW::cs_class*> costs)
 // Rather than finding the corresponding namespace and feature in ec,
 // add a new feature with opposite value (but same index) to ec to a special VW::details::WAP_LDF_NAMESPACE.
 // This is faster and allows fast undo in unsubtract_example().
-void subtract_feature(VW::example& ec, float feature_value_x, uint64_t weight_index)
+void subtract_feature(VW::example& ec, float feature_value_x, uint64_t feature_index)
 {
-  ec[VW::details::WAP_LDF_NAMESPACE].push_back(-feature_value_x, weight_index, VW::details::WAP_LDF_NAMESPACE);
+  ec[VW::details::WAP_LDF_NAMESPACE].add_feature_raw(feature_index, -feature_value_x);
 }
 
 // Iterate over all features of ecsub including quadratic and cubic features and subtract them from ec.
@@ -80,6 +80,9 @@ void subtract_example(VW::workspace& all, VW::example* ec, VW::example* ecsub)
 {
   auto& wap_fs = (*ec)[VW::details::WAP_LDF_NAMESPACE];
   wap_fs.sum_feat_sq = 0;
+  auto restore = ecsub->stash_scale_offset();
+  ecsub->ft_index_scale = 1;
+  ecsub->ft_index_offset = 0;
   VW::foreach_feature<VW::example&, uint64_t, subtract_feature>(all, *ecsub, *ec);
   ec->num_features += wap_fs.size();
   ec->reset_total_sum_feat_sq();

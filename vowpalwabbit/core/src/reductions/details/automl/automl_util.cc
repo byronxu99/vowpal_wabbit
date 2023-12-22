@@ -20,7 +20,7 @@ bool worse()
 }
 
 // This sets up example with correct ineractions vector
-void apply_config(example* ec, interaction_vec_t* live_interactions)
+void apply_config(example* ec, VW::interaction_spec_type* live_interactions)
 {
   if (ec == nullptr) { return; }
   ec->interactions = live_interactions;
@@ -35,7 +35,7 @@ bool count_namespaces(const multi_ex& ecs, std::map<namespace_index, uint64_t>& 
   bool new_ns_seen = false;
   for (const example* ex : ecs)
   {
-    for (const auto& ns : ex->indices)
+    for (const auto ns : *ex)
     {
       if (!VW::is_interaction_ns(ns)) { continue; }
       // CCB_SLOT_NAMESPACE should be accounted for since generate_interactions treats it as a normal namespace
@@ -81,7 +81,7 @@ std::string ns_to_str(VW::namespace_index ns)
   else { return std::to_string(ns); }
 }
 
-std::string interaction_vec_t_to_string(const std::vector<std::vector<namespace_index>>& interactions)
+std::string interaction_spec_to_string(const std::vector<std::vector<namespace_index>>& interactions)
 {
   std::stringstream ss;
   for (const std::vector<VW::namespace_index>& v : interactions)

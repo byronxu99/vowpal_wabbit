@@ -96,10 +96,10 @@ void make_marginal(data& sm, VW::example& ec)
   for (auto i = ec.begin(); i != ec.end(); ++i)
   {
     const VW::namespace_index n = i.index();
-    if (sm.id_features[n])
+    if (sm.id_features.find(n) != sm.id_features.end())
     {
-      std::swap(sm.temp[n], *i);
-      VW::features& f = *i;
+      std::swap(sm.temp[n], i.features());
+      VW::features& f = i.features();
       f.clear();
       size_t inv_hash_idx = 0;
       for (auto j = sm.temp[n].begin(); j != sm.temp[n].end(); ++j)
@@ -132,13 +132,14 @@ void make_marginal(data& sm, VW::example& ec)
           {
             std::ostringstream ss;
             std::vector<VW::audit_strings>& sn = sm.temp[n].audit_info;
-            ss << sn[inv_hash_idx].ns << "^" << sn[inv_hash_idx].name << "*" << sn[inv_hash_idx + 1].name;
+            ss << sn[inv_hash_idx].namespace_name << "^" << sn[inv_hash_idx].feature_name << "*"
+               << sn[inv_hash_idx + 1].feature_name;
             sm.inverse_hashes.insert(std::make_pair(key, ss.str()));
             inv_hash_idx += 2;
           }
         }
         const auto marginal_pred = static_cast<float>(sm.marginals[key].first / sm.marginals[key].second);
-        f.push_back(marginal_pred, first_index);
+        f.add_feature_raw(first_index, marginal_pred);
         if (!sm.temp[n].audit_info.empty()) { f.audit_info.push_back(sm.temp[n].audit_info[2 * (f.size() - 1)]); }
 
         if (sm.compete)  // compute the prediction from the marginals using the weights

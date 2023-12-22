@@ -93,7 +93,7 @@ public:
     _model_loaded = false;
 
     // required for inline_predict
-    _ignore_linear.fill(false);
+    _ignore_linear.clear();
 
     model_parser mp(model, length);
 
@@ -270,13 +270,13 @@ public:
     {
       // permutations is not supported by slim so we can just use combinations!
       _generate_interactions.update_interactions_if_new_namespace_seen<
-          VW::details::generate_namespace_combinations_with_repetition, false>(_interactions, ex.indices);
-      score = VW::inline_predict<W>(*_weights, false, _ignore_linear, _generate_interactions.generated_interactions,
+          VW::details::generate_namespace_combinations_with_repetition, false>(_interactions, ex.feature_space());
+      score = VW::inline_predict<W>(*_weights, _ignore_linear, _generate_interactions.generated_interactions,
           /* permutations */ false, ex, _generate_interactions_object_cache);
     }
     else
     {
-      score = VW::inline_predict<W>(*_weights, false, _ignore_linear, _interactions,
+      score = VW::inline_predict<W>(*_weights, _ignore_linear, _interactions,
           /* permutations */ false, ex, _generate_interactions_object_cache);
     }
     return S_VW_PREDICT_OK;
@@ -298,7 +298,7 @@ public:
       std::vector<std::unique_ptr<namespace_copy_guard>> ns_copy_guards;
 
       // shared feature copying
-      for (auto ns : shared.indices)
+      for (auto ns : shared)
       {
         // insert namespace
         auto ns_copy_guard = std::unique_ptr<namespace_copy_guard>(new namespace_copy_guard(*action, ns));

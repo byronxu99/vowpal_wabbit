@@ -31,7 +31,7 @@ void predict_automl(automl<CMType>& data, learner& base, VW::multi_ex& ec)
 {
   data.cm->process_example(ec);
 
-  interaction_vec_t* incoming_interactions = ec[0]->interactions;
+  VW::interaction_spec_type* incoming_interactions = ec[0]->interactions;
   for (VW::example* ex : ec)
   {
     _UNUSED(ex);

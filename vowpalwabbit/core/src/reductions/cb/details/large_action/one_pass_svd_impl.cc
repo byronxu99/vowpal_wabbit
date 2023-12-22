@@ -149,10 +149,13 @@ void one_pass_svd_impl::generate_AOmega(const multi_ex& examples, const std::vec
   for (size_t i = 0; i < examples.size(); i++)
   {
     auto ex = examples[i];
-    if (cached_example_hashes.find(ex->feature_space_hash) == cached_example_hashes.end() &&
-        ex->is_set_feature_space_hash)
+    if (ex->is_set_feature_space_hash())
     {
-      cached_example_hashes.emplace(ex->feature_space_hash, AOmega.row(i) / shrink_factors[i]);
+      auto fs_hash = ex->get_or_calculate_order_independent_feature_space_hash();
+      if (cached_example_hashes.find(fs_hash) == cached_example_hashes.end())
+      {
+        cached_example_hashes.emplace(fs_hash, AOmega.row(i) / shrink_factors[i]);
+      }
     }
     if (shared_example != nullptr) { VW::details::append_example_namespaces_from_example(*ex, *shared_example); }
   }

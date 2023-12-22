@@ -94,14 +94,18 @@ inline void foreach_feature(WeightsT& weights, std::unordered_set<VW::namespace_
       // if namespace index is not in the ignore set
       if (ignore_linear.find(i.index()) == ignore_linear.end())
       {
-        VW::features& f = *i;
+        VW::features& f = i.features();
         foreach_feature<DataT, FuncT, WeightsT>(weights, f, dat, scale, offset);
       }
     }
   }
   else
   {
-    for (VW::features& f : ec) { foreach_feature<DataT, FuncT, WeightsT>(weights, f, dat, scale, offset); }
+    for (auto ns : ec)
+    {
+      VW::features& f = ec[ns];
+      foreach_feature<DataT, FuncT, WeightsT>(weights, f, dat, scale, offset);
+    }
   }
 
   generate_interactions<DataT, WeightOrIndexT, FuncT, WeightsT>(

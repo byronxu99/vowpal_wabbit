@@ -188,7 +188,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::mf_setup(VW::setup_base_i&
   // for eventual calls to base learner
   auto non_pair_count =
       std::count_if(all.feature_tweaks_config.interactions.begin(), all.feature_tweaks_config.interactions.end(),
-          [](const std::vector<unsigned char>& interaction) { return interaction.size() != 2; });
+          [](const std::vector<VW::namespace_index>& interaction) { return interaction.size() != 2; });
   if (non_pair_count > 0) { THROW("can only use pairs with new_mf"); }
 
   all.initial_weights_config.random_positive_weights = true;

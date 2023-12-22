@@ -4,7 +4,7 @@
 
 #include "vw/core/reductions/cb/cbify.h"
 
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/config/options.h"
 #include "vw/core/debug_log.h"
 #include "vw/core/example_predict.h"
@@ -79,9 +79,9 @@ void cbify_adf_data::copy_example_to_adf(VW::example& ec)
     VW::copy_example_data(&eca, &ec);
 
     // offset indices for given action
-    for (features& fs : eca)
+    for (auto ns : eca)
     {
-      for (feature_index& idx : fs.indices)
+      for (feature_index& idx : eca[ns].indices)
       {
         auto rawidx = idx;
         // set bits covered by custom_index_mask to zero

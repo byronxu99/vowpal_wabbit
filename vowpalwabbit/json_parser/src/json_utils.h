@@ -1,6 +1,6 @@
 #pragma once
 
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/core/feature_group.h"
 #include "vw/core/global_data.h"
 #include "vw/core/parse_primitives.h"

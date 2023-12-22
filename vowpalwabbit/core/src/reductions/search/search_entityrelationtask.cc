@@ -402,8 +402,9 @@ void run(Search::search& sch, VW::multi_ex& ec)
 // this is totally bogus for the example -- you'd never actually do this!
 void update_example_indices(bool /* audit */, VW::example* ec, uint64_t mult_amount, uint64_t plus_amount)
 {
-  for (VW::features& fs : *ec)
+  for (auto ns : *ec)
   {
+    auto& fs = (*ec)[ns];
     for (VW::feature_index& idx : fs.indices) { idx = ((idx * mult_amount) + plus_amount); }
   }
 }

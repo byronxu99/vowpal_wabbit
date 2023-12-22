@@ -82,7 +82,7 @@ void diag_kronecker_prod_fs_test(
     else if (ec1pos > ec2pos) { idx2++; }
     else
     {
-      prod_f.push_back(f1.values[idx1] * f2.values[idx2] / denominator, ec1pos);
+      prod_f.add_feature_raw(ec1pos, f1.values[idx1] * f2.values[idx2] / denominator);
       total_sum_feat_sq += f1.values[idx1] * f2.values[idx2] / denominator;  // make this out of loop
       idx1++;
       idx2++;
@@ -1104,7 +1104,7 @@ void save_load_example(
       fs->clear();
       fs->values.clear();
       fs->indices.clear();
-      for (uint32_t f_i = 0; f_i < feat_size; f_i++) { fs->push_back(0, 0); }
+      for (uint32_t f_i = 0; f_i < feat_size; f_i++) { fs->add_feature_raw(0, 0); }
     }
     for (uint32_t f_i = 0; f_i < feat_size; f_i++) DEPRECATED_WRITEIT(fs->values[f_i], "value");
     for (uint32_t f_i = 0; f_i < feat_size; f_i++) DEPRECATED_WRITEIT(fs->indices[f_i], "index");

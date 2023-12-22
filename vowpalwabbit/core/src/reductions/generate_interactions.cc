@@ -27,7 +27,7 @@ void transform_single_ex(VW::interactions_generator& data, VW::LEARNER::learner&
 {
   // We pass *ec.interactions here BUT the contract is that this does not change...
   data.update_interactions_if_new_namespace_seen<generate_func, leave_duplicate_interactions>(
-      *ec.interactions, ec.indices);
+      *ec.interactions, ec.feature_space());
 
   auto* saved_interactions = ec.interactions;
   ec.interactions = &data.generated_interactions;
@@ -48,7 +48,7 @@ void update(VW::interactions_generator& data, VW::LEARNER::learner& base, VW::ex
 {
   // We pass *ec.interactions here BUT the contract is that this does not change...
   data.update_interactions_if_new_namespace_seen<generate_func, leave_duplicate_interactions>(
-      *ec.interactions, ec.indices);
+      *ec.interactions, ec.feature_space());
 
   auto* saved_interactions = ec.interactions;
   ec.interactions = &data.generated_interactions;
@@ -69,7 +69,7 @@ inline void multipredict(VW::interactions_generator& data, VW::LEARNER::learner&
 {
   // We pass *ec.interactions here BUT the contract is that this does not change...
   data.update_interactions_if_new_namespace_seen<generate_func, leave_duplicate_interactions>(
-      *ec.interactions, ec.indices);
+      *ec.interactions, ec.feature_space());
 
   auto* saved_interactions = ec.interactions;
   ec.interactions = &data.generated_interactions;

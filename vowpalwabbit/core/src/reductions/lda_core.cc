@@ -63,7 +63,7 @@ class index_feature
 public:
   uint32_t document;
   VW::feature f;
-  bool operator<(const index_feature b) const { return f.weight_index < b.f.weight_index; }
+  bool operator<(const index_feature b) const { return f.index < b.f.index; }
 };
 
 class lda
@@ -715,8 +715,9 @@ float lda_loop(lda& l, VW::v_array<float>& Elogtheta, float* v, VW::example* ec,
 
     score = 0;
     doc_length = 0;
-    for (VW::features& fs : *ec)
+    for (auto ns : *ec)
     {
+      auto& fs = (*ec)[ns];
       for (VW::features::iterator& f : fs)
       {
         VW::feature_index weight_index =
@@ -890,10 +891,10 @@ void learn_batch(lda& l, std::vector<example*>& batch)
   auto last_weight_index = std::numeric_limits<uint64_t>::max();
   for (index_feature* s = &l.sorted_features[0]; s <= &l.sorted_features.back(); s++)
   {
-    if (last_weight_index == s->f.weight_index) { continue; }
-    last_weight_index = s->f.weight_index;
-    // float *weights_for_w = &(weights[s->f.weight_index]);
-    float* weights_for_w = &(weights[s->f.weight_index & weights.weight_mask()]);
+    if (last_weight_index == s->f.index) { continue; }
+    last_weight_index = s->f.index;
+    // float *weights_for_w = &(weights[s->f.index]);
+    float* weights_for_w = &(weights[s->f.index & weights.weight_mask()]);
     float decay_component = l.decay_levels.end()[-2] -
         l.decay_levels.end()[static_cast<int>(-1 - l.example_t + *(weights_for_w + l.all->reduction_state.lda))];
     float decay = std::fmin(1.0f, VW::details::correctedExp(decay_component));
@@ -928,9 +929,9 @@ void learn_batch(lda& l, std::vector<example*>& batch)
     for (index_feature* s = &l.sorted_features[0]; s <= &l.sorted_features.back();)
     {
       index_feature* next = s + 1;
-      while (next <= &l.sorted_features.back() && next->f.weight_index == s->f.weight_index) { next++; }
+      while (next <= &l.sorted_features.back() && next->f.index == s->f.index) { next++; }
 
-      float* word_weights = &(weights[s->f.weight_index]);
+      float* word_weights = &(weights[s->f.index]);
       for (size_t k = 0; k < l.all->reduction_state.lda; k++, ++word_weights)
       {
         float new_value = minuseta * *word_weights;
@@ -940,9 +941,9 @@ void learn_batch(lda& l, std::vector<example*>& batch)
       for (; s != next; s++)
       {
         float* v_s = &(l.v[static_cast<size_t>(s->document) * static_cast<size_t>(l.all->reduction_state.lda)]);
-        float* u_for_w = &(weights[s->f.weight_index]) + l.all->reduction_state.lda + 1;
-        float c_w = eta * find_cw(l, u_for_w, v_s) * s->f.x;
-        word_weights = &(weights[s->f.weight_index]);
+        float* u_for_w = &(weights[s->f.index]) + l.all->reduction_state.lda + 1;
+        float c_w = eta * find_cw(l, u_for_w, v_s) * s->f.value;
+        word_weights = &(weights[s->f.index]);
         for (size_t k = 0; k < l.all->reduction_state.lda; k++, ++u_for_w, ++word_weights)
         {
           float new_value = *u_for_w * v_s[k] * c_w;
@@ -982,8 +983,9 @@ void learn(lda& l, VW::example& ec)
 
   const auto new_example_batch_index = static_cast<uint32_t>(l.batch_buffer.size()) - 1;
   l.doc_lengths.push_back(0);
-  for (const auto& fs : ec)
+  for (auto ns : ec)
   {
+    auto& fs = ec[ns];
     for (const auto& f : fs)
     {
       auto weight_index = VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset);
@@ -1004,8 +1006,9 @@ void learn_with_metrics(lda& l, VW::example& ec)
     uint64_t stride_shift = l.all->weights.stride_shift();
     uint64_t weight_mask = l.all->weights.weight_mask();
 
-    for (VW::features& fs : ec)
+    for (auto ns : ec)
     {
+      auto& fs = ec[ns];
       for (VW::features::iterator& f : fs)
       {
         auto weight_index = VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset);
@@ -1051,7 +1054,7 @@ void get_top_weights(VW::workspace* all, int top_words_count, int topic, std::ve
       << (all->initial_weights_config.feature_hash_bits + all->initial_weights_config.feature_width_bits);
 
   // get top features for this topic
-  auto cmp = [](VW::feature left, VW::feature right) { return left.x > right.x; };
+  auto cmp = [](VW::feature left, VW::feature right) { return left.value > right.value; };
   std::priority_queue<VW::feature, std::vector<VW::feature>, decltype(cmp)> top_features(cmp);
   typename T::iterator iter = weights.begin();
 
@@ -1063,7 +1066,7 @@ void get_top_weights(VW::workspace* all, int top_words_count, int topic, std::ve
   for (uint64_t i = top_words_count; i < length; i++, ++iter)
   {
     weight v = (&(*iter))[topic];
-    if (v > top_features.top().x)
+    if (v > top_features.top().value)
     {
       top_features.pop();
       top_features.push({v, i});
@@ -1093,7 +1096,7 @@ void compute_coherence_metrics(lda& l, T& weights)
   for (size_t topic = 0; topic < l.topics; topic++)
   {
     // get top features for this topic
-    auto cmp = [](VW::feature& left, VW::feature& right) { return left.x > right.x; };
+    auto cmp = [](VW::feature& left, VW::feature& right) { return left.value > right.value; };
     std::priority_queue<VW::feature, std::vector<VW::feature>, decltype(cmp)> top_features(cmp);
     typename T::iterator iter = weights.begin();
     for (uint64_t i = 0; i < std::min(static_cast<uint64_t>(top_words_count), length); i++, ++iter)
@@ -1103,7 +1106,7 @@ void compute_coherence_metrics(lda& l, T& weights)
 
     for (typename T::iterator v = weights.begin(); v != weights.end(); ++v)
     {
-      if ((&(*v))[topic] > top_features.top().x)
+      if ((&(*v))[topic] > top_features.top().value)
       {
         top_features.pop();
         top_features.push(VW::feature((&(*v))[topic], v.index()));
@@ -1115,7 +1118,7 @@ void compute_coherence_metrics(lda& l, T& weights)
     top_features_idx.resize(top_features.size());
     for (int i = (int)top_features.size() - 1; i >= 0; i--)
     {
-      top_features_idx[i] = top_features.top().weight_index;
+      top_features_idx[i] = top_features.top().index;
       top_features.pop();
     }
 

@@ -22,7 +22,7 @@ namespace
 template <typename FuncT>
 void for_each_value(const VW::feature_groups_type& feature_spaces, VW::namespace_index term, const FuncT& func)
 {
-  for (auto value : feature_spaces[term].values) { func(value); }
+  for (auto value : feature_spaces.at(term).values) { func(value); }
 }
 
 float calc_sum_ft_squared_for_term(const VW::feature_groups_type& feature_spaces, VW::namespace_index term)

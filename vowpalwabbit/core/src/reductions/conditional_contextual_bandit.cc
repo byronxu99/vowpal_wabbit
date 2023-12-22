@@ -251,13 +251,13 @@ void inject_slot_id(ccb_data& data, VW::example* shared, size_t id)
   }
   else { index = data.slot_id_hashes[id]; }
 
-  (*shared)[VW::details::CCB_ID_NAMESPACE].push_back(1., index, VW::details::CCB_ID_NAMESPACE);
+  (*shared)[VW::details::CCB_ID_NAMESPACE].add_feature_raw(index, 1.);
   if (id == 0) { shared->num_features++; }
 
   if (audit)
   {
     auto current_index_str = "index" + std::to_string(id);
-    (*shared)[VW::details::CCB_ID_NAMESPACE].push_audit_str(current_index_str);
+    (*shared)[VW::details::CCB_ID_NAMESPACE].add_audit_string(current_index_str);
   }
 }
 
@@ -279,7 +279,7 @@ void remove_slot_features(VW::example* shared, VW::example* slot)
     // slot default namespace has a special namespace in shared
     if (ns == VW::details::DEFAULT_NAMESPACE)
     {
-      VW::details::truncate_example_namespace(*shared, VW::details::CCB_SLOT_NAMESPACE, ns);
+      VW::details::truncate_example_namespace(*shared, VW::details::CCB_SLOT_NAMESPACE, ft);
     }
     else { VW::details::truncate_example_namespace(*shared, ns, ft); }
   }
@@ -412,8 +412,9 @@ void learn_or_predict(ccb_data& data, learner& base, VW::multi_ex& examples)
   {
     // We decide that user defined features exist if there is at least one feature space which is not the constant
     // namespace.
-    const bool user_defined_slot_features_exist = !data.slots.empty() && !data.slots[0]->indices.empty() &&
-        data.slots[0]->indices[0] != VW::details::CONSTANT_NAMESPACE;
+    const bool user_defined_slot_features_exist = !data.slots.empty() &&
+        ((!data.slots[0]->empty() && !data.slots[0]->contains(VW::details::CONSTANT_NAMESPACE)) ||
+            data.slots[0]->size() >= 2);
     data.has_seen_multi_slot_example = data.has_seen_multi_slot_example || user_defined_slot_features_exist;
   }
   const bool should_augment_with_slot_info = data.has_seen_multi_slot_example;

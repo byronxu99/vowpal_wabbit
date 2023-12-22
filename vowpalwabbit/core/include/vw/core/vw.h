@@ -27,9 +27,10 @@
 #endif
 
 #include "vw/common/future_compat.h"
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/core/error_reporting.h"
 #include "vw/core/global_data.h"
+#include "vw/core/hash.h"
 #include "vw/core/hashstring.h"
 #include "vw/core/parser.h"
 #include "vw/core/setup_base.h"

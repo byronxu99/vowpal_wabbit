@@ -714,8 +714,7 @@ void VW::setup_example(VW::workspace& all, VW::example* ae)
   if (all.parser_runtime.example_parser->write_cache)
   {
     VW::parsers::cache::write_example_to_cache(all.parser_runtime.example_parser->output, ae,
-        all.parser_runtime.example_parser->lbl_parser, all.runtime_state.parse_mask,
-        all.parser_runtime.example_parser->cache_temp_buffer_obj);
+        all.parser_runtime.example_parser->lbl_parser, all.parser_runtime.example_parser->cache_temp_buffer_obj);
   }
 
   ae->partial_prediction = 0.;
@@ -977,7 +976,7 @@ void VW::copy_example_data_with_label(example* dst, const example* src)
   dst->l = src->l;
 }
 
-VW::primitive_feature_space* VW::export_example(VW::workspace& all, VW::example* ec, size_t& len)
+VW::primitive_feature_space* VW::export_example(VW::workspace& /* all */, VW::example* ec, size_t& len)
 {
   len = ec->size();
   auto* fs_ptr = new primitive_feature_space[len];

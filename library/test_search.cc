@@ -52,10 +52,8 @@ public:
     for (ptag i = 0; i < input_example.size(); i++)
     {
       VW::example ex;
-      auto ns_hash_w = VW::hash_namespace(vw_obj, "w");
-      auto& fs_w = ex.feature_space['w'];
-      ex.indices.push_back('w');
-      fs_w.push_back(1.f, VW::hash_feature(vw_obj, input_example[i].word, ns_hash_w));
+      auto& fs_w = ex["w"];
+      fs_w.add_feature(input_example[i].word, 1.f);
       VW::setup_example(vw_obj, &ex);
       action p =
           Search::predictor(sch, i + 1).set_input(ex).set_oracle(input_example[i].tag).set_condition(i, 'p').predict();

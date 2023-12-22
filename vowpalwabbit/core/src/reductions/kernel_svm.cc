@@ -90,7 +90,7 @@ size_t read_model_field_flat_example(VW::io_buf& io, flat_example& fe, VW::label
   bytes += VW::model_utils::read_model_field(io, fe.global_weight);
   bytes += VW::model_utils::read_model_field(io, fe.num_features);
   bytes += VW::model_utils::read_model_field(io, fe.total_sum_feat_sq);
-  unsigned char index = 0;
+  VW::namespace_index index = 0;
   bytes += ::VW::parsers::cache::details::read_cached_index(io, index);
   bool sorted = true;
   bytes += ::VW::parsers::cache::details::read_cached_features(io, fe.fs, sorted);
@@ -98,7 +98,7 @@ size_t read_model_field_flat_example(VW::io_buf& io, flat_example& fe, VW::label
 }
 
 size_t write_model_field_flat_example(VW::io_buf& io, const flat_example& fe, const std::string& upstream_name,
-    bool text, VW::label_parser& lbl_parser, uint64_t parse_mask)
+    bool text, VW::label_parser& lbl_parser, uint64_t /* parse_mask */)
 {
   size_t bytes = 0;
   lbl_parser.cache_label(fe.l, fe.ex_reduction_features, io, upstream_name + "_label", text);
@@ -109,7 +109,7 @@ size_t write_model_field_flat_example(VW::io_buf& io, const flat_example& fe, co
   bytes += VW::model_utils::write_model_field(io, fe.num_features, upstream_name + "_num_features", text);
   bytes += VW::model_utils::write_model_field(io, fe.total_sum_feat_sq, upstream_name + "_total_sum_feat_sq", text);
   ::VW::parsers::cache::details::cache_index(io, 0);
-  ::VW::parsers::cache::details::cache_features(io, fe.fs, parse_mask);
+  ::VW::parsers::cache::details::cache_features(io, fe.fs);
   return bytes;
 }
 

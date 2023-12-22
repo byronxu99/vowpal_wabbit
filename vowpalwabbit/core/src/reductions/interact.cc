@@ -5,6 +5,7 @@
 
 #include "vw/config/options.h"
 #include "vw/core/global_data.h"
+#include "vw/core/hash.h"
 #include "vw/core/learner.h"
 #include "vw/core/setup_base.h"
 #include "vw/io/logger.h"
@@ -20,8 +21,8 @@ class interact
 {
 public:
   // namespaces to interact
-  unsigned char n1 = static_cast<unsigned char>(0);
-  unsigned char n2 = static_cast<unsigned char>(0);
+  VW::namespace_index n1 = 0;
+  VW::namespace_index n2 = 0;
   VW::features feat_store;
   VW::workspace* all = nullptr;
   float n1_feat_sq = 0.f;
@@ -59,7 +60,7 @@ void multiply(VW::features& f_dest, VW::features& f_src2, interact& in)
   uint64_t base_id1 = f_src1.indices[0] & hash_mask;
   uint64_t base_id2 = f_src2.indices[0] & hash_mask;
 
-  f_dest.push_back(f_src1.values[0] * f_src2.values[0], f_src1.indices[0]);
+  f_dest.add_feature_raw(f_src1.indices[0], f_src1.values[0] * f_src2.values[0]);
 
   uint64_t prev_id1 = 0;
   uint64_t prev_id2 = 0;
@@ -85,7 +86,7 @@ void multiply(VW::features& f_dest, VW::features& f_src2, interact& in)
 
     if (cur_id1 == cur_id2)
     {
-      f_dest.push_back(f_src1.values[i1] * f_src2.values[i2], f_src1.indices[i1]);
+      f_dest.add_feature_raw(f_src1.indices[i1], f_src1.values[i1] * f_src2.values[i2]);
       i1++;
       i2++;
     }
@@ -99,6 +100,8 @@ void multiply(VW::features& f_dest, VW::features& f_src2, interact& in)
 template <bool is_learn, bool print_all>
 void predict_or_learn(interact& in, VW::LEARNER::learner& base, VW::example& ec)
 {
+  auto restore = ec.stash_features();
+
   VW::features& f1 = ec[in.n1];
   VW::features& f2 = ec[in.n2];
 
@@ -115,30 +118,17 @@ void predict_or_learn(interact& in, VW::LEARNER::learner& base, VW::example& ec)
   ec.num_features -= f2.size();
 
   in.feat_store = f1;
-
   multiply(f1, f2, in);
   ec.reset_total_sum_feat_sq();
   ec.num_features += f1.size();
 
   // remove 2nd namespace
-  size_t n2_i = 0;
-  size_t indices_original_size = ec.indices.size();
-  for (; n2_i < indices_original_size; ++n2_i)
-  {
-    if (ec.indices[n2_i] == in.n2)
-    {
-      ec.indices.erase(ec.indices.begin() + n2_i);
-      break;
-    }
-  }
+  ec.delete_namespace(in.n2);
 
   base.predict(ec);
   if (is_learn) { base.learn(ec); }
 
-  // re-insert namespace into the right position
-  if (n2_i < indices_original_size) { ec.indices.insert(ec.indices.begin() + n2_i, in.n2); }
-
-  f1 = in.feat_store;
+  // restore num_features
   ec.num_features = in.num_features;
 }
 }  // namespace
@@ -158,14 +148,14 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::interact_setup(VW::setup_b
 
   if (s.length() != 2)
   {
-    all.logger.err_error("Need two namespace arguments to interact: {} won't do EXITING", s);
+    all.logger.err_error("Need two single character namespaces to interact: {} won't do EXITING", s);
     return nullptr;
   }
 
   auto data = VW::make_unique<interact>();
 
-  data->n1 = static_cast<unsigned char>(s[0]);
-  data->n2 = static_cast<unsigned char>(s[1]);
+  data->n1 = VW::namespace_string_to_index(all, s.substr(0, 1));
+  data->n2 = VW::namespace_string_to_index(all, s.substr(1, 1));
   all.logger.err_info("Interacting namespaces {0:c} and {1:c}", data->n1, data->n2);
   data->all = &all;
 

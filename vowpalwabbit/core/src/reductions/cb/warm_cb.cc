@@ -4,8 +4,8 @@
 
 #include "vw/core/reductions/cb/warm_cb.h"
 
-#include "vw/common/hash.h"
 #include "vw/common/random.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/common/vw_exception.h"
 #include "vw/config/options.h"
 #include "vw/core/cost_sensitive.h"
@@ -165,9 +165,9 @@ void copy_example_to_adf(warm_cb& data, VW::example& ec)
     VW::copy_example_data(&eca, &ec);
 
     // offset indices for given action
-    for (VW::features& fs : eca)
+    for (auto ns : eca)
     {
-      for (VW::feature_index& idx : fs.indices)
+      for (VW::feature_index& idx : eca[ns].indices)
       {
         idx = ((idx * 28904713) + 4832917 * static_cast<uint64_t>(a)) & mask;
       }

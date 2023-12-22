@@ -874,7 +874,7 @@ public:
   BaseState<audit>* StartObject(Context<audit>& ctx) override
   {
     // parse properties
-    ctx.PushNamespace(ctx.namespace_path.size() > 0 ? ctx.CurrentNamespace().name : " ", this);
+    ctx.PushNamespace(ctx.namespace_path.size() > 0 ? ctx.CurrentNamespace().name.c_str() : " ", this);
 
     return &ctx.default_state;
   }
@@ -1095,7 +1095,7 @@ public:
           *p = '_';
       }
     }
-    const char* ns = ctx.CurrentNamespace().name;
+    const auto& ns = ctx.CurrentNamespace().name;
     if (ctx.ignore_features == nullptr ||
         (ctx.ignore_features->find(ns) == ctx.ignore_features->end() ||
             ctx.ignore_features->at(ns).find(ctx.key) == ctx.ignore_features->at(ns).end()))
@@ -1392,7 +1392,7 @@ public:
     auto& stored_ex = *ctx.dedup_examples->at(i);
 
     new_ex.delete_all_namespaces();
-    for (auto& ns : stored_ex) { new_ex[ns] = stored_ex[ns]; }
+    for (auto ns : stored_ex) { new_ex[ns] = stored_ex[ns]; }
     new_ex.ft_index_scale = stored_ex.ft_index_scale;
     new_ex.ft_index_offset = stored_ex.ft_index_offset;
     return return_state;

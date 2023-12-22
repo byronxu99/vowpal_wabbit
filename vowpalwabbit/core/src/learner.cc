@@ -139,7 +139,7 @@ public:
 
   void on_example(example* ec)
   {
-    if (ec->indices.size() > 1)
+    if (ec->size() > 1)
     {  // 1+ nonconstant feature. (most common case first)
       _context.template process<example, learn_ex>(*ec);
     }
@@ -210,7 +210,7 @@ private:
 
   bool try_complete_multi_ex(example* ec)
   {
-    if (ec->indices.size() > 1)
+    if (ec->size() > 1)
     {  // 1+ nonconstant feature. (most common case first)
       return complete_multi_ex(ec);
       // Explicitly do not process the end-of-pass examples here: It needs to be done

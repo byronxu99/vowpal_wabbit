@@ -59,14 +59,14 @@ inline void audit_regressor_interaction(audit_regressor_data& dat, const VW::aud
   std::string ns_pre;
   if (!dat.ns_pre.empty()) { ns_pre += '*'; }
 
-  if (!f->ns.empty() && ((f->ns) != " "))
+  if (!f->namespace_name.empty() && ((f->namespace_name) != " "))
   {
-    ns_pre.append(f->ns);
+    ns_pre.append(f->namespace_name);
     ns_pre += '^';
   }
-  if (!f->name.empty())
+  if (!f->feature_name.empty())
   {
-    ns_pre.append(f->name);
+    ns_pre.append(f->feature_name);
     dat.ns_pre.push_back(ns_pre);
   }
 }

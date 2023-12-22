@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/core/cb.h"
 #include "vw/core/learner_fwd.h"
 #include "vw/core/vw_fwd.h"

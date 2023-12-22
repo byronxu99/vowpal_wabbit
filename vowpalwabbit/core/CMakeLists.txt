@@ -208,6 +208,7 @@ set(vw_core_sources
   src/feature_group.cc
   src/gen_cs_example.cc
   src/global_data.cc
+  src/hash.cc
   src/hashstring.cc
   src/interactions.cc
   src/io_buf.cc

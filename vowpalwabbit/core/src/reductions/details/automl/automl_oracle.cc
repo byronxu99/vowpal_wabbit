@@ -105,10 +105,10 @@ uint64_t config_oracle<oracle_impl>::choose(std::priority_queue<std::pair<float,
   return ret;
 }
 
-interaction_vec_t ns_based_config::gen_quadratic_interactions(
+VW::interaction_spec_type ns_based_config::gen_quadratic_interactions(
     const std::map<namespace_index, uint64_t>& ns_counter, const set_ns_list_t& exclusions)
 {
-  interaction_vec_t interactions;
+  VW::interaction_spec_type interactions;
   for (auto it = ns_counter.begin(); it != ns_counter.end(); ++it)
   {
     auto idx1 = (*it).first;
@@ -122,10 +122,10 @@ interaction_vec_t ns_based_config::gen_quadratic_interactions(
   return interactions;
 }
 
-interaction_vec_t ns_based_config::gen_cubic_interactions(
+VW::interaction_spec_type ns_based_config::gen_cubic_interactions(
     const std::map<namespace_index, uint64_t>& ns_counter, const set_ns_list_t& exclusions)
 {
-  interaction_vec_t interactions;
+  VW::interaction_spec_type interactions;
   for (auto it = ns_counter.begin(); it != ns_counter.end(); ++it)
   {
     auto idx1 = (*it).first;
@@ -150,7 +150,7 @@ interaction_vec_t ns_based_config::gen_cubic_interactions(
 // Transforms config -> interactions expected by VW.
 void ns_based_config::apply_config_to_interactions(const bool ccb_on,
     const std::map<namespace_index, uint64_t>& ns_counter, const std::string& interaction_type,
-    const ns_based_config& config, interaction_vec_t& interactions)
+    const ns_based_config& config, VW::interaction_spec_type& interactions)
 {
   if (config.conf_type == config_type::Exclusion)
   {
@@ -249,7 +249,7 @@ bool config_oracle<oracle_impl>::insert_config(set_ns_list_t&& new_elements,
   return true;
 }
 
-void one_diff_impl::gen_ns_groupings_at(const interaction_vec_t& champ_interactions, const size_t num,
+void one_diff_impl::gen_ns_groupings_at(const VW::interaction_spec_type& champ_interactions, const size_t num,
     set_ns_list_t::iterator& exclusion, const set_ns_list_t::iterator& exclusion_end, set_ns_list_t& new_elements)
 {
   // Add one exclusion (for each interaction)
@@ -271,7 +271,7 @@ void one_diff_impl::gen_ns_groupings_at(const interaction_vec_t& champ_interacti
 
 template <>
 void config_oracle<one_diff_impl>::gen_configs(
-    const interaction_vec_t& champ_interactions, const std::map<namespace_index, uint64_t>& ns_counter)
+    const VW::interaction_spec_type& champ_interactions, const std::map<namespace_index, uint64_t>& ns_counter)
 {
   // we need this to stay constant bc insert might resize configs vector
   auto champ_excl = std::move(configs[0].elements);
@@ -289,7 +289,7 @@ void config_oracle<one_diff_impl>::gen_configs(
 }
 
 void one_diff_inclusion_impl::gen_ns_groupings_at(
-    const interaction_vec_t& all_interactions, const size_t num, set_ns_list_t& copy_champ)
+    const VW::interaction_spec_type& all_interactions, const size_t num, set_ns_list_t& copy_champ)
 {
   // Element does not exist, so add it
   if (copy_champ.find(all_interactions[num]) == copy_champ.end())
@@ -304,7 +304,7 @@ void one_diff_inclusion_impl::gen_ns_groupings_at(
 }
 
 void qbase_cubic::gen_ns_groupings_at(
-    const interaction_vec_t& all_interactions, const size_t num, set_ns_list_t& copy_champ)
+    const VW::interaction_spec_type& all_interactions, const size_t num, set_ns_list_t& copy_champ)
 {
   // Element does not exist, so add it
   if (copy_champ.find(all_interactions[num]) == copy_champ.end())
@@ -322,7 +322,7 @@ void qbase_cubic::gen_ns_groupings_at(
 // stored as a set of NS lists. The current design is to look at the interactions of
 // the current champ and add/remove one interaction for each new config.
 void oracle_rand_impl::gen_ns_groupings_at(
-    const interaction_vec_t& all_interactions, const size_t num, set_ns_list_t& copy_champ)
+    const VW::interaction_spec_type& all_interactions, const size_t num, set_ns_list_t& copy_champ)
 {
   // Element does not exist, so add it
   if (copy_champ.find(all_interactions[num]) == copy_champ.end())
@@ -338,11 +338,11 @@ void oracle_rand_impl::gen_ns_groupings_at(
 
 template <>
 void config_oracle<one_diff_inclusion_impl>::gen_configs(
-    const interaction_vec_t&, const std::map<namespace_index, uint64_t>& ns_counter)
+    const VW::interaction_spec_type&, const std::map<namespace_index, uint64_t>& ns_counter)
 {
   // we need this to stay constant bc insert might resize configs vector
   auto champ_incl = std::move(configs[0].elements);
-  interaction_vec_t all_interactions = (_interaction_type == "quadratic")
+  VW::interaction_spec_type all_interactions = (_interaction_type == "quadratic")
       ? ns_based_config::gen_quadratic_interactions(ns_counter, {})
       : ns_based_config::gen_cubic_interactions(ns_counter, {});
 
@@ -358,7 +358,7 @@ void config_oracle<one_diff_inclusion_impl>::gen_configs(
 
 template <>
 void config_oracle<champdupe_impl>::gen_configs(
-    const interaction_vec_t&, const std::map<namespace_index, uint64_t>& ns_counter)
+    const VW::interaction_spec_type&, const std::map<namespace_index, uint64_t>& ns_counter)
 {
   if (configs.size() == 1)
   {
@@ -378,7 +378,7 @@ void config_oracle<champdupe_impl>::gen_configs(
 
 template <typename oracle_impl>
 void config_oracle<oracle_impl>::gen_configs(
-    const interaction_vec_t&, const std::map<namespace_index, uint64_t>& ns_counter)
+    const VW::interaction_spec_type&, const std::map<namespace_index, uint64_t>& ns_counter)
 {
   if (_impl.last_seen_ns_count != ns_counter.size())
   {
@@ -386,13 +386,13 @@ void config_oracle<oracle_impl>::gen_configs(
     _impl.total_space.clear();
     if (_interaction_type == "quadratic")
     {
-      interaction_vec_t quadratics = ns_based_config::gen_quadratic_interactions(ns_counter, {});
+      VW::interaction_spec_type quadratics = ns_based_config::gen_quadratic_interactions(ns_counter, {});
       _impl.total_space.insert(_impl.total_space.end(), std::make_move_iterator(quadratics.begin()),
           std::make_move_iterator(quadratics.end()));
     }
     else if (_interaction_type == "cubic" || _interaction_type == "both")
     {
-      interaction_vec_t cubics = ns_based_config::gen_cubic_interactions(ns_counter, {});
+      VW::interaction_spec_type cubics = ns_based_config::gen_cubic_interactions(ns_counter, {});
       _impl.total_space.insert(
           _impl.total_space.end(), std::make_move_iterator(cubics.begin()), std::make_move_iterator(cubics.end()));
     }

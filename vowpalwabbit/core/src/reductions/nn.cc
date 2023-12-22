@@ -295,7 +295,7 @@ void predict_or_learn_multi(nn& n, learner& base, VW::example& ec)
       n.output_layer.loss = ec.loss;
       ec[VW::details::NN_OUTPUT_NAMESPACE].sum_feat_sq = 0;
       std::swap(ec[VW::details::NN_OUTPUT_NAMESPACE], save_nn_output_namespace);
-      ec.indices.pop_back();
+      ec.delete_namespace(VW::details::NN_OUTPUT_NAMESPACE);
     }
     else
     {

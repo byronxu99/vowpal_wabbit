@@ -420,10 +420,11 @@ TEST(Las, ComputeDotProdScalarAndSimdHaveSameResults)
     VW::multi_ex examples;
     examples.push_back(VW::read_example(*vw, generate_example(/*num_namespaces=*/2, /*num_features=*/5)));
     auto* ex = examples[0];
+    auto indices = ex->namespaces();
     auto interactions =
         VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
             vw->feature_tweaks_config.interactions,
-            std::set<VW::namespace_index>(ex->indices.begin(), ex->indices.end()));
+            std::unordered_set<VW::namespace_index>(indices.begin(), indices.end()));
     ex->interactions = &interactions;
     EXPECT_EQ(interactions.size(), 0);
 
@@ -438,10 +439,11 @@ TEST(Las, ComputeDotProdScalarAndSimdHaveSameResults)
     VW::multi_ex examples;
     examples.push_back(VW::read_example(*vw, generate_example(/*num_namespaces=*/2, /*num_features=*/50)));
     auto* ex = examples[0];
+    auto indices = ex->namespaces();
     auto interactions =
         VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
             vw->feature_tweaks_config.interactions,
-            std::set<VW::namespace_index>(ex->indices.begin(), ex->indices.end()));
+            std::unordered_set<VW::namespace_index>(indices.begin(), indices.end()));
     ex->interactions = &interactions;
     EXPECT_EQ(interactions.size(), 0);
 
@@ -456,10 +458,11 @@ TEST(Las, ComputeDotProdScalarAndSimdHaveSameResults)
     VW::multi_ex examples;
     examples.push_back(VW::read_example(*vw, generate_example(/*num_namespaces=*/2, /*num_features=*/5)));
     auto* ex = examples[0];
+    auto indices = ex->namespaces();
     auto interactions =
         VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
             vw->feature_tweaks_config.interactions,
-            std::set<VW::namespace_index>(ex->indices.begin(), ex->indices.end()));
+            std::unordered_set<VW::namespace_index>(indices.begin(), indices.end()));
     ex->interactions = &interactions;
     EXPECT_EQ(interactions.size(), 6);
 
@@ -474,10 +477,11 @@ TEST(Las, ComputeDotProdScalarAndSimdHaveSameResults)
     VW::multi_ex examples;
     examples.push_back(VW::read_example(*vw, generate_example(/*num_namespaces=*/2, /*num_features=*/50)));
     auto* ex = examples[0];
+    auto indices = ex->namespaces();
     auto interactions =
         VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
             vw->feature_tweaks_config.interactions,
-            std::set<VW::namespace_index>(ex->indices.begin(), ex->indices.end()));
+            std::unordered_set<VW::namespace_index>(indices.begin(), indices.end()));
     ex->interactions = &interactions;
     EXPECT_EQ(interactions.size(), 6);
 

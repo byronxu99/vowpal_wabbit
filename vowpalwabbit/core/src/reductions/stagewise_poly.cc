@@ -423,7 +423,7 @@ void synthetic_create_rec(stagewise_poly& poly, float v, uint64_t findex)
 {
   // Note: need to un_ft_shift since gd::foreach_feature bakes in the offset.
   uint64_t wid_atomic = wid_mask(poly, un_ft_index_offset(poly, findex));
-  uint64_t wid_cur = child_wid(poly, wid_atomic, poly.synth_rec_f.weight_index);
+  uint64_t wid_cur = child_wid(poly, wid_atomic, poly.synth_rec_f.index);
   assert(wid_atomic % stride_shift(poly, 1) == 0);
 
   // Note: only mutate learner state when in training mode.  This is because
@@ -455,11 +455,11 @@ void synthetic_create_rec(stagewise_poly& poly, float v, uint64_t findex)
     ++poly.depths[poly.cur_depth];
 #endif  // DEBUG
 
-    VW::feature temp = {v * poly.synth_rec_f.x, wid_cur};
-    poly.synth_ec[TREE_ATOMICS].push_back(temp.x, temp.weight_index);
+    VW::feature temp = {v * poly.synth_rec_f.value, wid_cur};
+    poly.synth_ec[TREE_ATOMICS].add_feature_raw(temp.index, temp.value);
     poly.synth_ec.num_features++;
 
-    if (parent_get(poly, temp.weight_index))
+    if (parent_get(poly, temp.index))
     {
       VW::feature parent_f = poly.synth_rec_f;
       poly.synth_rec_f = temp;
@@ -480,8 +480,8 @@ void synthetic_create(stagewise_poly& poly, VW::example& ec, bool training)
 
   poly.cur_depth = 0;
 
-  poly.synth_rec_f.x = 1.0;
-  poly.synth_rec_f.weight_index = constant_feat_masked(poly);  // note: not ft_index_offset'd
+  poly.synth_rec_f.value = 1.0;
+  poly.synth_rec_f.index = constant_feat_masked(poly);  // note: not ft_index_offset'd
   poly.training = training;
   /*
    * Another choice is to mark the constant feature as the single initial

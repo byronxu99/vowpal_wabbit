@@ -15,8 +15,8 @@ namespace VW
 class kskip_ngram_transformer
 {
 public:
-  static kskip_ngram_transformer build(
-      const std::vector<std::string>& grams, const std::vector<std::string>& skips, bool quiet, VW::io::logger& logger);
+  static kskip_ngram_transformer build(const std::vector<std::string>& grams, const std::vector<std::string>& skips,
+      uint64_t hash_seed, bool quiet, VW::io::logger& logger);
 
   /**
    * This function adds k-skip-n-grams to the feature vector.

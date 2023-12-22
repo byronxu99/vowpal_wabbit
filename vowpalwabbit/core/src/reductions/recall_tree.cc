@@ -228,12 +228,12 @@ void add_node_id_feature(recall_tree& b, uint32_t cn, VW::example& ec)
 
   auto& fs = ec[VW::details::NODE_ID_NAMESPACE];
 
-  if (b.node_only) { fs.push_back(1., (static_cast<uint64_t>(868771) * cn) & mask); }
+  if (b.node_only) { fs.add_feature_raw((static_cast<uint64_t>(868771) * cn) & mask, 1.); }
   else
   {
     while (cn > 0)
     {
-      fs.push_back(1., (static_cast<uint64_t>(868771) * cn) & mask);
+      fs.add_feature_raw((static_cast<uint64_t>(868771) * cn) & mask, 1.);
       cn = b.nodes[cn].parent;
     }
   }

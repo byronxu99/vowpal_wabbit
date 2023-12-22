@@ -1,4 +1,5 @@
 #include "vw/config/options_cli.h"
+#include "vw/core/hash.h"
 #include "vw/core/parser.h"
 #include "vw/core/vw.h"
 
@@ -23,11 +24,13 @@ int main(int argc, char* argv[])
 
   VW::primitive_feature_space features[2];
   VW::primitive_feature_space *s = features, *t = features + 1;
-  s->name = 's';
-  t->name = 't';
 
   uint32_t s_hash = static_cast<uint32_t>(VW::hash_namespace(*model, "s"));
   uint32_t t_hash = static_cast<uint32_t>(VW::hash_namespace(*model, "t"));
+  s->ns_hash = s_hash;
+  s->ns_index = s_hash;
+  t->ns_hash = t_hash;
+  t->ns_index = t_hash;
   s->fs = new VW::feature[3];
   s->len = 3;
   t->fs = new VW::feature[3];
@@ -58,11 +61,11 @@ int main(int argc, char* argv[])
   VW::primitive_feature_space* pfs = VW::export_example(*model2, vec2, len);
   for (size_t i = 0; i < len; i++)
   {
-    std::cout << "namespace = " << pfs[i].name;
+    std::cout << "namespace = " << pfs[i].ns_index;
     for (size_t j = 0; j < pfs[i].len; j++)
     {
-      std::cout << " " << pfs[i].fs[j].weight_index << ":" << pfs[i].fs[j].x << ":"
-                << VW::get_weight(*model2, static_cast<uint32_t>(pfs[i].fs[j].weight_index), 0);
+      std::cout << " " << pfs[i].fs[j].index << ":" << pfs[i].fs[j].value << ":"
+                << VW::get_weight(*model2, static_cast<uint32_t>(pfs[i].fs[j].index), 0);
     }
     std::cout << std::endl;
   }

@@ -129,10 +129,10 @@ float mf_predict(gdmf& d, VW::example& ec, T& weights)
   float linear_prediction = 0.;
   // linear terms
 
-  for (VW::features& fs : ec)
+  for (auto ns : ec)
   {
     // Offset to foreach_feature() function should be 0 for linear terms
-    VW::foreach_feature<float, VW::details::vec_add, T>(weights, fs, linear_prediction, ec.ft_index_scale, 0);
+    VW::foreach_feature<float, VW::details::vec_add, T>(weights, ec[ns], linear_prediction, ec.ft_index_scale, 0);
   }
 
   // store constant + linear prediction
@@ -223,7 +223,7 @@ void mf_train(gdmf& d, VW::example& ec, T& weights)
   float regularization = eta_t * all.loss_config.l2_lambda;
 
   // linear update
-  for (VW::features& fs : ec) { sd_offset_update<T>(weights, fs, ec.ft_index_scale, 0, update, regularization); }
+  for (auto ns : ec) { sd_offset_update<T>(weights, ec[ns], ec.ft_index_scale, 0, update, regularization); }
 
   // quadratic update
   for (const auto& i : all.feature_tweaks_config.interactions)

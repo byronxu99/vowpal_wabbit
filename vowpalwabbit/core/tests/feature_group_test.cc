@@ -4,7 +4,7 @@
 
 #include "vw/core/feature_group.h"
 
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/core/scope_exit.h"
 #include "vw/core/unique_sort.h"
 #include "vw/core/vw.h"
@@ -18,19 +18,19 @@ using namespace ::testing;
 TEST(FeatureGroup, UniqueFeatureGroupTest)
 {
   VW::features fs;
-  fs.push_back(1.f, 1);
-  fs.push_back(1.f, 2);
-  fs.push_back(1.f, 1);
-  fs.push_back(1.f, 1);
-  fs.push_back(1.f, 25);
-  fs.push_back(1.f, 3);
-  fs.push_back(1.f, 3);
-  fs.push_back(1.f, 3);
-  fs.push_back(1.f, 5);
-  fs.push_back(1.f, 7);
-  fs.push_back(1.f, 13);
-  fs.push_back(1.f, 11);
-  fs.push_back(1.f, 12);
+  fs.add_feature_raw(1, 1.f);
+  fs.add_feature_raw(2, 1.f);
+  fs.add_feature_raw(1, 1.f);
+  fs.add_feature_raw(1, 1.f);
+  fs.add_feature_raw(25, 1.f);
+  fs.add_feature_raw(3, 1.f);
+  fs.add_feature_raw(3, 1.f);
+  fs.add_feature_raw(3, 1.f);
+  fs.add_feature_raw(5, 1.f);
+  fs.add_feature_raw(7, 1.f);
+  fs.add_feature_raw(13, 1.f);
+  fs.add_feature_raw(11, 1.f);
+  fs.add_feature_raw(12, 1.f);
 
   const auto parse_mask = (static_cast<uint64_t>(1) << 18) - 1;
   fs.sort(parse_mask);
@@ -66,7 +66,7 @@ TEST(FeatureGroup, UniqueFeatureGroupTest)
   EXPECT_TRUE(empty_features.empty());
 
   VW::features fs_size_one;
-  fs_size_one.push_back(1.f, 1);
+  fs_size_one.add_feature_raw(1, 1.f);
   VW::unique_features(fs_size_one);
   EXPECT_THAT(fs_size_one.indices, ElementsAre(1));
 }
@@ -74,14 +74,14 @@ TEST(FeatureGroup, UniqueFeatureGroupTest)
 TEST(FeatureGroup, SortFeatureGroupTest)
 {
   VW::features fs;
-  fs.push_back(1.f, 1);
-  fs.push_back(1.f, 25);
-  fs.push_back(1.f, 3);
-  fs.push_back(1.f, 5);
-  fs.push_back(1.f, 7);
-  fs.push_back(1.f, 13);
-  fs.push_back(1.f, 11);
-  fs.push_back(1.f, 12);
+  fs.add_feature_raw(1, 1.f);
+  fs.add_feature_raw(25, 1.f);
+  fs.add_feature_raw(3, 1.f);
+  fs.add_feature_raw(5, 1.f);
+  fs.add_feature_raw(7, 1.f);
+  fs.add_feature_raw(13, 1.f);
+  fs.add_feature_raw(11, 1.f);
+  fs.add_feature_raw(12, 1.f);
 
   const auto parse_mask = (static_cast<uint64_t>(1) << 18) - 1;
   fs.sort(parse_mask);

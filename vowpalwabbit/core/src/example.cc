@@ -137,7 +137,7 @@ public:
   VW::features fs;
 };
 
-void vec_ffs_store(full_features_and_source& p, float fx, uint64_t fi) { p.fs.push_back(fx, fi); }
+void vec_ffs_store(full_features_and_source& p, float fx, uint64_t fi) { p.fs.add_feature_raw(fi, fx); }
 
 namespace VW
 {

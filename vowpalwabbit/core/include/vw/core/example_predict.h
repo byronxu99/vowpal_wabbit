@@ -6,7 +6,6 @@
 #include "vw/common/future_compat.h"
 #include "vw/core/constant.h"
 #include "vw/core/feature_group.h"
-#include "vw/core/hash.h"
 #include "vw/core/reduction_features.h"
 #include "vw/core/scope_exit.h"
 #include "vw/core/v_array.h"
@@ -84,6 +83,7 @@ public:
   // this hashing function does not take into account the order of the features
   // an example with the exact same namespaces / features-values but in a different order will have the same hash
   uint64_t get_or_calculate_order_independent_feature_space_hash();
+  inline bool is_set_feature_space_hash() const { return _is_set_feature_space_hash; }
   inline void clear_feature_space_hash() { _is_set_feature_space_hash = false; }
 
   /// If namespaces are modified this iterator is invalidated.
@@ -136,12 +136,18 @@ public:
   // inline feature_groups_type& feature_space() { return _feature_space; }
   inline const feature_groups_type& feature_space() const { return _feature_space; }
 
+  // Compute the namespace index for a given string name, using the stored hash seed
+  // This will always map DEFAULT_NAMESPACE_STR to DEFAULT_NAMESPACE
+  // and WILDARD_NAMESPACE_STR to WILDCARD_NAMESPACE
+  VW::namespace_index namespace_string_to_index(VW::string_view s) const;
+
   // Get the string name of a namespace
   // Returns boolean indicating if the namespace was found
   bool get_string_name(VW::namespace_index ns, std::string& name_out) const;
 
   // Compute the hash of a namespace string using the hash seed in this example object
-  inline VW::namespace_index hash_namespace(VW::string_view s) const { return VW::hash_namespace(s, _hash_seed); }
+  // Unlike namespace_string_to_index(), this will always hash the literal string
+  VW::namespace_index hash_namespace(VW::string_view s) const;
 
   // Convert a namespace hash back to a string
   // Not computationally efficient, may traverse all namespaces in the example

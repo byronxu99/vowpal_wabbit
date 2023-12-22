@@ -33,6 +33,7 @@ namespace VW
 {
 class workspace;
 }
+
 namespace VW
 {
 // Forward declare friend functions for example
@@ -151,14 +152,16 @@ private:
   bool _use_permutations = false;
 };
 
-class workspace;
-
 // TODO: make workspace and example const
 void flatten_features(VW::workspace& all, example& ec, features& fs);
 
 inline bool example_is_newline(const example& ec) { return ec.is_newline; }
 
 inline bool valid_ns(char c) { return !(c == '|' || c == ':'); }
+inline bool valid_ns(VW::string_view s)
+{
+  return s.find('|') == VW::string_view::npos && s.find(':') == VW::string_view::npos;
+}
 
 namespace details
 {

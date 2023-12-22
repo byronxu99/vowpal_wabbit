@@ -73,8 +73,7 @@ bool _test_only_generate_A(VW::workspace* _all, const multi_ex& examples, std::v
     {
       A_triplet_constructor w(_all->weights.sparse_weights.weight_mask(), row_index, _triplets, max_non_zero_col);
       VW::foreach_feature<A_triplet_constructor, uint64_t, triplet_construction, sparse_parameters>(
-          _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_some_linear,
-          _all->feature_tweaks_config.ignore_linear,
+          _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_linear,
           (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
           _all->feature_tweaks_config.permutations, *ex, w,
           _all->runtime_state.generate_interactions_object_cache_state);
@@ -84,8 +83,7 @@ bool _test_only_generate_A(VW::workspace* _all, const multi_ex& examples, std::v
       A_triplet_constructor w(_all->weights.dense_weights.weight_mask(), row_index, _triplets, max_non_zero_col);
 
       VW::foreach_feature<A_triplet_constructor, uint64_t, triplet_construction, dense_parameters>(
-          _all->weights.dense_weights, _all->feature_tweaks_config.ignore_some_linear,
-          _all->feature_tweaks_config.ignore_linear,
+          _all->weights.dense_weights, _all->feature_tweaks_config.ignore_linear,
           (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
           _all->feature_tweaks_config.permutations, *ex, w,
           _all->runtime_state.generate_interactions_object_cache_state);

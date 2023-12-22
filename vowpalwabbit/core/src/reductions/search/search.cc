@@ -844,7 +844,7 @@ void add_example_conditioning(search_private& priv, VW::example& ec, size_t cond
 
 void del_example_conditioning(search_private& priv, VW::example& ec)
 {
-  if ((ec.indices.size() > 0) && (ec.indices.back() == VW::details::CONDITIONING_NAMESPACE))
+  if (ec.size() > 0 && ec.contains(VW::details::CONDITIONING_NAMESPACE))
   {
     del_features_in_top_namespace(priv, ec, VW::details::CONDITIONING_NAMESPACE);
   }

@@ -4,7 +4,7 @@
 
 #include "vw/common/random.h"
 
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

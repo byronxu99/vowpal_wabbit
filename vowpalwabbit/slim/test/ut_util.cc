@@ -496,7 +496,7 @@ TEST(VowpalWabbitSlim, InteractionNumBitsBug)
   VW::example_predict features;
 
   // Test with the single namespace.
-  vw_slim::example_predict_builder bOa(&features, "Features", vw.feature_index_num_bits());  // NOLINT
+  vw_slim::example_predict_builder bOa(&features, "Features");  // NOLINT
   bOa.push_feature_string("Networkmobile", 1.f);
   bOa.push_feature_string("CallTypeP2P", 1.f);
   bOa.push_feature_string("PlatformAndroid", 1.f);
@@ -787,7 +787,7 @@ TEST(ColdStartModelSlim, ActionSetNotReordered)
 
   VW::example_predict features;
 
-  vw_slim::example_predict_builder bOa(&features, "Features", vw.feature_index_num_bits());  // NOLINT
+  vw_slim::example_predict_builder bOa(&features, "Features");  // NOLINT
   bOa.push_feature_string("f1", 1.f);
 
   static const int NUM_ACTIONS = 5;

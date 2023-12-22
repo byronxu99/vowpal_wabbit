@@ -22,7 +22,7 @@ constexpr float MAX_MULTIPLIER = 1000.f;
 
 void VW::reductions::baseline::set_baseline_enabled(VW::example* ec)
 {
-  (*ec)[VW::details::BASELINE_ENABLED_MESSAGE_NAMESPACE].push_back(0, 0);
+  (*ec)[VW::details::BASELINE_ENABLED_MESSAGE_NAMESPACE].add_feature_raw(0, 0);
 }
 
 void VW::reductions::baseline::reset_baseline_disabled(VW::example* ec)
@@ -52,10 +52,12 @@ void init_global(baseline_data& data)
   if (!data.global_only) { return; }
   // use a separate global constant
   // different index from constant to avoid conflicts
-  data.ec[VW::details::CONSTANT_NAMESPACE].push_back(1,
+  data.ec[VW::details::CONSTANT_NAMESPACE].add_feature_raw(VW::details::CONSTANT + 17, 1.f);
+  /*
+  data.ec[VW::details::CONSTANT_NAMESPACE].add_feature_raw(
       ((VW::details::CONSTANT + 17) * data.all->reduction_state.total_feature_width)
-          << data.all->weights.stride_shift(),
-      VW::details::CONSTANT_NAMESPACE);
+          << data.all->weights.stride_shift(), 1.f);
+  */
   data.ec.reset_total_sum_feat_sq();
   data.ec.num_features++;
 }

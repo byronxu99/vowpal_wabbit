@@ -183,11 +183,11 @@ std::string dump_weights_to_json_weight_typed(const WeightsT& weights,
         {
           rapidjson::Value component_object(rapidjson::kObjectType);
           rapidjson::Value name_value;
-          name_value.SetString(component.name, allocator);
+          name_value.SetString(component.feature_name, allocator);
           component_object.AddMember("name", name_value, allocator);
 
           rapidjson::Value namespace_value;
-          namespace_value.SetString(component.ns, allocator);
+          namespace_value.SetString(component.namespace_name, allocator);
           component_object.AddMember("namespace", namespace_value, allocator);
 
           if (!component.str_value.empty())
@@ -290,23 +290,38 @@ std::string workspace::dump_weights_to_json_experimental()
 }  // namespace VW
 
 void VW::details::compile_limits(std::vector<std::string> limits,
-    std::unordered_map<VW::namespace_index, uint32_t>& dest, bool /*quiet*/, VW::io::logger& logger)
+    std::unordered_map<VW::namespace_index, uint32_t>& dest, uint64_t hash_seed, bool /*quiet*/, VW::io::logger& logger)
 {
   for (size_t i = 0; i < limits.size(); i++)
   {
     std::string limit = limits[i];
-    if (isdigit(limit[0]))
+    auto sep = limit.find('|');
+    if (sep == std::string::npos)
     {
-      int n = atoi(limit.c_str());
-      logger.err_warn("limiting to {} features for each namespace.", n);
-      dest[VW::details::WILDCARD_NAMESPACE] = n;
+      // Assume single character namespace
+      if (isdigit(limit[0]))
+      {
+        // No namespace specified
+        int n = atoi(limit.c_str());
+        logger.err_warn("limiting to {} features for each namespace.", n);
+        dest[VW::details::WILDCARD_NAMESPACE] = n;
+      }
+      else if (limit.size() == 1) { logger.out_error("The namespace index must be specified before the n"); }
+      else
+      {
+        VW::namespace_index ns_index = VW::namespace_string_to_index(limit.substr(0, 1), hash_seed);
+        int n = atoi(limit.c_str() + 1);
+        dest[ns_index] = n;
+        logger.err_warn("limiting to {0} for namespaces {1}", n, limit[0]);
+      }
     }
-    else if (limit.size() == 1) { logger.out_error("The namespace index must be specified before the n"); }
     else
     {
-      int n = atoi(limit.c_str() + 1);
-      dest[limit[0]] = n;
-      logger.err_warn("limiting to {0} for namespaces {1}", n, limit[0]);
+      // Use full namespace
+      VW::namespace_index ns_index = VW::namespace_string_to_index(limit.substr(0, sep), hash_seed);
+      int n = atoi(limit.c_str() + sep + 1);
+      dest[ns_index] = n;
+      logger.err_warn("limiting to {0} for namespaces {1}", n, limit.substr(0, sep));
     }
   }
 }

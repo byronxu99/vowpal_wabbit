@@ -19,7 +19,7 @@ void aml_estimator<estimator_impl>::persist(metric_sink& metrics, const std::str
   metrics.set_uint("conf_idx" + suffix, config_index);
   if (verbose)
   {
-    metrics.set_string("interactions" + suffix, VW::reductions::util::interaction_vec_t_to_string(live_interactions));
+    metrics.set_string("interactions" + suffix, VW::reductions::util::interaction_spec_to_string(live_interactions));
   }
 }
 

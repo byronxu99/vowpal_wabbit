@@ -53,9 +53,9 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
   // Scale feature indices and then set ft_index_scale to 1 so we don't scale again
   auto old_ft_index_scale = ec.ft_index_scale;
   uint64_t multiplier = static_cast<uint64_t>(all.reduction_state.total_feature_width) << all.weights.stride_shift();
-  for (features& fs : ec)
+  for (auto ns : ec)
   {
-    for (auto& ft_idx : fs.indices) { ft_idx *= multiplier; }
+    for (auto& ft_idx : ec[ns].indices) { ft_idx *= multiplier; }
   }
   ec.ft_index_scale = 1;
 
@@ -63,9 +63,9 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
   auto restore_ft_index_scale = VW::scope_exit(
       [&ec, old_ft_index_scale, multiplier]()
       {
-        for (features& fs : ec)
+        for (auto ns : ec)
         {
-          for (auto& ft_idx : fs.indices) { ft_idx /= multiplier; }
+          for (auto& ft_idx : ec[ns].indices) { ft_idx /= multiplier; }
         }
         ec.ft_index_scale = old_ft_index_scale;
       });
@@ -90,8 +90,8 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
     {
       for (std::string::const_iterator i2 = i1 + 1; i2 != lrq.field_name.end(); ++i2)
       {
-        unsigned char left = (which % 2) ? *i1 : *i2;
-        unsigned char right = ((which + 1) % 2) ? *i1 : *i2;
+        VW::namespace_index left = VW::namespace_string_to_index(all, std::string{(which % 2) ? *i1 : *i2});
+        VW::namespace_index right = VW::namespace_string_to_index(all, std::string{((which + 1) % 2) ? *i1 : *i2});
         unsigned int lfd_id = lrq.field_id[left];
         unsigned int rfd_id = lrq.field_id[right];
         for (unsigned int lfn = 0; lfn < lrq.orig_size[left]; ++lfn)
@@ -123,13 +123,13 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
               // unlike for lw, ec.ft_index_offset will be added by base learner
               uint64_t new_feature_index = rfs.indices[rfn] + rindex_offset;
               float new_feature_value = *lw * lfx * rfx;
-              rfs.push_back(new_feature_value, new_feature_index);
+              rfs.add_feature_raw(new_feature_index, new_feature_value);
 
               if (all.output_config.audit || all.output_config.hash_inv)
               {
                 std::stringstream new_feature_buffer;
-                new_feature_buffer << right << '^' << rfs.audit_info[rfn].name << '^' << n;
-                rfs.audit_info.emplace_back("lrqfa", new_feature_buffer.str());
+                new_feature_buffer << right << '^' << rfs.audit_info[rfn].feature_name << '^' << n;
+                rfs.add_audit_string("lrqfa", new_feature_buffer.str());
               }
             }
           }
@@ -154,9 +154,9 @@ void predict_or_learn(lrqfa_state& lrq, learner& base, VW::example& ec)
 
     for (char i : lrq.field_name)
     {
-      VW::namespace_index right = i;
-      auto& rfs = ec[right];
-      rfs.truncate_to(lrq.orig_size[right]);
+      VW::namespace_index ns = VW::namespace_string_to_index(all, std::string{i});
+      auto& fs = ec[ns];
+      fs.truncate_to(lrq.orig_size[ns]);
     }
   }
 }
@@ -177,6 +177,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::lrqfa_setup(VW::setup_base
   lrq->all = &all;
 
   if (lrqfa.find(':') != std::string::npos) { THROW("--lrqfa does not support wildcards ':'"); }
+  if (lrqfa.find('|') != std::string::npos) { THROW("--lrqfa only supports single character namespaces"); }
 
   std::string lrqopt = VW::decode_inline_hex(lrqfa, all.logger);
   size_t last_index = lrqopt.find_last_not_of("0123456789");

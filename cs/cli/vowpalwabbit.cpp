@@ -8,7 +8,7 @@
 #include "vw/core/best_constant.h"
 #include "vw/core/parser.h"
 #include "vw/core/learner.h"
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 #include "vw_example.h"
 #include "vw_builder.h"
 #include "clr_io.h"

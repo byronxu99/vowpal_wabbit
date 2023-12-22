@@ -38,7 +38,7 @@ public:
 
   // Hash of the namespace
   // Except for special namespaces, this is the index used to access the features in the example object
-  VW::namespace_index namespace_hash;
+  VW::namespace_index namespace_hash = 0;
 
   // Name of the feature
   std::string feature_name;

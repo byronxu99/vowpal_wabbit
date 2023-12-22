@@ -4,6 +4,7 @@
 
 #include "vw/core/kskip_ngram_transformer.h"
 
+#include "vw/core/hash.h"
 #include "vw/io/logger.h"
 
 #include <memory>
@@ -58,22 +59,36 @@ void add_grams(size_t ngram, size_t skip_gram, VW::features& fs, size_t initial_
 }
 
 void compile_gram(const std::vector<std::string>& grams, std::unordered_map<VW::namespace_index, uint32_t>& dest,
-    uint32_t& default_dest, const std::string& descriptor, bool /*quiet*/, VW::io::logger& logger)
+    uint32_t& default_dest, const std::string& descriptor, uint64_t hash_seed, bool /*quiet*/, VW::io::logger& logger)
 {
   for (const auto& gram : grams)
   {
-    if (isdigit(gram[0]) != 0)
+    auto sep = gram.find('|');
+    if (sep == std::string::npos)
     {
-      int n = atoi(gram.c_str());
-      logger.err_info("Generating {0}-{1} for all namespaces.", n, descriptor);
-      default_dest = n;
+      // Assume single character namespace
+      if (isdigit(gram[0]) != 0)
+      {
+        int n = atoi(gram.c_str());
+        logger.err_info("Generating {0}-{1} for all namespaces.", n, descriptor);
+        default_dest = n;
+      }
+      else if (gram.size() == 1) { logger.out_error("The namespace must be specified before the n"); }
+      else
+      {
+        VW::namespace_index ns_index = VW::namespace_string_to_index(gram.substr(0, 1), hash_seed);
+        int n = atoi(gram.c_str() + 1);
+        dest[ns_index] = n;
+        logger.err_info("Generating {0}-{1} for {2} namespaces.", n, descriptor, gram[0]);
+      }
     }
-    else if (gram.size() == 1) { logger.out_error("The namespace index must be specified before the n"); }
     else
     {
-      int n = atoi(gram.c_str() + 1);
-      dest[static_cast<uint32_t>(static_cast<unsigned char>(*gram.c_str()))] = n;
-      logger.err_info("Generating {0}-{1} for {2} namespaces.", n, descriptor, gram[0]);
+      // Use full namespace
+      VW::namespace_index ns_index = VW::namespace_string_to_index(gram.substr(0, sep), hash_seed);
+      int n = atoi(gram.c_str() + sep + 1);
+      dest[ns_index] = n;
+      logger.err_info("Generating {0}-{1} for {2} namespaces.", n, descriptor, gram.substr(0, sep));
     }
   }
 }
@@ -96,13 +111,13 @@ void VW::kskip_ngram_transformer::generate_grams(example* ex)
   }
 }
 
-VW::kskip_ngram_transformer VW::kskip_ngram_transformer::build(
-    const std::vector<std::string>& grams, const std::vector<std::string>& skips, bool quiet, VW::io::logger& logger)
+VW::kskip_ngram_transformer VW::kskip_ngram_transformer::build(const std::vector<std::string>& grams,
+    const std::vector<std::string>& skips, uint64_t hash_seed, bool quiet, VW::io::logger& logger)
 {
   kskip_ngram_transformer transformer(grams, skips);
 
-  compile_gram(grams, transformer.ngram_definition, transformer.ngram_default, "grams", quiet, logger);
-  compile_gram(skips, transformer.skip_definition, transformer.skip_default, "skips", quiet, logger);
+  compile_gram(grams, transformer.ngram_definition, transformer.ngram_default, "grams", hash_seed, quiet, logger);
+  compile_gram(skips, transformer.skip_definition, transformer.skip_default, "skips", hash_seed, quiet, logger);
   return transformer;
 }
 

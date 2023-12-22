@@ -97,9 +97,9 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
   {
     c.total++;
     // For each nonzero feature in observed namespaces, check it's value.
-    for (unsigned char ns : ec.indices)
+    for (auto ns : ec)
     {
-      if (c.namespaces[ns])
+      if (c.namespaces.find(ns) != c.namespaces.end())
       {
         VW::foreach_feature<mwt, value_policy>(c.all, ec[ns], c, ec.ft_index_scale, ec.ft_index_offset);
       }
@@ -117,9 +117,9 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
   {
     c.indices.clear();
     uint64_t hash_mask = c.all->weights.weight_mask();
-    for (unsigned char ns : ec.indices)
+    for (auto ns : ec)
     {
-      if (c.namespaces[ns])
+      if (c.namespaces.find(ns) != c.namespaces.end())
       {
         c.indices.push_back(ns);
         if (learn)
@@ -128,7 +128,7 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
           for (VW::features::iterator& f : ec[ns])
           {
             uint64_t new_index = (f.index() & hash_mask) * c.num_classes + static_cast<uint64_t>(f.value());
-            c.feature_space[ns].push_back(1, new_index);
+            c.feature_space[ns].add_feature_raw(new_index, 1);
           }
         }
         std::swap(c.feature_space[ns], ec[ns]);
@@ -152,7 +152,7 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
   {
     while (!c.indices.empty())
     {
-      unsigned char ns = c.indices.back();
+      auto ns = c.indices.back();
       c.indices.pop_back();
       std::swap(c.feature_space[ns], ec[ns]);
     }

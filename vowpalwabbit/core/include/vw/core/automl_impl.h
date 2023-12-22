@@ -301,10 +301,11 @@ public:
 namespace util
 {
 void fail_if_enabled(VW::workspace& all, const std::set<std::string>& not_compat);
-std::string VW::interaction_spec_type_to_string(const VW::interaction_spec_type& interactions);
+std::string interaction_spec_to_string(const VW::interaction_spec_type& interactions);
 std::string elements_to_string(const automl::set_ns_list_t& elements, const char* const delim = ", ");
 }  // namespace util
 }  // namespace reductions
+
 namespace model_utils
 {
 template <typename CMType>

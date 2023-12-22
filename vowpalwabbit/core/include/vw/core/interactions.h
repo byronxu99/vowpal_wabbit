@@ -26,10 +26,21 @@ constexpr unsigned char INTERACTION_NS_START = ' ';
 constexpr unsigned char INTERACTION_NS_END = '~';
 }  // namespace details
 
-inline constexpr bool is_interaction_ns(const VW::namespace_index ns)
+inline VW_STD14_CONSTEXPR bool is_interaction_ns(const VW::namespace_index ns)
 {
-  return (ns >= details::INTERACTION_NS_START && ns <= details::INTERACTION_NS_END) ||
-      (ns == VW::details::CCB_SLOT_NAMESPACE);
+  // We do not generate interactions for reserved namespaces as
+  // generally they are used for implementation details and special behavior
+  // and not user inputted features. The two exceptions are default_namespace
+  // and ccb_slot_namespace (the default namespace for CCB slots)
+  for (size_t i = 0; i < VW::details::SPECIAL_NAMESPACES.size(); i++)
+  {
+    if (ns == VW::details::SPECIAL_NAMESPACES[i] && ns != VW::details::DEFAULT_NAMESPACE &&
+        ns != VW::details::CCB_SLOT_NAMESPACE)
+    {
+      return false;
+    }
+  }
+  return true;
 }
 
 inline bool contains_wildcard(const std::vector<VW::namespace_index>& interaction)
@@ -321,17 +332,16 @@ public:
 
   template <generate_func_t<VW::namespace_index> generate_func, bool leave_duplicate_interactions>
   void update_interactions_if_new_namespace_seen(
-      const VW::interaction_spec_type& interactions, const std::vector<VW::namespace_index>& new_example_namespaces)
+      const VW::interaction_spec_type& interactions, const VW::feature_groups_type& new_example_features)
   {
     auto prev_count = _all_seen_namespaces.size();
-    _all_seen_namespaces.insert(new_example_namespaces.begin(), new_example_namespaces.end());
+    for (const auto& iter : new_example_features) { _all_seen_namespaces.insert(iter.first); }
 
+    // New namespaces found, we need to recompile interactions
     if (prev_count != _all_seen_namespaces.size())
     {
-      // We do not generate interactions for reserved namespaces as
-      // generally they are used for implementation details and special behavior
-      // and not user inputted features. The two exceptions are default_namespace
-      // and ccb_slot_namespace (the default namespace for CCB slots)
+      // Select only namespaces valid for interactions using is_interaction_ns()
+      // This removes special namespaces for VW internal use
       std::unordered_set<VW::namespace_index> indices_to_interact;
       for (auto ns_index : _all_seen_namespaces)
       {
@@ -355,26 +365,26 @@ private:
 namespace INTERACTIONS  // NOLINT
 {
 VW_DEPRECATED("Moved to VW namespace")
-inline constexpr bool is_interaction_ns(const VW::namespace_index ns) { return VW::is_interaction_ns(ns); }
+inline VW_STD14_CONSTEXPR bool is_interaction_ns(const ::VW::namespace_index ns) { return ::VW::is_interaction_ns(ns); }
 
 VW_DEPRECATED("Moved to VW namespace")
-inline bool contains_wildcard(const std::vector<VW::namespace_index>& interaction)
+inline bool contains_wildcard(const std::vector<::VW::namespace_index>& interaction)
 {
-  return VW::contains_wildcard(interaction);
+  return ::VW::contains_wildcard(interaction);
 }
 
 VW_DEPRECATED("Moved to VW namespace")
 inline float eval_sum_ft_squared_of_generated_ft(
-    bool permutations, const VW::interaction_spec_type& interactions, const VW::feature_groups_type& feature_spaces)
+    bool permutations, const ::VW::interaction_spec_type& interactions, const ::VW::feature_groups_type& feature_spaces)
 {
-  return VW::eval_sum_ft_squared_of_generated_ft(permutations, interactions, feature_spaces);
+  return ::VW::eval_sum_ft_squared_of_generated_ft(permutations, interactions, feature_spaces);
 }
 
 template <typename T>
 VW_DEPRECATED("Moved to VW namespace")
 void sort_and_filter_duplicate_interactions(
-    VW::interaction_spec_type_duplicates, size_t& removed_cnt, size_t& sorted_cnt)
+    ::VW::interaction_spec_type& vec, bool filter_duplicates, size_t& removed_cnt, size_t& sorted_cnt)
 {
-  VW::details::sort_and_filter_duplicate_interactions(vec, filter_duplicates, removed_cnt, sorted_cnt);
+  ::VW::details::sort_and_filter_duplicate_interactions(vec, filter_duplicates, removed_cnt, sorted_cnt);
 }
 }  // namespace INTERACTIONS

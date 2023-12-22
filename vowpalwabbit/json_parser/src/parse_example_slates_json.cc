@@ -87,7 +87,7 @@ void handle_features_value(const char* key_namespace, const Value& value, VW::ex
             if (audit)
             {
               std::stringstream str;
-              str << '[' << (counter - namespaces.back().namespace_hash) << ']';
+              str << '[' << counter << ']';
               namespaces.back().add_feature(counter, number, str.str());
             }
             else { namespaces.back().add_feature(counter, number); }
@@ -182,7 +182,7 @@ void parse_context(const Value& context, const VW::label_parser& lbl_parser, boo
 
         auto& stored_ex = *dedup_examples->at(dedup_id);
         ex.delete_all_namespaces();
-        for (auto& ns : stored_ex) { ex[ns] = stored_ex[ns]; }
+        for (auto ns : stored_ex) { ex[ns] = stored_ex[ns]; }
         ex.ft_index_scale = stored_ex.ft_index_scale;
         ex.ft_index_offset = stored_ex.ft_index_offset;
         ex.l.slates.slot_id = stored_ex.l.slates.slot_id;
