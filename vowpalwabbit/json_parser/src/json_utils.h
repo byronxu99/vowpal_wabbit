@@ -64,6 +64,9 @@ public:
   {
     if (name == nullptr || name[0] == '\0') { return; }
 
+    // filter out 0-values
+    if (value == 0) { return; }
+
     if (hash_all)
     {
       // always treat feature name as a string

@@ -52,11 +52,11 @@ public:
   inline NamespaceT index() { return _iter->first; }
   inline FeaturesT& features() { return _iter->second; }
 
-  inline bool operator==(const example_predict_iterator<NamespaceT, FeaturesT, IteratorT>& rhs) const
+  bool operator==(const example_predict_iterator<NamespaceT, FeaturesT, IteratorT>& rhs) const
   {
     return _iter == rhs._iter;
   }
-  inline bool operator!=(const example_predict_iterator<NamespaceT, FeaturesT, IteratorT>& rhs) const
+  bool operator!=(const example_predict_iterator<NamespaceT, FeaturesT, IteratorT>& rhs) const
   {
     return _iter != rhs._iter;
   }

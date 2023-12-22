@@ -2,6 +2,7 @@
 // individual contributors. All rights reserved. Released under a BSD (revised)
 // license as described in the file LICENSE.
 
+#include "vw/core/example_predict.h"
 #include "vw/core/reductions/conditional_contextual_bandit.h"
 #include "vw/core/vw.h"
 #include "vw/test_common/test_common.h"
@@ -139,7 +140,7 @@ TEST(ParseJson, Cats)
   EXPECT_FLOAT_EQ(examples[0]->l.cb_cont.costs[0].cost, 0.657567);
   EXPECT_FLOAT_EQ(examples[0]->l.cb_cont.costs[0].action, 185.121);
 
-  auto& audit_info = (*examples[0])[' '].audit_info;
+  auto& audit_info = (*examples[0])[" "].audit_info;
   EXPECT_EQ(features.size(), audit_info.size());
   for (size_t i = 0; i < audit_info.size(); i++) { EXPECT_EQ(audit_info[i].feature_name, features[i]); }
 
@@ -168,7 +169,7 @@ TEST(ParseJson, CatsNoLabel)
   EXPECT_EQ(examples.size(), 1);
   EXPECT_EQ(examples[0]->l.cb_cont.costs.size(), 0);
 
-  auto& audit_info = (*examples[0])[' '].audit_info;
+  auto& audit_info = (*examples[0])[" "].audit_info;
   EXPECT_EQ(features.size(), audit_info.size());
   for (size_t i = 0; i < audit_info.size(); i++) { EXPECT_EQ(audit_info[i].feature_name, features[i]); }
 
@@ -390,7 +391,7 @@ TEST(ParseJson, SlatesDomParser)
   EXPECT_EQ(examples[4]->l.slates.slot_id, 1);
   EXPECT_EQ(examples[5]->l.slates.slot_id, 1);
 
-  EXPECT_EQ((*examples[0])['G'].indices.size(), 4);
+  EXPECT_EQ((*examples[0])["GUser"].size(), 4);
 
   VW::finish_example(*slates_vw, examples);
 }
@@ -462,16 +463,16 @@ TEST(ParseJson, DedupCb)
   // check internals
 
   // check namespaces
-  EXPECT_EQ((*examples[1])['T'].audit_info[0].namespace_name, "TAction");
-  EXPECT_EQ((*examples[2])['T'].audit_info[0].namespace_name, "TAction");
+  EXPECT_EQ((*examples[1])["TAction"].audit_info[0].namespace_name, "TAction");
+  EXPECT_EQ((*examples[2])["TAction"].audit_info[0].namespace_name, "TAction");
 
   // check features
-  EXPECT_EQ((*examples[1])['T'].audit_info.size(), 1);
-  EXPECT_EQ((*examples[1])['T'].audit_info[0].feature_name, "a1");
-  EXPECT_EQ((*examples[1])['T'].audit_info[0].str_value, "f1");
-  EXPECT_EQ((*examples[2])['T'].audit_info.size(), 1);
-  EXPECT_EQ((*examples[2])['T'].audit_info[0].feature_name, "a2");
-  EXPECT_EQ((*examples[2])['T'].audit_info[0].str_value, "f2");
+  EXPECT_EQ((*examples[1])["TAction"].audit_info.size(), 1);
+  EXPECT_EQ((*examples[1])["TAction"].audit_info[0].feature_name, "a1");
+  EXPECT_EQ((*examples[1])["TAction"].audit_info[0].str_value, "f1");
+  EXPECT_EQ((*examples[2])["TAction"].audit_info.size(), 1);
+  EXPECT_EQ((*examples[2])["TAction"].audit_info[0].feature_name, "a2");
+  EXPECT_EQ((*examples[2])["TAction"].audit_info[0].str_value, "f2");
 
   for (auto* example : examples) { VW::finish_example(*vw, *example); }
   for (auto& dedup : dedup_examples) { VW::finish_example(*vw, *dedup.second); }
@@ -589,16 +590,16 @@ TEST(ParseJson, DedupCcb)
   // check internals
 
   // check namespaces
-  EXPECT_EQ((*examples[1])['T'].audit_info[0].namespace_name, "TAction");
-  EXPECT_EQ((*examples[2])['T'].audit_info[0].namespace_name, "TAction");
+  EXPECT_EQ((*examples[1])["TAction"].audit_info[0].namespace_name, "TAction");
+  EXPECT_EQ((*examples[2])["TAction"].audit_info[0].namespace_name, "TAction");
 
   // check features
-  EXPECT_EQ((*examples[1])['T'].audit_info.size(), 1);
-  EXPECT_EQ((*examples[1])['T'].audit_info[0].feature_name, "a1");
-  EXPECT_EQ((*examples[1])['T'].audit_info[0].str_value, "f1");
-  EXPECT_EQ((*examples[2])['T'].audit_info.size(), 1);
-  EXPECT_EQ((*examples[2])['T'].audit_info[0].feature_name, "a2");
-  EXPECT_EQ((*examples[2])['T'].audit_info[0].str_value, "f2");
+  EXPECT_EQ((*examples[1])["TAction"].audit_info.size(), 1);
+  EXPECT_EQ((*examples[1])["TAction"].audit_info[0].feature_name, "a1");
+  EXPECT_EQ((*examples[1])["TAction"].audit_info[0].str_value, "f1");
+  EXPECT_EQ((*examples[2])["TAction"].audit_info.size(), 1);
+  EXPECT_EQ((*examples[2])["TAction"].audit_info[0].feature_name, "a2");
+  EXPECT_EQ((*examples[2])["TAction"].audit_info[0].str_value, "f2");
 
   // check ccb
 
@@ -749,16 +750,16 @@ TEST(ParseJson, DedupSlates)
   // check internals
 
   // check namespaces
-  EXPECT_EQ((*examples[1])['T'].audit_info[0].namespace_name, "TAction");
-  EXPECT_EQ((*examples[2])['T'].audit_info[0].namespace_name, "TAction");
+  EXPECT_EQ((*examples[1])["TAction"].audit_info[0].namespace_name, "TAction");
+  EXPECT_EQ((*examples[2])["TAction"].audit_info[0].namespace_name, "TAction");
 
   // check features
-  EXPECT_EQ((*examples[1])['T'].audit_info.size(), 1);
-  EXPECT_EQ((*examples[1])['T'].audit_info[0].feature_name, "a1");
-  EXPECT_EQ((*examples[1])['T'].audit_info[0].str_value, "f1");
-  EXPECT_EQ((*examples[2])['T'].audit_info.size(), 1);
-  EXPECT_EQ((*examples[2])['T'].audit_info[0].feature_name, "a2");
-  EXPECT_EQ((*examples[2])['T'].audit_info[0].str_value, "f2");
+  EXPECT_EQ((*examples[1])["TAction"].audit_info.size(), 1);
+  EXPECT_EQ((*examples[1])["TAction"].audit_info[0].feature_name, "a1");
+  EXPECT_EQ((*examples[1])["TAction"].audit_info[0].str_value, "f1");
+  EXPECT_EQ((*examples[2])["TAction"].audit_info.size(), 1);
+  EXPECT_EQ((*examples[2])["TAction"].audit_info[0].feature_name, "a2");
+  EXPECT_EQ((*examples[2])["TAction"].audit_info[0].str_value, "f2");
 
   // check slates
   EXPECT_EQ(examples[0]->l.slates.type, VW::slates::example_type::SHARED);
@@ -843,9 +844,10 @@ TEST(ParseJson, SimpleVerifyExtents)
     })";
 
   auto examples = vwtest::parse_json(*vw, json_text);
-  EXPECT_EQ((*examples[0])[' '].size(), 1);
-  EXPECT_EQ((*examples[0])['f'].size(), 5);
-  EXPECT_EQ((*examples[0])['n'].size(), 1);
+  EXPECT_EQ((*examples[0])[" "].size(), 1);
+  EXPECT_EQ((*examples[0])["features"].size(), 4);
+  EXPECT_EQ((*examples[0])["features2"].size(), 1);
+  EXPECT_EQ((*examples[0])["nested_object"].size(), 1);
 
   VW::finish_example(*vw, examples);
 }

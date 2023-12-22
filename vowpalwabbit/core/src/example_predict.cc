@@ -11,6 +11,8 @@
 
 #include <sstream>
 
+namespace VW
+{
 std::vector<namespace_index> VW::example_predict::namespaces() const
 {
   std::vector<namespace_index> result;
@@ -199,3 +201,5 @@ VW::scope_exit_guard VW::example_predict::stash_scale_offset()
         ft_index_offset = offset_copy;
       });
 }
+
+}  // namespace VW

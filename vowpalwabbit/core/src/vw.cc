@@ -748,23 +748,24 @@ void VW::setup_example(VW::workspace& all, VW::example* ae)
   ae->weight = all.parser_runtime.example_parser->lbl_parser.get_weight(ae->l, ae->ex_reduction_features);
 
   // Delete namespaces to be ignored
+  // Since delete_namespace() can invalidate iterators, we collect namespaces to be deleted first
+  std::vector<VW::namespace_index> ignored_namespaces;
   for (auto ns : *ae)
   {
     bool ns_in_ignore_set = all.feature_tweaks_config.ignore.find(ns) != all.feature_tweaks_config.ignore.end();
     // if (ns_in_ignore_set == true) and (invert_ignore_as_keep == false)
     // or (ns_in_ignore_set == false) and (invert_ignore_as_keep == true)
-    if (ns_in_ignore_set != all.feature_tweaks_config.invert_ignore_as_keep) { ae->delete_namespace(ns); }
+    if (ns_in_ignore_set != all.feature_tweaks_config.invert_ignore_as_keep) { ignored_namespaces.push_back(ns); }
   }
+  for (auto ns : ignored_namespaces) { ae->delete_namespace(ns); }
 
   if (all.feature_tweaks_config.skip_gram_transformer != nullptr)
   {
     all.feature_tweaks_config.skip_gram_transformer->generate_grams(ae);
   }
 
-  if (all.feature_tweaks_config.add_constant)
-  {  // add constant feature
-    VW::add_constant_feature(all, ae);
-  }
+  // Add constant feature
+  if (all.feature_tweaks_config.add_constant) { VW::add_constant_feature(all, ae); }
 
   if (!all.feature_tweaks_config.limit_strings.empty()) { feature_limit(all, ae); }
 

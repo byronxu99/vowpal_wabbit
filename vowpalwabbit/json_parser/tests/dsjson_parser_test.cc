@@ -2,6 +2,7 @@
 // individual contributors. All rights reserved. Released under a BSD (revised)
 // license as described in the file LICENSE.
 
+#include "vw/core/example_predict.h"
 #include "vw/core/reductions/conditional_contextual_bandit.h"
 #include "vw/test_common/matchers.h"
 #include "vw/test_common/test_common.h"
@@ -241,7 +242,7 @@ TEST(ParseDsjson, Cats)
   EXPECT_FLOAT_EQ(examples[0]->l.cb_cont.costs[0].cost, 0.657567);
   EXPECT_FLOAT_EQ(examples[0]->l.cb_cont.costs[0].action, 185.121);
 
-  auto& audit_info = (*examples[0])[' '].audit_info;
+  auto& audit_info = (*examples[0])[" "].audit_info;
   EXPECT_EQ(features.size(), audit_info.size());
   for (size_t i = 0; i < audit_info.size(); i++) { EXPECT_EQ(audit_info[i].feature_name, features[i]); }
 
@@ -277,7 +278,7 @@ TEST(ParseDsjson, CatsNoLabel)
   EXPECT_EQ(examples.size(), 1);
   EXPECT_EQ(examples[0]->l.cb_cont.costs.size(), 0);
 
-  auto& audit_info = (*examples[0])[' '].audit_info;
+  auto& audit_info = (*examples[0])[" "].audit_info;
   EXPECT_EQ(features.size(), audit_info.size());
   for (size_t i = 0; i < audit_info.size(); i++) { EXPECT_EQ(audit_info[i].feature_name, features[i]); }
 
@@ -328,7 +329,7 @@ TEST(ParseDsjson, CatsWValidPdf)
   EXPECT_FLOAT_EQ(reduction_features.pdf[1].right, 23959.);
   EXPECT_FLOAT_EQ(reduction_features.pdf[1].pdf_value, 6.20426e-05);
 
-  auto& audit_info = (*examples[0])[' '].audit_info;
+  auto& audit_info = (*examples[0])[" "].audit_info;
   EXPECT_EQ(features.size(), audit_info.size());
   for (size_t i = 0; i < audit_info.size(); i++) { EXPECT_EQ(audit_info[i].feature_name, features[i]); }
 
@@ -372,7 +373,7 @@ TEST(ParseDsjson, CatsWInvalidPdf)
   EXPECT_EQ(reduction_features.is_pdf_set(), false);
   EXPECT_EQ(reduction_features.is_chosen_action_set(), false);
 
-  auto& audit_info = (*examples[0])[' '].audit_info;
+  auto& audit_info = (*examples[0])[" "].audit_info;
   EXPECT_EQ(features.size(), audit_info.size());
   for (size_t i = 0; i < audit_info.size(); i++) { EXPECT_EQ(audit_info[i].feature_name, features[i]); }
 
@@ -416,7 +417,7 @@ TEST(ParseDsjson, CatsChosenAction)
   EXPECT_EQ(reduction_features.is_chosen_action_set(), true);
   EXPECT_FLOAT_EQ(reduction_features.chosen_action, 185.);
 
-  auto& audit_info = (*examples[0])[' '].audit_info;
+  auto& audit_info = (*examples[0])[" "].audit_info;
   EXPECT_EQ(features.size(), audit_info.size());
   for (size_t i = 0; i < audit_info.size(); i++) { EXPECT_EQ(audit_info[i].feature_name, features[i]); }
 
@@ -801,33 +802,34 @@ TEST(ParseDsjson, SlatesDomParser)
   auto slates_examples = vwtest::parse_dsjson(*slates_vw, json_text);
 
   EXPECT_EQ(slates_examples.size(), 1);
-  const auto& slates_ex = *slates_examples[0];
-  EXPECT_EQ(slates_ex[' '].indices.size(), 2);
-  EXPECT_EQ(slates_ex['a'].indices.size(), 1);
-  EXPECT_EQ(slates_ex['b'].indices.size(), 1);
-  EXPECT_EQ(slates_ex['c'].indices.size(), 1);
-  EXPECT_EQ(slates_ex['d'].indices.size(), 3);
-  EXPECT_EQ(slates_ex['3'].indices.size(), 0);
+  auto& slates_ex = *slates_examples[0];
+  EXPECT_EQ(slates_ex[" "].size(), 2);
+  EXPECT_EQ(slates_ex["aNamespace"].size(), 1);
+  EXPECT_EQ(slates_ex["bNamespace"].size(), 1);
+  EXPECT_EQ(slates_ex["cNamespace"].size(), 1);
+  EXPECT_EQ(slates_ex["dArray"].size(), 3);
+  EXPECT_EQ(slates_ex["eNamespace"].size(), 0);
+  EXPECT_EQ(slates_ex["3"].size(), 0);
 
   // Compare the DOM parser to parsing the same features with the CCB SAX parser
   auto ccb_vw =
       VW::initialize(vwtest::make_args("--ccb_explore_adf", "--dsjson", "--chain_hash", "--no_stdin", "--quiet"));
   auto ccb_examples = vwtest::parse_dsjson(*ccb_vw, json_text);
   EXPECT_EQ(ccb_examples.size(), 1);
-  const auto& ccb_ex = *ccb_examples[0];
-  EXPECT_THAT(slates_ex[' '].indices, ::testing::ElementsAreArray(ccb_ex[' '].indices));
-  EXPECT_THAT(slates_ex['a'].indices, ::testing::ElementsAreArray(ccb_ex['a'].indices));
-  EXPECT_THAT(slates_ex['b'].indices, ::testing::ElementsAreArray(ccb_ex['b'].indices));
-  EXPECT_THAT(slates_ex['c'].indices, ::testing::ElementsAreArray(ccb_ex['c'].indices));
-  EXPECT_THAT(slates_ex['d'].indices, ::testing::ElementsAreArray(ccb_ex['d'].indices));
-  EXPECT_THAT(slates_ex['e'].indices, ::testing::ElementsAreArray(ccb_ex['e'].indices));
+  auto& ccb_ex = *ccb_examples[0];
+  EXPECT_THAT(slates_ex[" "].indices, ::testing::ElementsAreArray(ccb_ex[" "].indices));
+  EXPECT_THAT(slates_ex["aNamespace"].indices, ::testing::ElementsAreArray(ccb_ex["aNamespace"].indices));
+  EXPECT_THAT(slates_ex["bNamespace"].indices, ::testing::ElementsAreArray(ccb_ex["bNamespace"].indices));
+  EXPECT_THAT(slates_ex["cNamespace"].indices, ::testing::ElementsAreArray(ccb_ex["cNamespace"].indices));
+  EXPECT_THAT(slates_ex["dArray"].indices, ::testing::ElementsAreArray(ccb_ex["dArray"].indices));
+  EXPECT_THAT(slates_ex["eNamespace"].indices, ::testing::ElementsAreArray(ccb_ex["eNamespace"].indices));
 
-  EXPECT_THAT(slates_ex[' '].values, ::testing::ElementsAreArray(ccb_ex[' '].values));
-  EXPECT_THAT(slates_ex['a'].values, ::testing::ElementsAreArray(ccb_ex['a'].values));
-  EXPECT_THAT(slates_ex['b'].values, ::testing::ElementsAreArray(ccb_ex['b'].values));
-  EXPECT_THAT(slates_ex['c'].values, ::testing::ElementsAreArray(ccb_ex['c'].values));
-  EXPECT_THAT(slates_ex['d'].values, ::testing::ElementsAreArray(ccb_ex['d'].values));
-  EXPECT_THAT(slates_ex['e'].values, ::testing::ElementsAreArray(ccb_ex['e'].values));
+  EXPECT_THAT(slates_ex[" "].values, ::testing::ElementsAreArray(ccb_ex[" "].values));
+  EXPECT_THAT(slates_ex["aNamespace"].values, ::testing::ElementsAreArray(ccb_ex["aNamespace"].values));
+  EXPECT_THAT(slates_ex["bNamespace"].values, ::testing::ElementsAreArray(ccb_ex["bNamespace"].values));
+  EXPECT_THAT(slates_ex["cNamespace"].values, ::testing::ElementsAreArray(ccb_ex["cNamespace"].values));
+  EXPECT_THAT(slates_ex["dArray"].values, ::testing::ElementsAreArray(ccb_ex["dArray"].values));
+  EXPECT_THAT(slates_ex["eNamespace"].values, ::testing::ElementsAreArray(ccb_ex["eNamespace"].values));
 
   VW::finish_example(*slates_vw, slates_examples);
   VW::finish_example(*ccb_vw, ccb_examples);
@@ -948,15 +950,15 @@ TEST(ParseDsjson, CbWithObservations)
   EXPECT_FLOAT_EQ(examples[0]->l.cb_with_observations.event.costs[0].cost, FLT_MAX);
   // Shared example namespace
   // Shared example features and values
-  EXPECT_EQ((*examples[0])['s'].indices.size(), 1);
-  EXPECT_EQ(
-      (*examples[0])['s'].indices[0], VW::hash_feature(*vw, "shared_feature", VW::hash_namespace(*vw, "shared_ns")));
-  EXPECT_EQ((*examples[0])['s'].values[0], 1);
+  EXPECT_EQ((*examples[0])["shared_ns"].size(), 1);
+  EXPECT_EQ((*examples[0])["shared_ns"].indices[0],
+      VW::hash_feature(*vw, "shared_feature", VW::hash_namespace(*vw, "shared_ns")));
+  EXPECT_EQ((*examples[0])["shared_ns"].values[0], 1);
 
-  EXPECT_EQ((*examples[0])['o'].indices.size(), 1);
-  EXPECT_EQ((*examples[0])['o'].indices[0],
+  EXPECT_EQ((*examples[0])["other_shared_ns"].size(), 1);
+  EXPECT_EQ((*examples[0])["other_shared_ns"].indices[0],
       VW::hash_feature(*vw, "another_shared_feature", VW::hash_namespace(*vw, "other_shared_ns")));
-  EXPECT_EQ((*examples[0])['o'].values[0], 2);
+  EXPECT_EQ((*examples[0])["other_shared_ns"].values[0], 2);
 
   // Action examples
   EXPECT_EQ(examples[1]->l.cb_with_observations.event.costs.size(), 0);
@@ -966,45 +968,47 @@ TEST(ParseDsjson, CbWithObservations)
   EXPECT_FLOAT_EQ(examples[2]->l.cb_with_observations.event.costs[0].cost, -1.0);  // cost is not used
   EXPECT_EQ(examples[3]->l.cb_with_observations.event.costs.size(), 0);
   // Compare action example namespace
-  EXPECT_EQ((*examples[1])['b'].indices.size(), 2);
-  EXPECT_EQ((*examples[1])['b'].indices[0], VW::hash_feature(*vw, "c_feature", VW::hash_namespace(*vw, "b_action")));
-  EXPECT_EQ((*examples[1])['b'].values[0], 1);
+  EXPECT_EQ((*examples[1])["b_action"].size(), 2);
   EXPECT_EQ(
-      (*examples[1])['b'].indices[1], VW::chain_hash(*vw, "d_feature", "strng", VW::hash_namespace(*vw, "b_action")));
-  EXPECT_EQ((*examples[1])['b'].values[1], 1);
+      (*examples[1])["b_action"].indices[0], VW::hash_feature(*vw, "c_feature", VW::hash_namespace(*vw, "b_action")));
+  EXPECT_EQ((*examples[1])["b_action"].values[0], 1);
+  EXPECT_EQ((*examples[1])["b_action"].indices[1],
+      VW::chain_hash(*vw, "d_feature", "strng", VW::hash_namespace(*vw, "b_action")));
+  EXPECT_EQ((*examples[1])["b_action"].values[1], 1);
 
-  EXPECT_EQ((*examples[1])['c'].indices.size(), 1);
-  EXPECT_EQ((*examples[1])['c'].indices[0],
+  EXPECT_EQ((*examples[1])["c_action"].size(), 1);
+  EXPECT_EQ((*examples[1])["c_action"].indices[0],
       VW::chain_hash(*vw, "e_feature", "some_value", VW::hash_namespace(*vw, "c_action")));
-  EXPECT_EQ((*examples[1])['c'].values[0], 1);
+  EXPECT_EQ((*examples[1])["c_action"].values[0], 1);
 
-  EXPECT_EQ((*examples[1])['f'].indices.size(), 1);
-  EXPECT_EQ((*examples[1])['f'].indices[0], VW::hash_feature(*vw, "g_feature", VW::hash_namespace(*vw, "f_ns")));
-  EXPECT_FLOAT_EQ((*examples[1])['f'].values[0], 0.994963765f);
+  EXPECT_EQ((*examples[1])["f_ns"].size(), 1);
+  EXPECT_EQ((*examples[1])["f_ns"].indices[0], VW::hash_feature(*vw, "g_feature", VW::hash_namespace(*vw, "f_ns")));
+  EXPECT_FLOAT_EQ((*examples[1])["f_ns"].values[0], 0.994963765f);
 
-  EXPECT_EQ((*examples[2])['d'].indices.size(), 1);
+  EXPECT_EQ((*examples[2])["d_action"].size(), 1);
+  EXPECT_EQ((*examples[2])["d_action"].indices[0],
+      VW::chain_hash(*vw, "i_feature", "strng", VW::hash_namespace(*vw, "d_action")));
+  EXPECT_EQ((*examples[2])["d_action"].values[0], 1);
+
+  EXPECT_EQ((*examples[3])["e_action"].size(), 2);
+  EXPECT_EQ((*examples[3])["e_action"].indices[0], VW::hash_feature(*vw, "f1", VW::hash_namespace(*vw, "e_action")));
+  EXPECT_EQ((*examples[3])["e_action"].values[0], 1);
   EXPECT_EQ(
-      (*examples[2])['d'].indices[0], VW::chain_hash(*vw, "i_feature", "strng", VW::hash_namespace(*vw, "d_action")));
-  EXPECT_EQ((*examples[2])['d'].values[0], 1);
-
-  EXPECT_EQ((*examples[3])['e'].indices.size(), 2);
-  EXPECT_EQ((*examples[3])['e'].indices[0], VW::hash_feature(*vw, "f1", VW::hash_namespace(*vw, "e_action")));
-  EXPECT_EQ((*examples[3])['e'].values[0], 1);
-  EXPECT_EQ((*examples[3])['e'].indices[1], VW::chain_hash(*vw, "f2", "strng", VW::hash_namespace(*vw, "e_action")));
-  EXPECT_EQ((*examples[3])['e'].values[0], 1);
+      (*examples[3])["e_action"].indices[1], VW::chain_hash(*vw, "f2", "strng", VW::hash_namespace(*vw, "e_action")));
+  EXPECT_EQ((*examples[3])["e_action"].values[0], 1);
 
   // Observation examples
   EXPECT_EQ(examples[4]->l.cb_with_observations.event.costs.size(), 0);
 
   // Compare observation example namespace
-  EXPECT_EQ((*examples[4])[' '].indices.size(), 2);  // TODO: should remove EventID and ActionTaken
-  EXPECT_EQ((*examples[4])[' '].indices[0], VW::hash_feature(*vw, "v", VW::hash_namespace(*vw, " ")));
-  EXPECT_EQ((*examples[4])[' '].values[0], 1);
+  EXPECT_EQ((*examples[4])[" "].size(), 2);  // TODO: should remove EventID and ActionTaken
+  EXPECT_EQ((*examples[4])[" "].indices[0], VW::hash_feature(*vw, "v", VW::hash_namespace(*vw, " ")));
+  EXPECT_EQ((*examples[4])[" "].values[0], 1);
 
-  EXPECT_EQ((*examples[4])['o'].indices.size(), 1);
-  EXPECT_EQ((*examples[4])['o'].indices[0],
+  EXPECT_EQ((*examples[4])["observation_ns"].size(), 1);
+  EXPECT_EQ((*examples[4])["observation_ns"].indices[0],
       VW::chain_hash(*vw, "observation_feature", "x", VW::hash_namespace(*vw, "observation_ns")));
-  EXPECT_EQ((*examples[4])['o'].indices.size(), 1);
+  EXPECT_EQ((*examples[4])["observation_ns"].size(), 1);
 
   VW::finish_example(*vw, examples);
 }

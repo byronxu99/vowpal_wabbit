@@ -106,24 +106,23 @@ constexpr inline VW::feature_index feature_to_weight_index(
 // #define GEN_INTER_LOOP
 
 // These functions are only called after we have verified that all namespaces exist in the feature groups
-// Use const_cast to remove const-ness of feature_groups so we can use operator[]
-// If a namespace didn't exist, operator[] will create it and thus modify the feature group
+// Therefore feature_groups.at(ns) should never throw an exception
 std::tuple<VW::details::features_range_t, VW::details::features_range_t> inline generate_quadratic_char_combination(
     const VW::feature_groups_type& feature_groups, VW::namespace_index ns_idx1, VW::namespace_index ns_idx2)
 {
-  const auto& ft1 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx1];
-  const auto& ft2 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx2];
+  const auto& ft1 = feature_groups.at(ns_idx1);
+  const auto& ft2 = feature_groups.at(ns_idx2);
   return {std::make_tuple(
-      std::make_pair(ft1.audit_begin(), ft2.audit_end()), std::make_pair(ft2.audit_begin(), ft2.audit_end()))};
+      std::make_pair(ft1.audit_begin(), ft1.audit_end()), std::make_pair(ft2.audit_begin(), ft2.audit_end()))};
 }
 
 std::tuple<VW::details::features_range_t, VW::details::features_range_t,
     VW::details::features_range_t> inline generate_cubic_char_combination(const VW::feature_groups_type& feature_groups,
     VW::namespace_index ns_idx1, VW::namespace_index ns_idx2, VW::namespace_index ns_idx3)
 {
-  const auto& ft1 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx1];
-  const auto& ft2 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx2];
-  const auto& ft3 = const_cast<VW::feature_groups_type&>(feature_groups)[ns_idx3];
+  const auto& ft1 = feature_groups.at(ns_idx1);
+  const auto& ft2 = feature_groups.at(ns_idx2);
+  const auto& ft3 = feature_groups.at(ns_idx3);
   return {std::make_tuple(std::make_pair(ft1.audit_begin(), ft1.audit_end()),
       std::make_pair(ft2.audit_begin(), ft2.audit_end()), std::make_pair(ft3.audit_begin(), ft3.audit_end()))};
 }
@@ -135,7 +134,7 @@ std::vector<VW::details::features_range_t> inline generate_generic_char_combinat
   inter.reserve(terms.size());
   for (const auto& term : terms)
   {
-    const auto& fts = const_cast<VW::feature_groups_type&>(feature_groups)[term];
+    const auto& fts = feature_groups.at(term);
     inter.emplace_back(fts.audit_begin(), fts.audit_end());
   }
   return inter;

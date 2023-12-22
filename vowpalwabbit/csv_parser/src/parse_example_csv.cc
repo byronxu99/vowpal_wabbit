@@ -219,7 +219,7 @@ private:
       }
       else
       {
-        bool is_int = VW::details::is_string_integer(feature_name);
+        bool is_int = !feature_name.empty() && VW::details::is_string_integer(feature_name);
         _parser->feature_name_is_int.push_back(is_int);
         if (is_int) { _parser->header_feature_names_int.push_back(std::strtoll(feature_name.data(), nullptr, 10)); }
         else { _parser->header_feature_names_int.push_back(0); }

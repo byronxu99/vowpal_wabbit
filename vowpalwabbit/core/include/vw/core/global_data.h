@@ -107,12 +107,13 @@ public:
 class feature_tweaks_config
 {
 public:
-  bool add_constant;
+  bool add_constant = true;
   float initial_constant;
-  bool permutations;  // if true - permutations of features generated instead of simple combinations. false by default
+  bool permutations =
+      false;  // if true - permutations of features generated instead of simple combinations. false by default
   // Referenced by examples as their set of interactions. Can be overriden by learners.
   VW::interaction_spec_type interactions;
-  bool invert_ignore_as_keep;  // if true - ignore all namespaces except those in ignore set. false by default
+  bool invert_ignore_as_keep = false;  // if true - ignore all namespaces except those in ignore set. false by default
   std::unordered_set<VW::namespace_index> ignore;         // a set of namespaces to ignore
   std::unordered_set<VW::namespace_index> ignore_linear;  // a set of namespaces to ignore for linear
   std::unordered_map<std::string, std::set<std::string>>
