@@ -69,28 +69,29 @@ void truncate(VW::workspace& all, T& weights)
       });
 }
 
-template <class T>
-void initialize_regressor(VW::workspace& all, T& weights)
+template <class WeightsT>
+void initialize_regressor(VW::workspace& all, WeightsT& weights)
 {
   // Regressor is already initialized.
   if (weights.not_null()) { return; }
 
-  size_t length = (static_cast<size_t>(1)) << all.initial_weights_config.num_bits;
   try
   {
-    uint32_t ss = weights.stride_shift();
-    weights.~T();  // dealloc so that we can realloc, now with a known size
-    new (&weights) T(length, ss);
+    weights.~WeightsT();  // dealloc so that we can realloc, now with a known size
+    new (&weights) WeightsT(all.initial_weights_config.feature_hash_bits, all.initial_weights_config.feature_width_bits,
+        weights.stride_shift());
   }
   catch (const VW::vw_exception&)
   {
-    THROW(" Failed to allocate weight array with " << all.initial_weights_config.num_bits
-                                                   << " bits: try decreasing -b <bits>");
+    THROW(" Failed to allocate weight array with " << all.initial_weights_config.feature_hash_bits << " hash bits and "
+                                                   << all.initial_weights_config.feature_width_bits
+                                                   << " feature width bits: try decreasing -b <bits>");
   }
-  if (weights.mask() == 0)
+  if (!weights.not_null())
   {
-    THROW(" Failed to allocate weight array with " << all.initial_weights_config.num_bits
-                                                   << " bits: try decreasing -b <bits>");
+    THROW(" Failed to allocate weight array with " << all.initial_weights_config.feature_hash_bits << " hash bits and "
+                                                   << all.initial_weights_config.feature_width_bits
+                                                   << " feature width bits: try decreasing -b <bits>");
   }
   else if (all.initial_weights_config.initial_weight != 0.)
   {
@@ -186,23 +187,23 @@ void VW::details::save_load_header(VW::workspace& all, VW::io_buf& model_file, b
     bytes_read_write += VW::details::bin_text_read_write_fixed_validated(
         model_file, reinterpret_cast<char*>(&all.sd->max_label), sizeof(all.sd->max_label), read, msg, text);
 
-    msg << "bits:" << all.initial_weights_config.num_bits << "\n";
-    uint32_t local_num_bits = all.initial_weights_config.num_bits;
+    msg << "bits:" << all.initial_weights_config.feature_hash_bits << "\n";
+    uint32_t local_hash_bits = all.initial_weights_config.feature_hash_bits;
     bytes_read_write += VW::details::bin_text_read_write_fixed_validated(
-        model_file, reinterpret_cast<char*>(&local_num_bits), sizeof(local_num_bits), read, msg, text);
+        model_file, reinterpret_cast<char*>(&local_hash_bits), sizeof(local_hash_bits), read, msg, text);
 
     if (read && !options.was_supplied("bit_precision"))
     {
       file_options += " --bit_precision";
       std::stringstream temp;
-      temp << local_num_bits;
+      temp << local_hash_bits;
       file_options += " " + temp.str();
     }
 
-    VW::validate_default_bits(all, local_num_bits);
+    VW::validate_default_bits(all, local_hash_bits);
 
     all.runtime_config.default_bits = false;
-    all.initial_weights_config.num_bits = local_num_bits;
+    all.initial_weights_config.feature_hash_bits = local_hash_bits;
 
     VW::validate_num_bits(all);
 

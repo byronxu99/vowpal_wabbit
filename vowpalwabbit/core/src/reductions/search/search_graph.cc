@@ -75,12 +75,6 @@ public:
   bool separate_learners;
   bool directed;
 
-  // for adding new features
-  uint64_t mask;        // all->reg.weight_mask
-  uint64_t multiplier;  // all.reduction_state.total_feature_width << all.stride_shift
-  size_t ss;            // stride_shift
-  size_t total_feature_width;
-
   // per-example data
   uint32_t N;                               // NOLINT number of nodes
   uint32_t E;                               // NOLINT number of edges
@@ -188,10 +182,6 @@ void run_bfs(task_data& D, VW::multi_ex& ec)
 void setup(Search::search& sch, VW::multi_ex& ec)
 {
   task_data& D = *sch.get_task_data<task_data>();  // NOLINT
-  D.multiplier = D.total_feature_width << D.ss;
-  D.total_feature_width = sch.get_vw_pointer_unsafe().reduction_state.total_feature_width;
-  D.mask = sch.get_vw_pointer_unsafe().weights.mask();
-  D.ss = sch.get_vw_pointer_unsafe().weights.stride_shift();
   D.N = 0;
   D.E = 0;
   for (size_t i = 0; i < ec.size(); i++)
@@ -249,23 +239,21 @@ void takedown(Search::search& sch, VW::multi_ex& /*ec*/)
 
 void add_edge_features_group_fn(task_data& D, float fv, uint64_t fx)
 {
-  VW::example* node = D.cur_node;
-  uint64_t fx2 = fx / D.multiplier;
+  VW::example& node = *D.cur_node;
   for (size_t k = 0; k < D.numN; k++)
   {
     if (D.neighbor_predictions[k] == 0.) { continue; }
-    node->feature_space[VW::details::NEIGHBOR_NAMESPACE].push_back(
-        fv * D.neighbor_predictions[k], static_cast<uint64_t>((fx2 + 348919043 * k) * D.multiplier) & D.mask);
+    node[VW::details::NEIGHBOR_NAMESPACE].add_feature_raw(
+        static_cast<uint64_t>(fx + 348919043 * k), fv * D.neighbor_predictions[k]);
   }
 }
 
 void add_edge_features_single_fn(task_data& D, float fv, uint64_t fx)
 {
-  VW::example* node = D.cur_node;
-  auto& fs = node->feature_space[VW::details::NEIGHBOR_NAMESPACE];
-  uint64_t fx2 = fx / D.multiplier;
+  VW::example& node = *D.cur_node;
+  auto& fs = node[VW::details::NEIGHBOR_NAMESPACE];
   size_t k = static_cast<size_t>(D.neighbor_predictions[0]);
-  fs.push_back(fv, static_cast<uint32_t>((fx2 + 348919043 * k) * D.multiplier) & D.mask);
+  fs.add_feature_raw(static_cast<uint32_t>(fx + 348919043 * k), fv);
 }
 
 void add_edge_features(Search::search& sch, task_data& D, size_t n, VW::multi_ex& ec)
@@ -334,30 +322,27 @@ void add_edge_features(Search::search& sch, task_data& D, size_t n, VW::multi_ex
       VW::foreach_feature<task_data, uint64_t, add_edge_features_group_fn>(sch.get_vw_pointer_unsafe(), edge, D);
     }
   }
-  ec[n]->indices.push_back(VW::details::NEIGHBOR_NAMESPACE);
-  ec[n]->reset_total_sum_feat_sq();
-  ec[n]->num_features += ec[n]->feature_space[VW::details::NEIGHBOR_NAMESPACE].size();
+
+  VW::example& ecn = *ec[n];
+  ecn.reset_total_sum_feat_sq();
+  ecn.num_features += ecn[VW::details::NEIGHBOR_NAMESPACE].size();
 
   VW::workspace& all = sch.get_vw_pointer_unsafe();
   for (const auto& i : all.feature_tweaks_config.interactions)
   {
     if (i.size() != 2) { continue; }
-    int i0 = static_cast<int>(i[0]);
-    int i1 = static_cast<int>(i[1]);
-    if ((i0 == static_cast<int>(VW::details::NEIGHBOR_NAMESPACE)) ||
-        (i1 == static_cast<int>(VW::details::NEIGHBOR_NAMESPACE)))
+    if (i[0] == VW::details::NEIGHBOR_NAMESPACE || i[1] == VW::details::NEIGHBOR_NAMESPACE)
     {
-      ec[n]->num_features += ec[n]->feature_space[i0].size() * ec[n]->feature_space[i1].size();
+      ecn.num_features += ecn[i[0]].size() * ecn[i[1]].size();
     }
   }
 }
 
 void del_edge_features(task_data& /*D*/, uint32_t n, VW::multi_ex& ec)
 {
-  ec[n]->indices.pop_back();
-  auto& fs = ec[n]->feature_space[VW::details::NEIGHBOR_NAMESPACE];
+  auto& fs = (*ec[n])[VW::details::NEIGHBOR_NAMESPACE];
   ec[n]->num_features -= fs.size();
-  fs.clear();
+  ec[n]->delete_namespace(VW::details::NEIGHBOR_NAMESPACE);
 }
 
 #define IDX(i, j) ((i) * (D.K + 1) + j)

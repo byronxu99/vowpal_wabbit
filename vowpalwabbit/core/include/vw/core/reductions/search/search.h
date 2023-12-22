@@ -12,12 +12,12 @@
 //       (going to clog [which in turn goes to err, with some differences])
 //       We may want to create/use some macro-based loggers (which will wrap the spdlog ones)
 //       to mimic this behavior.
-#define cdbg std::clog
-#undef cdbg
-#define cdbg \
-  if (1) {}  \
-  else       \
-    std::clog
+#  define cdbg std::clog
+#  undef cdbg
+#  define cdbg \
+    if (1) {}  \
+    else       \
+      std::clog
 // comment the previous two lines if you want loads of debug output :)
 
 using action = uint32_t;
@@ -98,9 +98,9 @@ public:  // INTERFACE
 
   // for managing metatask-specific data
   template <class T>
-  void set_metatask_data(T* data)
+  void set_metatask_data(std::shared_ptr<T> data)
   {
-    metatask_data = std::shared_ptr<T>(data);
+    metatask_data = std::move(data);
   }
   template <class T>
   T* get_metatask_data()
@@ -218,7 +218,7 @@ public:  // INTERFACE
   BaseTask base_task(VW::multi_ex& ec) { return BaseTask(this, ec); }
 
   // internal data that you don't get to see!
-  search_private* priv = nullptr;
+  std::shared_ptr<search_private> priv = nullptr;
   std::shared_ptr<void> task_data = nullptr;      // your task data!
   std::shared_ptr<void> metatask_data = nullptr;  // your metatask data!
   const char* task_name = nullptr;
@@ -228,7 +228,6 @@ public:  // INTERFACE
                                            // vw data structure :(
   void set_force_oracle(bool force);       // if the library wants to force search to use the oracle, set this to true
   search();
-  ~search();
 };
 
 // for defining new tasks, you must fill out a search_task

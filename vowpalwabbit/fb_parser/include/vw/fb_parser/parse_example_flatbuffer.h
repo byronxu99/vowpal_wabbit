@@ -33,15 +33,14 @@ private:
   uint32_t _multi_ex_index = 0;
   bool _active_multi_ex = false;
   const VW::parsers::flatbuffer::MultiExample* _multi_example_object = nullptr;
-  uint32_t _labeled_action = 0;
-  uint64_t _c_hash = 0;
 
   bool parse(io_buf& buf, uint8_t* buffer_pointer = nullptr);
   void process_collection_item(VW::workspace* all, VW::multi_ex& examples);
   void parse_example(VW::workspace* all, example* ae, const Example* eg);
   void parse_multi_example(VW::workspace* all, example* ae, const MultiExample* eg);
   void parse_namespaces(VW::workspace* all, example* ae, const Namespace* ns);
-  void parse_features(VW::workspace* all, features& fs, const Feature* feature, const flatbuffers::String* ns);
+  void parse_features(
+      VW::workspace* all, features& fs, const Feature* feature, const flatbuffers::String* ns_name, bool audit);
   void parse_flat_label(shared_data* sd, example* ae, const Example* eg, VW::io::logger& logger);
 
   void parse_simple_label(shared_data* sd, polylabel* l, reduction_features* red_features, const SimpleLabel* label);

@@ -41,41 +41,46 @@ void mf_print_offset_features(gdmf& d, VW::example& ec, size_t offset)
   // TODO: Where should audit stuff output to?
   VW::workspace& all = *d.all;
   auto& weights = all.weights;
-  uint64_t mask = weights.mask();
-  for (VW::features& fs : ec)
+  uint64_t mask = weights.weight_mask();
+  for (auto ns : ec)
   {
-    bool audit = !fs.space_names.empty();
+    auto& fs = ec[ns];
+    bool audit = !fs.audit_info.empty();
     for (const auto& f : fs.audit_range())
     {
       std::cout << '\t';
       if (audit) { std::cout << VW::to_string(*f.audit()) << ':'; }
       std::cout << f.index() << "(" << ((f.index() + offset) & mask) << ")" << ':' << f.value();
-      std::cout << ':' << (&weights[f.index()])[offset];
+      std::cout << ':' << weights[VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, offset)];
     }
   }
   for (const auto& i : all.feature_tweaks_config.interactions)
   {
     if (i.size() != 2) THROW("can only use pairs in matrix factorization");
 
-    if (ec.feature_space[static_cast<unsigned char>(i[0])].size() > 0 &&
-        ec.feature_space[static_cast<unsigned char>(i[1])].size() > 0)
+    if (ec[i[0]].size() > 0 && ec[i[1]].size() > 0)
     {
       /* print out nsk^feature:hash:value:weight:nsk^feature^:hash:value:weight:prod_weights */
       for (size_t k = 1; k <= d.rank; k++)
       {
-        for (const auto& f1 : ec.feature_space[static_cast<unsigned char>(i[0])].audit_range())
+        for (const auto& f1 : ec[i[0]].audit_range())
         {
-          for (const auto& f2 : ec.feature_space[static_cast<unsigned char>(i[1])].audit_range())
+          for (const auto& f2 : ec[i[1]].audit_range())
           {
             std::cout << '\t' << VW::to_string(*f1.audit()) << ':' << ((f1.index() + k) & mask) << "("
                       << ((f1.index() + offset + k) & mask) << ")" << ':' << f1.value();
-            std::cout << ':' << (&weights[f1.index()])[offset + k];
+            std::cout << ':'
+                      << weights[VW::details::feature_to_weight_index(f1.index(), ec.ft_index_scale, offset + k)];
 
             std::cout << ':' << VW::to_string(*f2.audit()) << ':' << ((f2.index() + k + d.rank) & mask) << "("
                       << ((f2.index() + offset + k + d.rank) & mask) << ")" << ':' << f2.value();
-            std::cout << ':' << (&weights[f2.index()])[offset + k + d.rank];
+            std::cout
+                << ':'
+                << weights[VW::details::feature_to_weight_index(f2.index(), ec.ft_index_scale, offset + k + d.rank)];
 
-            std::cout << ':' << (&weights[f1.index()])[offset + k] * (&weights[f2.index()])[offset + k + d.rank];
+            std::cout << ':'
+                      << weights[VW::details::feature_to_weight_index(f1.index(), ec.ft_index_scale, offset + k)] *
+                    weights[VW::details::feature_to_weight_index(f2.index(), ec.ft_index_scale, offset + k + d.rank)];
           }
         }
       }
@@ -111,11 +116,10 @@ float mf_predict(gdmf& d, VW::example& ec, T& weights)
   for (const auto& i : d.all->feature_tweaks_config.interactions)
   {
     if (i.size() != 2) THROW("can only use pairs in matrix factorization");
-    const auto interacted_count =
-        ec.feature_space[static_cast<int>(i[0])].size() * ec.feature_space[static_cast<int>(i[1])].size();
+    const auto interacted_count = ec[i[0]].size() * ec[i[1]].size();
     ec.num_features -= interacted_count;
-    ec.num_features += ec.feature_space[static_cast<int>(i[0])].size() * d.rank;
-    ec.num_features += ec.feature_space[static_cast<int>(i[1])].size() * d.rank;
+    ec.num_features += ec[i[0]].size() * d.rank;
+    ec.num_features += ec[i[1]].size() * d.rank;
     ec.num_features_from_interactions += interacted_count;
   }
 
@@ -125,7 +129,11 @@ float mf_predict(gdmf& d, VW::example& ec, T& weights)
   float linear_prediction = 0.;
   // linear terms
 
-  for (VW::features& fs : ec) { VW::foreach_feature<float, VW::details::vec_add, T>(weights, fs, linear_prediction); }
+  for (auto ns : ec)
+  {
+    // Offset to foreach_feature() function should be 0 for linear terms
+    VW::foreach_feature<float, VW::details::vec_add, T>(weights, ec[ns], linear_prediction, ec.ft_index_scale, 0);
+  }
 
   // store constant + linear prediction
   // note: constant is now automatically added
@@ -137,7 +145,7 @@ float mf_predict(gdmf& d, VW::example& ec, T& weights)
   {
     // The check for non-pair interactions is done in the previous loop
 
-    if (ec.feature_space[static_cast<int>(i[0])].size() > 0 && ec.feature_space[static_cast<int>(i[1])].size() > 0)
+    if (ec[i[0]].size() > 0 && ec[i[1]].size() > 0)
     {
       for (uint64_t k = 1; k <= d.rank; k++)
       {
@@ -145,13 +153,16 @@ float mf_predict(gdmf& d, VW::example& ec, T& weights)
         // l^k is from index+1 to index+d.rank
         // float x_dot_l = sd_offset_add(weights, ec.atomics[(int)(*i)[0]].begin(), ec.atomics[(int)(*i)[0]].end(), k);
         pred_offset x_dot_l = {0., k};
-        VW::foreach_feature<pred_offset, offset_add, T>(weights, ec.feature_space[static_cast<int>(i[0])], x_dot_l);
+        // Offset to foreach_feature() function should be 0 because it is specified in pred_offset instead
+        VW::foreach_feature<pred_offset, offset_add, T>(weights, ec[i[0]], x_dot_l, ec.ft_index_scale, 0);
+
         // x_r * r^k
         // r^k is from index+d.rank+1 to index+2*d.rank
         // float x_dot_r = sd_offset_add(weights, ec.atomics[(int)(*i)[1]].begin(), ec.atomics[(int)(*i)[1]].end(),
         // k+d.rank);
         pred_offset x_dot_r = {0., k + d.rank};
-        VW::foreach_feature<pred_offset, offset_add, T>(weights, ec.feature_space[static_cast<int>(i[1])], x_dot_r);
+        // Offset to foreach_feature() function should be 0 because it is specified in pred_offset instead
+        VW::foreach_feature<pred_offset, offset_add, T>(weights, ec[i[1]], x_dot_r, ec.ft_index_scale, 0);
 
         prediction += x_dot_l.p * x_dot_r.p;
 
@@ -188,11 +199,12 @@ float mf_predict(gdmf& d, VW::example& ec)
 }
 
 template <class T>
-void sd_offset_update(T& weights, VW::features& fs, uint64_t offset, float update, float regularization)
+void sd_offset_update(T& weights, VW::features& fs, uint64_t scale, uint64_t offset, float update, float regularization)
 {
   for (size_t i = 0; i < fs.size(); i++)
   {
-    (&weights[fs.indices[i]])[offset] += update * fs.values[i] - regularization * (&weights[fs.indices[i]])[offset];
+    auto weight_index = VW::details::feature_to_weight_index(fs.indices[i], scale, offset);
+    weights[weight_index] += update * fs.values[i] - regularization * weights[weight_index];
   }
 }
 
@@ -211,14 +223,14 @@ void mf_train(gdmf& d, VW::example& ec, T& weights)
   float regularization = eta_t * all.loss_config.l2_lambda;
 
   // linear update
-  for (VW::features& fs : ec) { sd_offset_update<T>(weights, fs, 0, update, regularization); }
+  for (auto ns : ec) { sd_offset_update<T>(weights, ec[ns], ec.ft_index_scale, 0, update, regularization); }
 
   // quadratic update
   for (const auto& i : all.feature_tweaks_config.interactions)
   {
     if (i.size() != 2) THROW("can only use pairs in matrix factorization");
 
-    if (ec.feature_space[static_cast<int>(i[0])].size() > 0 && ec.feature_space[static_cast<int>(i[1])].size() > 0)
+    if (ec[i[0]].size() > 0 && ec[i[1]].size() > 0)
     {
       // update l^k weights
       for (size_t k = 1; k <= d.rank; k++)
@@ -226,7 +238,7 @@ void mf_train(gdmf& d, VW::example& ec, T& weights)
         // r^k \cdot x_r
         float r_dot_x = d.scalars[2 * k];
         // l^k <- l^k + update * (r^k \cdot x_r) * x_l
-        sd_offset_update<T>(weights, ec.feature_space[static_cast<int>(i[0])], k, update * r_dot_x, regularization);
+        sd_offset_update<T>(weights, ec[i[0]], ec.ft_index_scale, k, update * r_dot_x, regularization);
       }
       // update r^k weights
       for (size_t k = 1; k <= d.rank; k++)
@@ -234,8 +246,7 @@ void mf_train(gdmf& d, VW::example& ec, T& weights)
         // l^k \cdot x_l
         float l_dot_x = d.scalars[2 * k - 1];
         // r^k <- r^k + update * (l^k \cdot x_l) * x_r
-        sd_offset_update<T>(
-            weights, ec.feature_space[static_cast<int>(i[1])], k + d.rank, update * l_dot_x, regularization);
+        sd_offset_update<T>(weights, ec[i[1]], ec.ft_index_scale, k + d.rank, update * l_dot_x, regularization);
       }
     }
   }
@@ -259,7 +270,8 @@ void initialize_weights(VW::weight* weights, uint64_t index, uint32_t stride)
 void save_load(gdmf& d, VW::io_buf& model_file, bool read, bool text)
 {
   VW::workspace& all = *d.all;
-  uint64_t length = static_cast<uint64_t>(1) << all.initial_weights_config.num_bits;
+  uint64_t length = static_cast<uint64_t>(1)
+      << (all.initial_weights_config.feature_hash_bits + all.initial_weights_config.feature_width_bits);
   if (read)
   {
     VW::details::initialize_regressor(all);

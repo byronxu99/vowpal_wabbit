@@ -27,28 +27,30 @@ void validate_min_max_label(VW::workspace& all)
 
 void validate_default_bits(VW::workspace& all, uint32_t local_num_bits)
 {
-  if (all.runtime_config.default_bits != true && all.initial_weights_config.num_bits != local_num_bits)
-    THROW("-b bits mismatch: command-line " << all.initial_weights_config.num_bits << " != " << local_num_bits
+  if (all.runtime_config.default_bits != true && all.initial_weights_config.feature_hash_bits != local_num_bits)
+    THROW("-b bits mismatch: command-line " << all.initial_weights_config.feature_hash_bits << " != " << local_num_bits
                                             << " stored in model");
 }
 
 void validate_num_bits(VW::workspace& all)
 {
-  if (all.initial_weights_config.num_bits > sizeof(size_t) * 8 - 3)
+  const size_t max_num_bits = sizeof(size_t) * 8 - 3;
+  const size_t total_num_bits =
+      all.initial_weights_config.feature_hash_bits + all.initial_weights_config.feature_width_bits;
+  if (total_num_bits > max_num_bits)
   {
     if (all.weights.sparse)
     {
-      if (all.weights.sparse)
-      {
-        all.logger.err_warn(
-            "Bit size is {}. While this is allowed for sparse weights, it may cause an overflow and is strongly "
-            "recommended to use a smaller value.",
-            all.initial_weights_config.num_bits);
-      }
+      all.logger.err_warn(
+          "Bit size is {}. While this is allowed for sparse weights, it may cause an overflow and is strongly "
+          "recommended to use a smaller value.",
+          total_num_bits);
     }
     else
     {
-      THROW("Only " << sizeof(size_t) * 8 - 3 << " or fewer bits allowed.  If this is a serious limit, speak up.");
+      THROW("Total model bit size is " << total_num_bits << ", but maximum of " << max_num_bits
+                                       << " or fewer bits allowed when using dense weights. Try decreasing hash bits "
+                                          "with the '-b <bits>' option. If this is a serious limit, speak up.");
     }
   }
 }

@@ -5,6 +5,7 @@
 
 #include "vw/common/future_compat.h"
 
+#include <functional>
 #include <utility>
 
 // While it is a general concept this specific implementation of scope based cleanup was inspired by
@@ -18,6 +19,7 @@ template <typename TScopeExitLambda>
 class scope_exit_caller
 {
 public:
+  scope_exit_caller() noexcept : _will_call(false){};
   explicit scope_exit_caller(TScopeExitLambda&& lambda) noexcept : _scope_exit_lambda(std::move(lambda))
   {
     static_assert(std::is_same<decltype(lambda()), void>::value, "scope_exit lambdas cannot have a return value.");
@@ -25,7 +27,14 @@ public:
 
   scope_exit_caller(const scope_exit_caller&) = delete;
   scope_exit_caller& operator=(const scope_exit_caller&) = delete;
-  scope_exit_caller& operator=(scope_exit_caller&& other) = delete;
+  scope_exit_caller& operator=(scope_exit_caller&& other)
+  {
+    call();
+    _will_call = other._will_call;
+    _scope_exit_lambda = std::move(other._scope_exit_lambda);
+    other._will_call = false;
+    return *this;
+  }
 
   scope_exit_caller(scope_exit_caller&& other) noexcept
       : _will_call(other._will_call), _scope_exit_lambda(std::move(other._scope_exit_lambda))
@@ -69,5 +78,7 @@ inline details::scope_exit_caller<TScopeExitLambda> scope_exit(TScopeExitLambda&
 {
   return details::scope_exit_caller<TScopeExitLambda>(std::forward<TScopeExitLambda>(lambda));
 }
+
+using scope_exit_guard = details::scope_exit_caller<std::function<void()>>;
 
 }  // namespace VW

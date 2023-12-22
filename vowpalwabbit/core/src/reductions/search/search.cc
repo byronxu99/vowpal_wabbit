@@ -178,6 +178,7 @@ public:
   VW::workspace* all = nullptr;
   std::shared_ptr<VW::rand_state> random_state;
 
+  uint64_t scale = 1;
   uint64_t offset = 0;
   bool auto_condition_features = false;  // do you want us to automatically add conditioning features?
   bool auto_hamming_loss = false;        // if you're just optimizing hamming loss, we can do it for you!
@@ -189,7 +190,7 @@ public:
   auto_condition_settings acset;           // settings for auto-conditioning
   size_t history_length = 0;               // value of --search_history_length, used by some tasks, default 1
 
-  size_t A = 0;             // NOLINT total number of actions, [1..A]; 0 means ldf
+  size_t A = 0;              // NOLINT total number of actions, [1..A]; 0 means ldf
   size_t feature_width = 0;  // total number of learners;
   bool cb_learner = false;  // do contextual bandit learning on action (was "! rollout_all_actions" which was confusing)
   search_state state;       // current state of learning
@@ -330,20 +331,7 @@ void clear_memo_foreach_action(search_private& priv)
   priv.memo_foreach_action.clear();
 }
 
-search::search()
-{
-  priv = &VW::details::calloc_or_throw<search_private>();
-  new (priv) search_private();
-}
-
-search::~search()
-{
-  if (this->priv)
-  {
-    this->priv->~search_private();
-    free(this->priv);
-  }
-}
+search::search() { priv = std::make_shared<search_private>(); }
 
 std::string audit_feature_space("conditional");
 uint64_t conditional_constant = 8290743;
@@ -583,44 +571,32 @@ void print_update_search(VW::workspace& all, VW::shared_data& /* sd */, const se
 
 void add_new_feature(search_private& priv, float val, uint64_t idx)
 {
-  uint64_t mask = priv.all->weights.mask();
-  size_t ss = priv.all->weights.stride_shift();
-
-  uint64_t idx2 = ((idx & mask) >> ss) & mask;
-  auto& fs = priv.dat_new_feature_ec->feature_space[priv.dat_new_feature_namespace];
-  fs.push_back(val * priv.dat_new_feature_value, ((priv.dat_new_feature_idx + idx2) << ss));
+  uint64_t mask = priv.all->weights.hash_mask();
+  uint64_t idx2 = idx & mask;
+  auto& fs = (*priv.dat_new_feature_ec)[priv.dat_new_feature_namespace];
+  fs.add_feature_raw(priv.dat_new_feature_idx + idx2, val * priv.dat_new_feature_value);
   cdbg << "adding: " << fs.indices.back() << ':' << fs.values.back() << endl;
   if (priv.all->output_config.audit)
   {
     std::stringstream temp;
-    temp << "fid=" << ((idx & mask) >> ss) << "_" << priv.dat_new_feature_audit_ss.str();
-    fs.space_names.emplace_back(*priv.dat_new_feature_feature_space, temp.str());
+    temp << "fid=" << (idx & mask) << "_" << priv.dat_new_feature_audit_ss.str();
+    fs.add_audit_string(temp.str());
   }
 }
 
-void del_features_in_top_namespace(search_private& /* priv */, VW::example& ec, size_t ns)
+void del_features_in_top_namespace(search_private& /* priv */, VW::example& ec, VW::namespace_index ns)
 {
-  if ((ec.indices.size() == 0) || (ec.indices.back() != ns))
-  {
-    return;
-    // if (ec.indices.size() == 0)
-    //{ THROW("internal error (bug): expecting top namespace to be '" << ns << "' but it was empty"); }
-    // else
-    //{ THROW("internal error (bug): expecting top namespace to be '" << ns << "' but it was " <<
-    //(size_t)ec.indices.last()); }
-  }
-  auto& fs = ec.feature_space[ns];
-  ec.indices.pop_back();
+  if ((ec.size() == 0) || (!ec.contains(ns))) { return; }
+  auto& fs = ec[ns];
   ec.num_features -= fs.size();
+  ec.delete_namespace(ns);
   ec.reset_total_sum_feat_sq();
-  fs.clear();
 }
 
 void add_neighbor_features(search_private& priv, VW::multi_ex& ec_seq)
 {
   if (priv.neighbor_features.size() == 0) { return; }
 
-  uint32_t stride_shift = priv.all->weights.stride_shift();
   for (size_t n = 0; n < ec_seq.size(); n++)  // iterate over every example in the sequence
   {
     VW::example& me = *ec_seq[n];
@@ -643,28 +619,28 @@ void add_neighbor_features(search_private& priv, VW::multi_ex& ec_seq)
 
       if ((offset < 0) && (n < static_cast<uint64_t>(-offset)))
       {  // add <s> feature
-        add_new_feature(priv, 1., static_cast<uint64_t>(925871901) << stride_shift);
+        add_new_feature(priv, 1., static_cast<uint64_t>(925871901));
       }
       else if (n + offset >= ec_seq.size())
       {  // add </s> feature
-        add_new_feature(priv, 1., static_cast<uint64_t>(3824917) << stride_shift);
+        add_new_feature(priv, 1., static_cast<uint64_t>(3824917));
       }
       else  // this is actually a neighbor
       {
         VW::example& other = *ec_seq[n + offset];
-        VW::foreach_feature<search_private, add_new_feature>(priv.all, other.feature_space[ns], priv, me.ft_offset);
+        // feature scale is 1 because we are not indexing weights
+        VW::foreach_feature<search_private, add_new_feature>(priv.all, other[ns], priv, 1, me.ft_index_offset);
       }
     }
 
-    auto& fs = me.feature_space[VW::details::NEIGHBOR_NAMESPACE];
+    auto& fs = me[VW::details::NEIGHBOR_NAMESPACE];
     size_t sz = fs.size();
     if ((sz > 0) && (fs.sum_feat_sq > 0.))
     {
-      me.indices.push_back(VW::details::NEIGHBOR_NAMESPACE);
       me.reset_total_sum_feat_sq();
       me.num_features += sz;
     }
-    else { fs.clear(); }
+    else { me.delete_namespace(VW::details::NEIGHBOR_NAMESPACE); }
   }
 }
 
@@ -813,13 +789,14 @@ void add_example_conditioning(search_private& priv, VW::example& ec, size_t cond
       }
 
       // add the single bias feature
-      if (n < priv.acset.max_bias_ngram_length)
-      {
-        add_new_feature(priv, 1., static_cast<uint64_t>(4398201) << priv.all->weights.stride_shift());
-      }
+      if (n < priv.acset.max_bias_ngram_length) { add_new_feature(priv, 1., static_cast<uint64_t>(4398201)); }
       // add the quadratic features
       if (n < priv.acset.max_quad_ngram_length)
       {
+        // feature scale is 1 because we are not indexing weights
+        auto restore_guard = ec.stash_scale_offset();
+        ec.ft_index_scale = 1;
+        ec.ft_index_offset = 0;
         VW::foreach_feature<search_private, uint64_t, add_new_feature>(*priv.all, ec, priv);
       }
     }
@@ -849,26 +826,25 @@ void add_example_conditioning(search_private& priv, VW::example& ec, size_t cond
           priv.dat_new_feature_idx = fid;
           priv.dat_new_feature_namespace = VW::details::CONDITIONING_NAMESPACE;
           priv.dat_new_feature_value = fs.values[k];
-          add_new_feature(priv, 1., static_cast<uint64_t>(4398201) << priv.all->weights.stride_shift());
+          add_new_feature(priv, 1., static_cast<uint64_t>(4398201));
         }
       }
     }
     cdbg << "END adding passthrough features" << endl;
   }
 
-  auto& con_fs = ec.feature_space[VW::details::CONDITIONING_NAMESPACE];
+  auto& con_fs = ec[VW::details::CONDITIONING_NAMESPACE];
   if ((con_fs.size() > 0) && (con_fs.sum_feat_sq > 0.))
   {
-    ec.indices.push_back(VW::details::CONDITIONING_NAMESPACE);
     ec.reset_total_sum_feat_sq();
     ec.num_features += con_fs.size();
   }
-  else { con_fs.clear(); }
+  else { ec.delete_namespace(VW::details::CONDITIONING_NAMESPACE); }
 }
 
 void del_example_conditioning(search_private& priv, VW::example& ec)
 {
-  if ((ec.indices.size() > 0) && (ec.indices.back() == VW::details::CONDITIONING_NAMESPACE))
+  if (ec.size() > 0 && ec.contains(VW::details::CONDITIONING_NAMESPACE))
   {
     del_features_in_top_namespace(priv, ec, VW::details::CONDITIONING_NAMESPACE);
   }
@@ -1175,7 +1151,11 @@ action single_prediction_not_ldf(search_private& priv, VW::example& ec, int poli
   }
   cdbg << " ]" << endl;
 
-  require_singleline(priv.learner)->predict(ec, policy);
+  {
+    auto restore_guard = ec.stash_scale_offset();
+    ec.ft_index_scale = priv.scale;
+    require_singleline(priv.learner)->predict(ec, policy);
+  }
 
   uint32_t act = priv.active_csoaa ? ec.pred.active_multiclass.predicted_class : ec.pred.multiclass;
   cdbg << "a=" << act << " from";
@@ -1327,13 +1307,16 @@ action single_prediction_ldf(search_private& priv, VW::example* ecs, size_t ec_c
     ecs[a].l.cs = priv.ldf_test_label;
 
     VW::multi_ex tmp;
-    uint64_t old_offset = ecs[a].ft_offset;
-    ecs[a].ft_offset = priv.offset;
+    uint64_t old_scale = ecs[a].ft_index_scale;
+    uint64_t old_offset = ecs[a].ft_index_offset;
+    ecs[a].ft_index_scale = priv.scale;
+    ecs[a].ft_index_offset = priv.offset;
     tmp.push_back(&ecs[a]);
 
     require_multiline(priv.learner)->predict(tmp, policy);
 
-    ecs[a].ft_offset = old_offset;
+    ecs[a].ft_index_scale = old_scale;
+    ecs[a].ft_index_offset = old_offset;
     cdbg << "partial_prediction[" << a << "] = " << ecs[a].partial_prediction << endl;
 
     if (override_action != static_cast<action>(-1))
@@ -1519,13 +1502,19 @@ void generate_training_example(search_private& priv, VW::polylabel& losses, floa
       add_example_conditioning(priv, ec, priv.learn_condition_on.size(), priv.learn_condition_on_names.begin(),
           priv.learn_condition_on_act.data());
     }
-    for (size_t is_local = 0; is_local <= static_cast<size_t>(priv.xv); is_local++)
+
     {
-      int learner = select_learner(priv, priv.current_policy, priv.learn_learner_id, true, is_local > 0);
-      cdbg << "BEGIN learner->learn(ec, " << learner << ")" << endl;
-      require_singleline(priv.learner)->learn(ec, learner);
-      cdbg << "END   learner->learn(ec, " << learner << ")" << endl;
+      auto restore_guard = ec.stash_scale_offset();
+      ec.ft_index_scale = priv.scale;
+      for (size_t is_local = 0; is_local <= static_cast<size_t>(priv.xv); is_local++)
+      {
+        int learner = select_learner(priv, priv.current_policy, priv.learn_learner_id, true, is_local > 0);
+        cdbg << "BEGIN learner->learn(ec, " << learner << ")" << endl;
+        require_singleline(priv.learner)->learn(ec, learner);
+        cdbg << "END   learner->learn(ec, " << learner << ")" << endl;
+      }
     }
+
     if (add_conditioning) { del_example_conditioning(priv, ec); }
     ec.l = old_label;
     priv.total_examples_generated++;
@@ -1553,8 +1542,14 @@ void generate_training_example(search_private& priv, VW::polylabel& losses, floa
       // create an example collection for
 
       VW::multi_ex tmp;
+      uint64_t tmp_scale = 1;
       uint64_t tmp_offset = 0;
-      if (priv.learn_ec_ref_cnt > start_K) { tmp_offset = priv.learn_ec_ref[start_K].ft_offset; }
+      if (priv.learn_ec_ref_cnt > start_K)
+      {
+        tmp_scale = priv.learn_ec_ref[start_K].ft_index_scale;
+        tmp_offset = priv.learn_ec_ref[start_K].ft_index_offset;
+      }
+
       for (action a = static_cast<uint32_t>(start_K); a < priv.learn_ec_ref_cnt; a++)
       {
         VW::example& ec = priv.learn_ec_ref[a];
@@ -1566,7 +1561,8 @@ void generate_training_example(search_private& priv, VW::polylabel& losses, floa
         }
         lab.costs[0].x = losses.cs.costs[a - start_K].x;
         // store the offset to restore it later
-        ec.ft_offset = priv.offset;
+        ec.ft_index_scale = priv.scale;
+        ec.ft_index_offset = priv.offset;
         // create the example collection used to learn
         tmp.push_back(&ec);
         cdbg << "generate_training_example called learn on action a=" << a << ", costs.size=" << lab.costs.size()
@@ -1581,7 +1577,8 @@ void generate_training_example(search_private& priv, VW::polylabel& losses, floa
       int i = 0;
       for (action a = static_cast<uint32_t>(start_K); a < priv.learn_ec_ref_cnt; a++, i++)
       {
-        priv.learn_ec_ref[a].ft_offset = tmp_offset;
+        priv.learn_ec_ref[a].ft_index_scale = tmp_scale;
+        priv.learn_ec_ref[a].ft_index_offset = tmp_offset;
       }
     }
 
@@ -1970,11 +1967,11 @@ void hoopla_permute(size_t* B, size_t* end)
   size_t N = end - B;  // NOLINT
   std::sort(B, end, cmp_size_t);
   // make some temporary space
-  size_t* A = VW::details::calloc_or_throw<size_t>((N + 1) * 2);  // NOLINT
-  A[N] = B[0];                                                    // arbitrarily choose the maximum in the middle
-  A[N + 1] = B[N - 1];                                            // so the maximum goes next to it
-  size_t lo = N, hi = N + 1;                                      // which parts of A have we filled in? [lo,hi]
-  size_t i = 0, j = N - 1;  // which parts of B have we already covered? [0,i] and [j,N-1]
+  std::vector<size_t> A((N + 1) * 2, 0);  // NOLINT
+  A[N] = B[0];                            // arbitrarily choose the maximum in the middle
+  A[N + 1] = B[N - 1];                    // so the maximum goes next to it
+  size_t lo = N, hi = N + 1;              // which parts of A have we filled in? [lo,hi]
+  size_t i = 0, j = N - 1;                // which parts of B have we already covered? [0,i] and [j,N-1]
   while (i + 1 < j)
   {
     // there are four options depending on where things get placed
@@ -1989,9 +1986,7 @@ void hoopla_permute(size_t* B, size_t* end)
     else { A[++hi] = B[--j]; }
   }
   // copy it back to B
-  memcpy(B, A + lo, N * sizeof(size_t));
-  // clean up
-  free(A);
+  memcpy(B, A.data() + lo, N * sizeof(size_t));
 }
 
 void get_training_timesteps(search_private& priv, VW::v_array<size_t>& timesteps)
@@ -2379,7 +2374,8 @@ void do_actual_learning(search& sch, learner& base, VW::multi_ex& ec_seq)
   bool is_holdout_ex = false;
 
   search_private& priv = *sch.priv;
-  priv.offset = ec_seq[0]->ft_offset;
+  priv.scale = ec_seq[0]->ft_index_scale;
+  priv.offset = ec_seq[0]->ft_index_offset;
   priv.learner = &base;
 
   adjust_auto_condition(priv);
@@ -2562,7 +2558,7 @@ std::vector<VW::cs_label> read_allowed_transitions(action A, const char* filenam
     THROW("error: could not read file " << filename << " (" << VW::io::strerror_to_string(errno)
                                         << "); assuming all transitions are valid");
 
-  bool* bg = VW::details::calloc_or_throw<bool>((static_cast<size_t>(A + 1)) * (A + 1));
+  std::vector<bool> bg((static_cast<size_t>(A + 1)) * (A + 1), false);
   int rd, from, to, count = 0;
   while ((rd = fscanf_s(f, "%d:%d", &from, &to)) > 0)
   {
@@ -2599,7 +2595,6 @@ std::vector<VW::cs_label> read_allowed_transitions(action A, const char* filenam
     VW::cs_label ld = {costs};
     allowed.push_back(ld);
   }
-  free(bg);
 
   logger.err_info("read {0} allowed transitions from {1}", count, filename);
 
@@ -2805,7 +2800,7 @@ void search::get_test_action_sequence(std::vector<action>& V)
 
 void search::set_feature_width(size_t feature_width) { this->priv->feature_width = feature_width; }
 
-uint64_t search::get_mask() { return this->priv->all->weights.mask(); }
+uint64_t search::get_mask() { return this->priv->all->weights.weight_mask(); }
 size_t search::get_stride_shift() { return this->priv->all->weights.stride_shift(); }
 uint32_t search::get_history_length() { return static_cast<uint32_t>(this->priv->history_length); }
 

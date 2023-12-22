@@ -14,6 +14,7 @@
 #include "vw/core/example_predict.h"
 #include "vw/core/gd_predict.h"
 #include "vw/core/interactions.h"
+#include "vw/core/scope_exit.h"
 #include "vw/explore/explore.h"
 
 namespace vw_slim
@@ -35,26 +36,27 @@ uint64_t ceil_log_2(uint64_t v);
 class namespace_copy_guard
 {
 public:
-  namespace_copy_guard(VW::example_predict& ex, unsigned char ns);
+  namespace_copy_guard(VW::example_predict& ex, VW::namespace_index ns);
   ~namespace_copy_guard();
 
   void feature_push_back(VW::feature_value v, VW::feature_index idx);
 
 private:
   VW::example_predict& _ex;
-  unsigned char _ns;
+  VW::namespace_index _ns;
+  VW::scope_exit_guard _restore_guard;
   bool _remove_ns;
 };
 
 class feature_offset_guard
 {
 public:
-  feature_offset_guard(VW::example_predict& ex, uint64_t ft_offset);
+  feature_offset_guard(VW::example_predict& ex, uint64_t ft_index_offset);
   ~feature_offset_guard();
 
 private:
   VW::example_predict& _ex;
-  uint64_t _old_ft_offset;
+  uint64_t _old_ft_index_offset;
 };
 
 class stride_shift_guard
@@ -91,7 +93,7 @@ public:
     _model_loaded = false;
 
     // required for inline_predict
-    _ignore_linear.fill(false);
+    _ignore_linear.clear();
 
     model_parser mp(model, length);
 
@@ -139,7 +141,7 @@ public:
 
     // VW performs the following transformation as a side-effect of looking for duplicates.
     // This affects how interaction hashes are generated.
-    std::vector<std::vector<VW::namespace_index>> vec_sorted;
+    VW::interaction_spec_type vec_sorted;
     for (auto& interaction : _interactions) { std::sort(std::begin(interaction), std::end(interaction)); }
 
     for (const auto& inter : _interactions)
@@ -261,21 +263,20 @@ public:
       // add constant feature
       ns_copy_guard =
           std::unique_ptr<namespace_copy_guard>(new namespace_copy_guard(ex, VW::details::CONSTANT_NAMESPACE));
-      ns_copy_guard->feature_push_back(1.f, (VW::details::CONSTANT << _stride_shift) + ex.ft_offset);
+      ns_copy_guard->feature_push_back(1.f, (VW::details::CONSTANT << _stride_shift) + ex.ft_index_offset);
     }
 
     if (_contains_wildcard)
     {
       // permutations is not supported by slim so we can just use combinations!
       _generate_interactions.update_interactions_if_new_namespace_seen<
-          VW::details::generate_namespace_combinations_with_repetition, false>(_interactions, ex.indices);
-      score = VW::inline_predict<W>(*_weights, false, _ignore_linear, _generate_interactions.generated_interactions,
-          _unused_extent_interactions,
+          VW::details::generate_namespace_combinations_with_repetition, false>(_interactions, ex.feature_space());
+      score = VW::inline_predict<W>(*_weights, _ignore_linear, _generate_interactions.generated_interactions,
           /* permutations */ false, ex, _generate_interactions_object_cache);
     }
     else
     {
-      score = VW::inline_predict<W>(*_weights, false, _ignore_linear, _interactions, _unused_extent_interactions,
+      score = VW::inline_predict<W>(*_weights, _ignore_linear, _interactions,
           /* permutations */ false, ex, _generate_interactions_object_cache);
     }
     return S_VW_PREDICT_OK;
@@ -297,13 +298,13 @@ public:
       std::vector<std::unique_ptr<namespace_copy_guard>> ns_copy_guards;
 
       // shared feature copying
-      for (auto ns : shared.indices)
+      for (auto ns : shared)
       {
         // insert namespace
         auto ns_copy_guard = std::unique_ptr<namespace_copy_guard>(new namespace_copy_guard(*action, ns));
 
         // copy features
-        for (auto fs : shared.feature_space[ns]) { ns_copy_guard->feature_push_back(fs.value(), fs.index()); }
+        for (auto fs : shared[ns]) { ns_copy_guard->feature_push_back(fs.value(), fs.index()); }
 
         // keep guard around
         ns_copy_guards.push_back(std::move(ns_copy_guard));
@@ -472,12 +473,11 @@ private:
   std::string _id;
   std::string _version;
   std::string _command_line_arguments;
-  std::vector<std::vector<VW::namespace_index>> _interactions;
-  std::vector<std::vector<VW::extent_term>> _unused_extent_interactions;
+  VW::interaction_spec_type _interactions;
   VW::details::generate_interactions_object_cache _generate_interactions_object_cache;
   VW::interactions_generator _generate_interactions;
   bool _contains_wildcard;
-  std::array<bool, VW::NUM_NAMESPACES> _ignore_linear;
+  std::unordered_set<VW::namespace_index> _ignore_linear;
   bool _no_constant;
 
   vw_predict_exploration _exploration;

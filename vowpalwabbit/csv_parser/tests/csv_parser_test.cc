@@ -48,46 +48,36 @@ TEST(CsvParser, ComplexCsvSimpleLabelExamples)
   EXPECT_EQ(example1_tag, "te\"st,tst,\"");
 
   // Check example 1 feature numbers
-  EXPECT_EQ(examples[0]->feature_space['s'].size(), 2);
-  EXPECT_EQ(examples[0]->feature_space['p'].size(), 2);
+  EXPECT_EQ((*examples[0])["sepal1"].size(), 1);
+  EXPECT_EQ((*examples[0])["sepal"].size(), 1);
+  EXPECT_EQ((*examples[0])["petal"].size(), 2);
+  EXPECT_EQ((*examples[0])[" "].size(), 1);
   // Zero and empty values should be ignored
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 1);
-  EXPECT_EQ(examples[0]->feature_space['\''].size(), 0);
-  EXPECT_EQ(examples[0]->feature_space['"'].size(), 0);
-  EXPECT_EQ(examples[0]->feature_space['_'].size(), 0);
-
-  // Check example 1 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space['s'].namespace_extents.size(), 2);
-  EXPECT_EQ(examples[0]->feature_space['p'].namespace_extents.size(), 1);
-  EXPECT_EQ(examples[0]->feature_space[' '].namespace_extents.size(), 1);
+  EXPECT_EQ((*examples[0])["\'"].size(), 0);
+  EXPECT_EQ((*examples[0])["\""].size(), 0);
+  EXPECT_EQ((*examples[0])["_"].size(), 0);
 
   // Check example 1 feature value
   // \f\v should be trimmed
-  EXPECT_TRUE((std::abs(examples[0]->feature_space['s'].values[0] - 5.1) < 0.01 &&
-                  std::abs(examples[0]->feature_space['s'].values[1] + 7.7) < 0.01) ||
-      (std::abs(examples[0]->feature_space['s'].values[0] + 7.7) < 0.01 &&
-          std::abs(examples[0]->feature_space['s'].values[1] - 5.1) < 0.01));
-  EXPECT_FLOAT_EQ(examples[0]->feature_space['p'].values[0], 2.8);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space['p'].values[1], 0.4);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 1);
+  EXPECT_TRUE(std::abs((*examples[0])["sepal1"].values[0] - 5.1) < 0.01 &&
+      std::abs((*examples[0])["sepal"].values[0] + 7.7) < 0.01);
+  EXPECT_FLOAT_EQ((*examples[0])["petal"].values[0], 2.8);
+  EXPECT_FLOAT_EQ((*examples[0])["petal"].values[1], 0.4);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 1);
 
   // Check example 1 namespace names and feature names
   // \xef\xbb\xbf\ should be trimmed
-  EXPECT_TRUE((examples[0]->feature_space['s'].space_names[0].ns == "sepal1" &&
-                  examples[0]->feature_space['s'].space_names[0].name == "length" &&
-                  examples[0]->feature_space['s'].space_names[1].ns == "sepal" &&
-                  examples[0]->feature_space['s'].space_names[1].name == "width") ||
-      (examples[0]->feature_space['s'].space_names[0].ns == "sepal" &&
-          examples[0]->feature_space['s'].space_names[0].name == "width" &&
-          examples[0]->feature_space['s'].space_names[1].ns == "sepal1" &&
-          examples[0]->feature_space['s'].space_names[1].name == "length"));
-  EXPECT_EQ(examples[0]->feature_space['p'].space_names[0].ns, "petal");
+  EXPECT_TRUE(((*examples[0])["sepal1"].audit_info[0].namespace_name == "sepal1" &&
+      (*examples[0])["sepal1"].audit_info[0].feature_name == "length" &&
+      (*examples[0])["sepal"].audit_info[0].namespace_name == "sepal" &&
+      (*examples[0])["sepal"].audit_info[0].feature_name == "width"));
+  EXPECT_EQ((*examples[0])["petal"].audit_info[0].namespace_name, "petal");
   // The double quotes for escape should be removed
-  EXPECT_EQ(examples[0]->feature_space['p'].space_names[0].name, "length\"");
-  EXPECT_EQ(examples[0]->feature_space['p'].space_names[1].ns, "petal");
-  EXPECT_EQ(examples[0]->feature_space['p'].space_names[1].name, "width");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[0].ns, " ");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[0].name, "type");
+  EXPECT_EQ((*examples[0])["petal"].audit_info[0].feature_name, "length\"");
+  EXPECT_EQ((*examples[0])["petal"].audit_info[1].namespace_name, "petal");
+  EXPECT_EQ((*examples[0])["petal"].audit_info[1].feature_name, "width");
+  EXPECT_EQ((*examples[0])[" "].audit_info[0].namespace_name, " ");
+  EXPECT_EQ((*examples[0])[" "].audit_info[0].feature_name, "type");
 
   VW::finish_example(*vw, *examples[0]);
   examples.clear();
@@ -106,40 +96,36 @@ TEST(CsvParser, ComplexCsvSimpleLabelExamples)
   EXPECT_EQ(example2_tag, "te\"\"st");
 
   // Check example 2 feature numbers
-  EXPECT_EQ(examples[0]->feature_space['s'].size(), 1);
-  EXPECT_EQ(examples[0]->feature_space['p'].size(), 2);
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 3);
-  EXPECT_EQ(examples[0]->feature_space['\''].size(), 0);
-  EXPECT_EQ(examples[0]->feature_space['"'].size(), 0);
-  EXPECT_EQ(examples[0]->feature_space['_'].size(), 0);
-
-  // Check example 2 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space['s'].namespace_extents.size(), 1);
-  EXPECT_EQ(examples[0]->feature_space['p'].namespace_extents.size(), 1);
-  EXPECT_EQ(examples[0]->feature_space[' '].namespace_extents.size(), 1);
+  EXPECT_EQ((*examples[0])["sepal1"].size(), 0);
+  EXPECT_EQ((*examples[0])["sepal"].size(), 1);
+  EXPECT_EQ((*examples[0])["petal"].size(), 2);
+  EXPECT_EQ((*examples[0])[" "].size(), 3);
+  EXPECT_EQ((*examples[0])["\'"].size(), 0);
+  EXPECT_EQ((*examples[0])["\""].size(), 0);
+  EXPECT_EQ((*examples[0])["_"].size(), 0);
 
   // Check example 2 feature value
-  EXPECT_FLOAT_EQ(examples[0]->feature_space['s'].values[0], -10.78);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space['p'].values[0], 6);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space['p'].values[1], -2.8);
+  EXPECT_FLOAT_EQ((*examples[0])["sepal"].values[0], -10.78);
+  EXPECT_FLOAT_EQ((*examples[0])["petal"].values[0], 6);
+  EXPECT_FLOAT_EQ((*examples[0])["petal"].values[1], -2.8);
   // Should recognize 0x6E
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 110);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[1], 1);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[2], -2);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 110);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[1], 1);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[2], -2);
 
   // Check example 2 namespace names and feature names
-  EXPECT_EQ(examples[0]->feature_space['s'].space_names[0].ns, "sepal");
-  EXPECT_EQ(examples[0]->feature_space['s'].space_names[0].name, "width");
-  EXPECT_EQ(examples[0]->feature_space['p'].space_names[0].ns, "petal");
-  EXPECT_EQ(examples[0]->feature_space['p'].space_names[0].name, "length\"");
-  EXPECT_EQ(examples[0]->feature_space['p'].space_names[1].ns, "petal");
-  EXPECT_EQ(examples[0]->feature_space['p'].space_names[1].name, "width");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[0].ns, " ");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[0].name, "type");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[1].ns, " ");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[1].name, "k");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[2].ns, " ");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[2].name, "");
+  EXPECT_EQ((*examples[0])["sepal"].audit_info[0].namespace_name, "sepal");
+  EXPECT_EQ((*examples[0])["sepal"].audit_info[0].feature_name, "width");
+  EXPECT_EQ((*examples[0])["petal"].audit_info[0].namespace_name, "petal");
+  EXPECT_EQ((*examples[0])["petal"].audit_info[0].feature_name, "length\"");
+  EXPECT_EQ((*examples[0])["petal"].audit_info[1].namespace_name, "petal");
+  EXPECT_EQ((*examples[0])["petal"].audit_info[1].feature_name, "width");
+  EXPECT_EQ((*examples[0])[" "].audit_info[0].namespace_name, " ");
+  EXPECT_EQ((*examples[0])[" "].audit_info[0].feature_name, "type");
+  EXPECT_EQ((*examples[0])[" "].audit_info[1].namespace_name, " ");
+  EXPECT_EQ((*examples[0])[" "].audit_info[1].feature_name, "k");
+  EXPECT_EQ((*examples[0])[" "].audit_info[2].namespace_name, " ");
+  EXPECT_EQ((*examples[0])[" "].audit_info[2].feature_name, "0");
 
   VW::finish_example(*vw, *examples[0]);
 }
@@ -169,12 +155,12 @@ TEST(CsvParser, MultipleFileExamples)
   EXPECT_FLOAT_EQ(examples[0]->l.simple.label, 4);
   EXPECT_EQ(examples[0]->tag.size(), 1);
   EXPECT_EQ(examples[0]->tag[0], 'a');
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 3);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 1);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[1], 2);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[2], 3);
+  EXPECT_EQ((*examples[0])[" "].size(), 3);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 1);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[1], 2);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[2], 3);
   // Empty as not in audit mode
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names.size(), 0);
+  EXPECT_EQ((*examples[0])[" "].audit_info.size(), 0);
 
   VW::finish_example(*vw, *examples[0]);
 
@@ -200,8 +186,8 @@ TEST(CsvParser, MultipleFileExamples)
   EXPECT_EQ(examples[0]->tag.size(), 2);
   EXPECT_EQ(examples[0]->tag[0], 'b');
   EXPECT_EQ(examples[0]->tag[1], 'c');
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 1);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 5);
+  EXPECT_EQ((*examples[0])[" "].size(), 1);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 5);
   VW::finish_example(*vw, *examples[0]);
 }
 
@@ -234,23 +220,20 @@ TEST(CsvParser, MulticlassExamples)
   EXPECT_EQ(examples[0]->l.multi.label, 2);
 
   // Check example 1 feature numbers
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 3);
-
-  // Check example 1 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space[' '].namespace_extents.size(), 1);
+  EXPECT_EQ((*examples[0])[" "].size(), 3);
 
   // Check example 1 feature value
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 1);
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[1].str_value, "here");
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[2], 3);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 1);
+  EXPECT_EQ((*examples[0])[" "].audit_info[1].str_value, "here");
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[2], 3);
 
   // Check example 1 namespace names and feature names
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[0].ns, " ");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[0].name, "a");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[1].ns, " ");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[1].name, "b");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[2].ns, " ");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[2].name, "c");
+  EXPECT_EQ((*examples[0])[" "].audit_info[0].namespace_name, " ");
+  EXPECT_EQ((*examples[0])[" "].audit_info[0].feature_name, "a");
+  EXPECT_EQ((*examples[0])[" "].audit_info[1].namespace_name, " ");
+  EXPECT_EQ((*examples[0])[" "].audit_info[1].feature_name, "b");
+  EXPECT_EQ((*examples[0])[" "].audit_info[2].namespace_name, " ");
+  EXPECT_EQ((*examples[0])[" "].audit_info[2].feature_name, "c");
 
   VW::finish_example(*vw, *examples[0]);
   examples.clear();
@@ -262,24 +245,21 @@ TEST(CsvParser, MulticlassExamples)
   EXPECT_EQ(examples[0]->l.multi.label, 1);
 
   // Check example 2 feature numbers
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 3);
-
-  // Check example 2 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space[' '].namespace_extents.size(), 1);
+  EXPECT_EQ((*examples[0])[" "].size(), 3);
 
   // Check example 2 feature value
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 2);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 2);
   // Test float parsing
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[1].str_value, "3.0is");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[2].str_value, "NaN");
+  EXPECT_EQ((*examples[0])[" "].audit_info[1].str_value, "3.0is");
+  EXPECT_EQ((*examples[0])[" "].audit_info[2].str_value, "NaN");
 
   // Check example 2 namespace names and feature names
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[0].ns, " ");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[0].name, "a");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[1].ns, " ");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[1].name, "b");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[2].ns, " ");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[2].name, "c");
+  EXPECT_EQ((*examples[0])[" "].audit_info[0].namespace_name, " ");
+  EXPECT_EQ((*examples[0])[" "].audit_info[0].feature_name, "a");
+  EXPECT_EQ((*examples[0])[" "].audit_info[1].namespace_name, " ");
+  EXPECT_EQ((*examples[0])[" "].audit_info[1].feature_name, "b");
+  EXPECT_EQ((*examples[0])[" "].audit_info[2].namespace_name, " ");
+  EXPECT_EQ((*examples[0])[" "].audit_info[2].feature_name, "c");
 
   VW::finish_example(*vw, *examples[0]);
 }
@@ -313,21 +293,19 @@ TEST(CsvParser, ReplaceHeader)
   EXPECT_FLOAT_EQ(red_features_exp1.weight, 1.f);
 
   // Check example 1 feature numbers
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 3);
-  EXPECT_EQ(examples[0]->feature_space['$'].size(), 0);
-
-  // Check example 1 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space[' '].namespace_extents.size(), 1);
+  EXPECT_EQ((*examples[0])[" "].size(), 3);
+  EXPECT_EQ((*examples[0])['$'].size(), 0);
 
   // Check example 1 feature value
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 1);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[1], 2);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[2], 4);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 1);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[1], 2);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[2], 4);
 
   // Check example 1 feature hash
-  EXPECT_EQ(examples[0]->feature_space[' '].indices[0], 0);
-  EXPECT_EQ(examples[0]->feature_space[' '].indices[1], 1);
-  EXPECT_EQ(examples[0]->feature_space[' '].indices[2], 2);
+  auto ns_hash = examples[0]->hash_namespace(" ");
+  EXPECT_EQ((*examples[0])[" "].indices[0], ns_hash + 0);
+  EXPECT_EQ((*examples[0])[" "].indices[1], ns_hash + 1);
+  EXPECT_EQ((*examples[0])[" "].indices[2], ns_hash + 2);
 
   VW::finish_example(*vw, *examples[0]);
 }
@@ -358,27 +336,24 @@ TEST(CsvParser, NoHeader)
   EXPECT_FLOAT_EQ(red_features_exp1.weight, 1.f);
 
   // Check example 1 feature numbers
-  EXPECT_EQ(examples[0]->feature_space['n'].size(), 2);
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 1);
-  EXPECT_EQ(examples[0]->feature_space['&'].size(), 0);
-
-  // Check example 1 namespace numbers
-  EXPECT_EQ(examples[0]->feature_space['n'].namespace_extents.size(), 1);
+  EXPECT_EQ((*examples[0])["n1"].size(), 2);
+  EXPECT_EQ((*examples[0])[" "].size(), 1);
+  EXPECT_EQ((*examples[0])["&"].size(), 0);
 
   // Check example 1 feature value
-  EXPECT_FLOAT_EQ(examples[0]->feature_space['n'].values[0], 1);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space['n'].values[1], 3);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 4);
+  EXPECT_FLOAT_EQ((*examples[0])["n1"].values[0], 1);
+  EXPECT_FLOAT_EQ((*examples[0])["n1"].values[1], 3);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 4);
 
   // Check example 1 namespace names and feature names
-  EXPECT_EQ(examples[0]->feature_space['n'].space_names[0].ns, "n1");
-  EXPECT_EQ(examples[0]->feature_space['n'].space_names[0].name, "a");
-  EXPECT_EQ(examples[0]->feature_space['n'].space_names[1].ns, "n1");
-  EXPECT_EQ(examples[0]->feature_space['n'].space_names[1].name, "b");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[0].ns, " ");
-  EXPECT_EQ(examples[0]->feature_space[' '].space_names[0].name, "a");
+  EXPECT_EQ((*examples[0])["n1"].audit_info[0].namespace_name, "n1");
+  EXPECT_EQ((*examples[0])["n1"].audit_info[0].feature_name, "a");
+  EXPECT_EQ((*examples[0])["n1"].audit_info[1].namespace_name, "n1");
+  EXPECT_EQ((*examples[0])["n1"].audit_info[1].feature_name, "b");
+  EXPECT_EQ((*examples[0])[" "].audit_info[0].namespace_name, " ");
+  EXPECT_EQ((*examples[0])[" "].audit_info[0].feature_name, "a");
   // Hash check, different due to different namespaces
-  EXPECT_TRUE(examples[0]->feature_space['n'].indices[0] != examples[0]->feature_space[' '].values[0]);
+  EXPECT_TRUE((*examples[0])["n1"].indices[0] != (*examples[0])[" "].values[0]);
 
   VW::finish_example(*vw, *examples[0]);
 }
@@ -616,9 +591,9 @@ TEST(CsvParser, MultilineExamples)
   examples.push_back(&VW::get_unused_example(vw.get()));
   EXPECT_EQ(vw->parser_runtime.example_parser->reader(vw.get(), buffer, examples), 1);
   EXPECT_EQ(examples[0]->l.cb.costs.size(), 1);
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 2);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 1);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[1], 0.5);
+  EXPECT_EQ((*examples[0])[" "].size(), 2);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 1);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[1], 0.5);
   VW::finish_example(*vw, *examples[0]);
   examples.clear();
 
@@ -628,19 +603,19 @@ TEST(CsvParser, MultilineExamples)
   EXPECT_FLOAT_EQ(examples[0]->l.cb.costs[0].probability, 0.75);
   EXPECT_FLOAT_EQ(examples[0]->l.cb.costs[0].cost, 0.1);
   EXPECT_FLOAT_EQ(examples[0]->l.cb.costs[0].action, 0);
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 3);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 0.5);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[1], 1);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[2], 2);
+  EXPECT_EQ((*examples[0])[" "].size(), 3);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 0.5);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[1], 1);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[2], 2);
   VW::finish_example(*vw, *examples[0]);
   examples.clear();
 
   examples.push_back(&VW::get_unused_example(vw.get()));
   EXPECT_EQ(vw->parser_runtime.example_parser->reader(vw.get(), buffer, examples), 1);
   EXPECT_EQ(examples[0]->l.cb.costs.size(), 0);
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 2);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 1);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[1], 3);
+  EXPECT_EQ((*examples[0])[" "].size(), 2);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 1);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[1], 3);
   VW::finish_example(*vw, *examples[0]);
   examples.clear();
 
@@ -654,9 +629,9 @@ TEST(CsvParser, MultilineExamples)
   examples.push_back(&VW::get_unused_example(vw.get()));
   EXPECT_EQ(vw->parser_runtime.example_parser->reader(vw.get(), buffer, examples), 1);
   EXPECT_EQ(examples[0]->l.cb.costs.size(), 1);
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 2);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 1);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[1], 1);
+  EXPECT_EQ((*examples[0])[" "].size(), 2);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 1);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[1], 1);
   VW::finish_example(*vw, *examples[0]);
   examples.clear();
 
@@ -666,20 +641,20 @@ TEST(CsvParser, MultilineExamples)
   EXPECT_FLOAT_EQ(examples[0]->l.cb.costs[0].probability, 0.5);
   EXPECT_FLOAT_EQ(examples[0]->l.cb.costs[0].cost, 1.0);
   EXPECT_FLOAT_EQ(examples[0]->l.cb.costs[0].action, 0);
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 3);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 1);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[1], 1);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[2], 1);
+  EXPECT_EQ((*examples[0])[" "].size(), 3);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 1);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[1], 1);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[2], 1);
   VW::finish_example(*vw, *examples[0]);
   examples.clear();
 
   examples.push_back(&VW::get_unused_example(vw.get()));
   EXPECT_EQ(vw->parser_runtime.example_parser->reader(vw.get(), buffer, examples), 1);
   EXPECT_EQ(examples[0]->l.cb.costs.size(), 0);
-  EXPECT_EQ(examples[0]->feature_space[' '].size(), 3);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[0], 0.5);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[1], 2);
-  EXPECT_FLOAT_EQ(examples[0]->feature_space[' '].values[2], 1);
+  EXPECT_EQ((*examples[0])[" "].size(), 3);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[0], 0.5);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[1], 2);
+  EXPECT_FLOAT_EQ((*examples[0])[" "].values[2], 1);
   VW::finish_example(*vw, *examples[0]);
   examples.clear();
 

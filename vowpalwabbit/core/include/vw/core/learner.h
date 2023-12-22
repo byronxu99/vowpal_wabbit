@@ -347,15 +347,15 @@ void multiline_learn_or_predict(learner& base, multi_ex& examples, const uint64_
   saved_offsets.reserve(examples.size());
   for (auto ec : examples)
   {
-    saved_offsets.push_back(ec->ft_offset);
-    ec->ft_offset = offset;
+    saved_offsets.push_back(ec->ft_index_offset);
+    ec->ft_index_offset = offset;
   }
 
   // Guard example state restore against throws
   auto restore_guard = VW::scope_exit(
       [&saved_offsets, &examples]
       {
-        for (size_t i = 0; i < examples.size(); i++) { examples[i]->ft_offset = saved_offsets[i]; }
+        for (size_t i = 0; i < examples.size(); i++) { examples[i]->ft_index_offset = saved_offsets[i]; }
       });
 
   if (is_learn) { base.learn(examples, id); }

@@ -39,8 +39,7 @@ inline float get_number(const rapidjson::Value& value)
 
 template <bool audit>
 void handle_features_value(const char* key_namespace, const Value& value, VW::example* current_example,
-    std::vector<VW::parsers::json::details::namespace_builder<audit>>& namespaces, VW::hash_func_t hash_func,
-    uint64_t hash_seed, uint64_t parse_mask, bool chain_hash)
+    std::vector<VW::parsers::json::details::namespace_builder<audit>>& namespaces, bool hash_all, bool chain_hash)
 {
   assert(key_namespace != nullptr);
   assert(std::strlen(key_namespace) != 0);
@@ -60,23 +59,23 @@ void handle_features_value(const char* key_namespace, const Value& value, VW::ex
       break;
     case rapidjson::kTrueType:
       assert(!namespaces.empty());
-      namespaces.back().add_feature(key_namespace, hash_func, parse_mask);
+      namespaces.back().add_feature(key_namespace);
       break;
     case rapidjson::kObjectType:
     {
-      push_ns(current_example, key_namespace, namespaces, hash_func, hash_seed);
+      namespaces.emplace_back(current_example, key_namespace, hash_all);
       for (auto& object_value : value.GetObject())
       {
-        handle_features_value(object_value.name.GetString(), object_value.value, current_example, namespaces, hash_func,
-            hash_seed, parse_mask, chain_hash);
+        handle_features_value(
+            object_value.name.GetString(), object_value.value, current_example, namespaces, hash_all, chain_hash);
       }
-      pop_ns(current_example, namespaces);
+      namespaces.pop_back();
     }
     break;
     case rapidjson::kArrayType:
     {
-      push_ns(current_example, key_namespace, namespaces, hash_func, hash_seed);
-      auto array_hash = namespaces.back().namespace_hash;
+      namespaces.emplace_back(current_example, key_namespace, hash_all);
+      VW::feature_index counter = 0;
 
       for (auto& array_value : value.GetArray())
       {
@@ -88,24 +87,23 @@ void handle_features_value(const char* key_namespace, const Value& value, VW::ex
             if (audit)
             {
               std::stringstream str;
-              str << '[' << (array_hash - namespaces.back().namespace_hash) << ']';
-              namespaces.back().add_feature(number, array_hash, str.str().c_str());
+              str << '[' << counter << ']';
+              namespaces.back().add_feature(counter, number, str.str());
             }
-            else { namespaces.back().add_feature(number, array_hash, nullptr); }
-            array_hash++;
+            else { namespaces.back().add_feature(counter, number); }
+            counter++;
           }
           break;
           case rapidjson::kObjectType:
           {
-            handle_features_value(
-                key_namespace, array_value, current_example, namespaces, hash_func, hash_seed, parse_mask, chain_hash);
+            handle_features_value(key_namespace, array_value, current_example, namespaces, hash_all, chain_hash);
           }
           break;
           default:
             THROW("NOT HANDLED")
         }
       }
-      pop_ns(current_example, namespaces);
+      namespaces.pop_back();
     }
     break;
     case rapidjson::kStringType:
@@ -126,12 +124,12 @@ void handle_features_value(const char* key_namespace, const Value& value, VW::ex
         }
       }
 
-      if (chain_hash) { namespaces.back().add_feature(key_namespace, str, hash_func, parse_mask); }
+      if (chain_hash) { namespaces.back().add_feature(key_namespace, str); }
       else
       {
         char* prepend = const_cast<char*>(str) - key_namespace_length;
         std::memmove(prepend, key_namespace, key_namespace_length);
-        namespaces.back().add_feature(prepend, hash_func, parse_mask);
+        namespaces.back().add_feature(prepend);
       }
     }
 
@@ -140,8 +138,7 @@ void handle_features_value(const char* key_namespace, const Value& value, VW::ex
     {
       assert(!namespaces.empty());
       float number = get_number(value);
-      auto hash_index = hash_func(key_namespace, strlen(key_namespace), namespaces.back().namespace_hash) & parse_mask;
-      namespaces.back().add_feature(number, hash_index, key_namespace);
+      namespaces.back().add_feature(key_namespace, number);
     }
     break;
     default:
@@ -150,13 +147,12 @@ void handle_features_value(const char* key_namespace, const Value& value, VW::ex
 }
 
 template <bool audit>
-void parse_context(const Value& context, const VW::label_parser& lbl_parser, VW::hash_func_t hash_func,
-    uint64_t hash_seed, uint64_t parse_mask, bool chain_hash, VW::multi_ex& examples,
-    VW::example_factory_t example_factory, VW::multi_ex& slot_examples,
+void parse_context(const Value& context, const VW::label_parser& lbl_parser, bool hash_all, bool chain_hash,
+    VW::multi_ex& examples, VW::example_factory_t example_factory, VW::multi_ex& slot_examples,
     const std::unordered_map<uint64_t, VW::example*>* dedup_examples = nullptr)
 {
   std::vector<VW::parsers::json::details::namespace_builder<audit>> namespaces;
-  handle_features_value(" ", context, examples[0], namespaces, hash_func, hash_seed, parse_mask, chain_hash);
+  handle_features_value(" ", context, examples[0], namespaces, hash_all, chain_hash);
   lbl_parser.default_label(examples[0]->l);
   if (context.HasMember("_slot_id"))
   {
@@ -174,27 +170,28 @@ void parse_context(const Value& context, const VW::label_parser& lbl_parser, VW:
 
     for (const Value& obj : multi)
     {
-      auto ex = &example_factory();
-      lbl_parser.default_label(ex->l);
-      ex->l.slates.type = VW::slates::example_type::ACTION;
-      examples.push_back(ex);
+      auto& ex = example_factory();
+      lbl_parser.default_label(ex.l);
+      ex.l.slates.type = VW::slates::example_type::ACTION;
+      examples.push_back(&ex);
       if (dedup_examples && !dedup_examples->empty() && obj.HasMember("__aid"))
       {
         auto dedup_id = obj["__aid"].GetUint64();
 
         if (dedup_examples->find(dedup_id) == dedup_examples->end()) { THROW("dedup id not found: " << dedup_id); }
 
-        auto* stored_ex = dedup_examples->at(dedup_id);
-        ex->indices = stored_ex->indices;
-        for (auto& ns : ex->indices) { ex->feature_space[ns] = stored_ex->feature_space[ns]; }
-        ex->ft_offset = stored_ex->ft_offset;
-        ex->l.slates.slot_id = stored_ex->l.slates.slot_id;
+        auto& stored_ex = *dedup_examples->at(dedup_id);
+        ex.delete_all_namespaces();
+        for (auto ns : stored_ex) { ex[ns] = stored_ex[ns]; }
+        ex.ft_index_scale = stored_ex.ft_index_scale;
+        ex.ft_index_offset = stored_ex.ft_index_offset;
+        ex.l.slates.slot_id = stored_ex.l.slates.slot_id;
       }
       else
       {
         auto slot_id = obj["_slot_id"].GetInt();
-        ex->l.slates.slot_id = slot_id;
-        handle_features_value(" ", obj, ex, namespaces, hash_func, hash_seed, parse_mask, chain_hash);
+        ex.l.slates.slot_id = slot_id;
+        handle_features_value(" ", obj, &ex, namespaces, hash_all, chain_hash);
         assert(namespaces.size() == 0);
       }
     }
@@ -210,7 +207,7 @@ void parse_context(const Value& context, const VW::label_parser& lbl_parser, VW:
       ex->l.slates.type = VW::slates::example_type::SLOT;
       examples.push_back(ex);
       slot_examples.push_back(ex);
-      handle_features_value(" ", slot_object, ex, namespaces, hash_func, hash_seed, parse_mask, chain_hash);
+      handle_features_value(" ", slot_object, ex, namespaces, hash_all, chain_hash);
       assert(namespaces.size() == 0);
     }
   }
@@ -218,9 +215,9 @@ void parse_context(const Value& context, const VW::label_parser& lbl_parser, VW:
 }  // namespace
 
 template <bool audit>
-void VW::parsers::json::details::parse_slates_example_json(const VW::label_parser& lbl_parser, hash_func_t hash_func,
-    uint64_t hash_seed, uint64_t parse_mask, bool chain_hash, VW::multi_ex& examples, char* line, size_t /*length*/,
-    VW::example_factory_t example_factory, const std::unordered_map<uint64_t, VW::example*>* dedup_examples)
+void VW::parsers::json::details::parse_slates_example_json(const VW::label_parser& lbl_parser, bool hash_all,
+    bool chain_hash, VW::multi_ex& examples, char* line, size_t /*length*/, VW::example_factory_t example_factory,
+    const std::unordered_map<uint64_t, VW::example*>* dedup_examples)
 {
   Document document;
   document.ParseInsitu(line);
@@ -228,8 +225,8 @@ void VW::parsers::json::details::parse_slates_example_json(const VW::label_parse
   // Build shared example
   const Value& context = document.GetObject();
   VW::multi_ex slot_examples;
-  parse_context<audit>(context, lbl_parser, hash_func, hash_seed, parse_mask, chain_hash, examples,
-      std::move(example_factory), slot_examples, dedup_examples);
+  parse_context<audit>(
+      context, lbl_parser, hash_all, chain_hash, examples, std::move(example_factory), slot_examples, dedup_examples);
 }
 
 template <bool audit>
@@ -237,8 +234,7 @@ void VW::parsers::json::details::parse_slates_example_json(const VW::workspace& 
     size_t length, VW::example_factory_t example_factory,
     const std::unordered_map<uint64_t, VW::example*>* dedup_examples)
 {
-  parse_slates_example_json<audit>(all.parser_runtime.example_parser->lbl_parser,
-      all.parser_runtime.example_parser->hasher, all.runtime_config.hash_seed, all.runtime_state.parse_mask,
+  parse_slates_example_json<audit>(all.parser_runtime.example_parser->lbl_parser, all.parser_runtime.hash_all,
       all.parser_runtime.chain_hash_json, examples, line, length, std::move(example_factory), dedup_examples);
 }
 
@@ -252,8 +248,7 @@ void VW::parsers::json::details::parse_slates_example_dsjson(VW::workspace& all,
   // Build shared example
   const Value& context = document["c"].GetObject();
   VW::multi_ex slot_examples;
-  parse_context<audit>(context, all.parser_runtime.example_parser->lbl_parser,
-      all.parser_runtime.example_parser->hasher, all.runtime_config.hash_seed, all.runtime_state.parse_mask,
+  parse_context<audit>(context, all.parser_runtime.example_parser->lbl_parser, all.parser_runtime.hash_all,
       all.parser_runtime.chain_hash_json, examples, std::move(example_factory), slot_examples, dedup_examples);
 
   if (document.HasMember("_label_cost"))
@@ -325,13 +320,11 @@ void VW::parsers::json::details::parse_slates_example_dsjson(VW::workspace& all,
 
 // Explicitly instantiate templates only in this source file
 template void VW::parsers::json::details::parse_slates_example_json<true>(const VW::label_parser& lbl_parser,
-    hash_func_t hash_func, uint64_t hash_seed, uint64_t parse_mask, bool chain_hash, VW::multi_ex& examples, char* line,
-    size_t length, VW::example_factory_t example_factory,
-    const std::unordered_map<uint64_t, VW::example*>* dedup_examples);
+    bool hash_all, bool chain_hash, VW::multi_ex& examples, char* line, size_t length,
+    VW::example_factory_t example_factory, const std::unordered_map<uint64_t, VW::example*>* dedup_examples);
 template void VW::parsers::json::details::parse_slates_example_json<false>(const VW::label_parser& lbl_parser,
-    hash_func_t hash_func, uint64_t hash_seed, uint64_t parse_mask, bool chain_hash, VW::multi_ex& examples, char* line,
-    size_t length, VW::example_factory_t example_factory,
-    const std::unordered_map<uint64_t, VW::example*>* dedup_examples);
+    bool hash_all, bool chain_hash, VW::multi_ex& examples, char* line, size_t length,
+    VW::example_factory_t example_factory, const std::unordered_map<uint64_t, VW::example*>* dedup_examples);
 
 template void VW::parsers::json::details::parse_slates_example_json<true>(const VW::workspace& all,
     VW::multi_ex& examples, char* line, size_t length, VW::example_factory_t example_factory,

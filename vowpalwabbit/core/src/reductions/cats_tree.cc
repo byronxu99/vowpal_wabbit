@@ -4,8 +4,8 @@
 
 #include "vw/core/reductions/cats_tree.h"
 
-#include "vw/common/hash.h"
 #include "vw/common/random.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/config/options.h"
 #include "vw/core/debug_log.h"
 #include "vw/core/global_data.h"

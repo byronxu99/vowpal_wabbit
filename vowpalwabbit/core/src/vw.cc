@@ -69,7 +69,10 @@ std::unique_ptr<VW::workspace> initialize_internal(
 
   if (!all->output_config.quiet)
   {
-    *(all->output_runtime.trace_message) << "Num weight bits = " << all->initial_weights_config.num_bits << std::endl;
+    *(all->output_runtime.trace_message) << "Num feature hash bits = " << all->initial_weights_config.feature_hash_bits
+                                         << std::endl;
+    *(all->output_runtime.trace_message) << "Num feature width bits = "
+                                         << all->initial_weights_config.feature_width_bits << std::endl;
     *(all->output_runtime.trace_message) << "learning rate = " << all->update_rule_config.eta << std::endl;
     *(all->output_runtime.trace_message) << "initial_t = " << all->sd->t << std::endl;
     *(all->output_runtime.trace_message) << "power_t = " << all->update_rule_config.power_t << std::endl;
@@ -503,7 +506,14 @@ const char* VW::are_features_compatible(const VW::workspace& vw1, const VW::work
     return "limit";
   }
 
-  if (vw1.initial_weights_config.num_bits != vw2.initial_weights_config.num_bits) { return "num_bits"; }
+  if (vw1.initial_weights_config.feature_hash_bits != vw2.initial_weights_config.feature_hash_bits)
+  {
+    return "feature_hash_bits";
+  }
+  if (vw1.initial_weights_config.feature_width_bits != vw2.initial_weights_config.feature_width_bits)
+  {
+    return "feature_width_bits";
+  }
 
   if (vw1.feature_tweaks_config.permutations != vw2.feature_tweaks_config.permutations) { return "permutations"; }
 
@@ -512,35 +522,11 @@ const char* VW::are_features_compatible(const VW::workspace& vw1, const VW::work
     return "interactions size";
   }
 
-  if (vw1.feature_tweaks_config.ignore_some != vw2.feature_tweaks_config.ignore_some) { return "ignore_some"; }
+  if (vw1.feature_tweaks_config.ignore != vw2.feature_tweaks_config.ignore) { return "ignore"; }
 
-  if (vw1.feature_tweaks_config.ignore_some &&
-      !std::equal(vw1.feature_tweaks_config.ignore.begin(), vw1.feature_tweaks_config.ignore.end(),
-          vw2.feature_tweaks_config.ignore.begin()))
-  {
-    return "ignore";
-  }
+  if (vw1.feature_tweaks_config.ignore_linear != vw2.feature_tweaks_config.ignore_linear) { return "ignore_linear"; }
 
-  if (vw1.feature_tweaks_config.ignore_some_linear != vw2.feature_tweaks_config.ignore_some_linear)
-  {
-    return "ignore_some_linear";
-  }
-
-  if (vw1.feature_tweaks_config.ignore_some_linear &&
-      !std::equal(vw1.feature_tweaks_config.ignore_linear.begin(), vw1.feature_tweaks_config.ignore_linear.end(),
-          vw2.feature_tweaks_config.ignore_linear.begin()))
-  {
-    return "ignore_linear";
-  }
-
-  if (vw1.feature_tweaks_config.redefine_some != vw2.feature_tweaks_config.redefine_some) { return "redefine_some"; }
-
-  if (vw1.feature_tweaks_config.redefine_some &&
-      !std::equal(vw1.feature_tweaks_config.redefine.begin(), vw1.feature_tweaks_config.redefine.end(),
-          vw2.feature_tweaks_config.redefine.begin()))
-  {
-    return "redefine";
-  }
+  if (vw1.feature_tweaks_config.redefine != vw2.feature_tweaks_config.redefine) { return "redefine"; }
 
   if (vw1.feature_tweaks_config.add_constant != vw2.feature_tweaks_config.add_constant) { return "add_constant"; }
 
@@ -644,11 +630,13 @@ VW::example* VW::import_example(
 
   for (size_t i = 0; i < len; i++)
   {
-    unsigned char index = features[i].name;
-    ret->indices.push_back(index);
+    auto ns = features[i].ns_index;
+    auto& fts = (*ret)[ns];
+    fts.namespace_hash = features[i].ns_hash;
+    fts.namespace_name = features[i].ns_name;
     for (size_t j = 0; j < features[i].len; j++)
     {
-      ret->feature_space[index].push_back(features[i].fs[j].x, features[i].fs[j].weight_index);
+      fts.add_feature_raw(features[i].fs[j].index, features[i].fs[j].value);
     }
   }
 
@@ -690,13 +678,25 @@ bool is_test_only(uint32_t counter, uint32_t period, uint32_t after, bool holdou
 
 void feature_limit(VW::workspace& all, VW::example* ex)
 {
-  for (VW::namespace_index index : ex->indices)
+  for (VW::namespace_index index : *ex)
   {
-    if (all.feature_tweaks_config.limit[index] < ex->feature_space[index].size())
+    uint32_t limit;
+    if (all.feature_tweaks_config.limit.find(index) != all.feature_tweaks_config.limit.end())
     {
-      auto& fs = ex->feature_space[index];
+      limit = all.feature_tweaks_config.limit[index];
+    }
+    else if (all.feature_tweaks_config.limit.find(VW::details::WILDCARD_NAMESPACE) !=
+        all.feature_tweaks_config.limit.end())
+    {
+      limit = all.feature_tweaks_config.limit[VW::details::WILDCARD_NAMESPACE];
+    }
+    else { continue; }
+
+    if (limit < (*ex)[index].size())
+    {
+      auto& fs = (*ex)[index];
       fs.sort(all.runtime_state.parse_mask);
-      VW::unique_features(fs, all.feature_tweaks_config.limit[index]);
+      VW::unique_features(fs, limit);
     }
   }
 }
@@ -714,14 +714,8 @@ void VW::setup_example(VW::workspace& all, VW::example* ae)
   if (all.parser_runtime.example_parser->write_cache)
   {
     VW::parsers::cache::write_example_to_cache(all.parser_runtime.example_parser->output, ae,
-        all.parser_runtime.example_parser->lbl_parser, all.runtime_state.parse_mask,
-        all.parser_runtime.example_parser->cache_temp_buffer_obj);
+        all.parser_runtime.example_parser->lbl_parser, all.parser_runtime.example_parser->cache_temp_buffer_obj);
   }
-
-  // Require all extents to be complete in an VW::example.
-#ifndef NDEBUG
-  for (auto& fg : *ae) { assert(fg.validate_extents()); }
-#endif
 
   ae->partial_prediction = 0.;
   ae->num_features = 0;
@@ -753,49 +747,37 @@ void VW::setup_example(VW::workspace& all, VW::example* ae)
 
   ae->weight = all.parser_runtime.example_parser->lbl_parser.get_weight(ae->l, ae->ex_reduction_features);
 
-  if (all.feature_tweaks_config.ignore_some)
+  // Delete namespaces to be ignored
+  // Since delete_namespace() can invalidate iterators, we collect namespaces to be deleted first
+  std::vector<VW::namespace_index> ignored_namespaces;
+  for (auto ns : *ae)
   {
-    for (unsigned char* i = ae->indices.begin(); i != ae->indices.end(); i++)
-    {
-      if (all.feature_tweaks_config.ignore[*i])
-      {
-        // Delete namespace
-        ae->feature_space[*i].clear();
-        i = ae->indices.erase(i);
-        // Offset the increment for this iteration so that is processes this index again which is actually the next
-        // item.
-        i--;
-      }
-    }
+    bool ns_in_ignore_set = all.feature_tweaks_config.ignore.find(ns) != all.feature_tweaks_config.ignore.end();
+    // if (ns_in_ignore_set == true) and (invert_ignore_as_keep == false)
+    // or (ns_in_ignore_set == false) and (invert_ignore_as_keep == true)
+    if (ns_in_ignore_set != all.feature_tweaks_config.invert_ignore_as_keep) { ignored_namespaces.push_back(ns); }
   }
+  for (auto ns : ignored_namespaces) { ae->delete_namespace(ns); }
 
   if (all.feature_tweaks_config.skip_gram_transformer != nullptr)
   {
     all.feature_tweaks_config.skip_gram_transformer->generate_grams(ae);
   }
 
-  if (all.feature_tweaks_config.add_constant)
-  {  // add constant feature
-    VW::add_constant_feature(all, ae);
-  }
+  // Add constant feature
+  if (all.feature_tweaks_config.add_constant) { VW::add_constant_feature(all, ae); }
 
   if (!all.feature_tweaks_config.limit_strings.empty()) { feature_limit(all, ae); }
 
-  uint64_t multiplier = static_cast<uint64_t>(all.reduction_state.total_feature_width) << all.weights.stride_shift();
+  // Set ft_index_scale
+  ae->ft_index_scale = static_cast<uint64_t>(all.reduction_state.total_feature_width) << all.weights.stride_shift();
 
-  if (multiplier != 1)
-  {  // make room for per-feature information.
-    for (features& fs : *ae)
-    {
-      for (auto& j : fs.indices) { j *= multiplier; }
-    }
-  }
+  // Calculate num_features
   ae->num_features = 0;
-  for (const features& fs : *ae) { ae->num_features += fs.size(); }
+  for (auto ns : *ae) { ae->num_features += (*ae)[ns].size(); }
 
   // Set the interactions for this example to the global set.
   ae->interactions = &all.feature_tweaks_config.interactions;
-  ae->extent_interactions = &all.feature_tweaks_config.extent_interactions;
 }
 
 VW::example* VW::new_unused_example(VW::workspace& all)
@@ -862,21 +844,20 @@ class features_and_source
 {
 public:
   VW::v_array<VW::feature> feature_map;  // map to store sparse feature vectors
-  uint32_t stride_shift{};
-  uint64_t mask{};
 };
 
-void vec_store(features_and_source& p, float fx, uint64_t fi)
-{
-  p.feature_map.push_back(VW::feature(fx, (fi >> p.stride_shift) & p.mask));
-}
+void vec_store(features_and_source& p, float fx, uint64_t fi) { p.feature_map.push_back(VW::feature(fx, fi)); }
 }  // namespace
 
 VW::feature* VW::get_features(VW::workspace& all, example* ec, size_t& feature_number)
 {
   features_and_source fs;
-  fs.stride_shift = all.weights.stride_shift();
-  fs.mask = all.weights.mask() >> all.weights.stride_shift();
+
+  // We want to call vec_store() with feature indices, not weight indices
+  // Set feature index scale to 1 and offset to 0
+  auto restore_example = ec->stash_scale_offset();
+  ec->ft_index_scale = 1;
+  ec->ft_index_offset = 0;
   VW::foreach_feature<::features_and_source, uint64_t, vec_store>(all, *ec, fs);
 
   auto* features_array = new feature[fs.feature_map.size()];
@@ -889,14 +870,10 @@ void VW::return_features(feature* f) { delete[] f; }
 
 void VW::add_constant_feature(const VW::workspace& all, VW::example* ec)
 {
-  ec->indices.push_back(VW::details::CONSTANT_NAMESPACE);
-  ec->feature_space[VW::details::CONSTANT_NAMESPACE].push_back(
-      1, VW::details::CONSTANT, VW::details::CONSTANT_NAMESPACE);
+  auto& const_ns = (*ec)[VW::details::CONSTANT_NAMESPACE];
+  const_ns.add_feature_raw(VW::details::CONSTANT, 1.f);
   ec->num_features++;
-  if (all.output_config.audit || all.output_config.hash_inv)
-  {
-    ec->feature_space[VW::details::CONSTANT_NAMESPACE].space_names.emplace_back("", "Constant");
-  }
+  if (all.output_config.audit || all.output_config.hash_inv) { const_ns.add_audit_string("Constant"); }
 }
 void VW::add_label(VW::example* ec, float label, float weight, float base)
 {
@@ -931,29 +908,25 @@ void VW::finish_example(VW::workspace& all, multi_ex& ec_seq)
 
 void VW::empty_example(VW::workspace& /*all*/, example& ec)
 {
-  for (features& fs : ec) { fs.clear(); }
-
-  ec.indices.clear();
+  ec.delete_all_namespaces();
   ec.tag.clear();
   ec.sorted = false;
   ec.end_pass = false;
   ec.is_newline = false;
   ec.ex_reduction_features.clear();
   ec.num_features_from_interactions = 0;
-  ec.feature_space_hash = 0;
-  ec.is_set_feature_space_hash = false;
+  ec.clear_feature_space_hash();
 }
 
-void VW::move_feature_namespace(example* dst, example* src, namespace_index c)
+void VW::move_feature_namespace(example* dst, example* src, namespace_index ns)
 {
-  if (std::find(src->indices.begin(), src->indices.end(), c) == src->indices.end())
+  if (!src->contains(ns))
   {
     return;  // index not present in src
   }
-  if (std::find(dst->indices.begin(), dst->indices.end(), c) == dst->indices.end()) { dst->indices.push_back(c); }
 
-  auto& fdst = dst->feature_space[c];
-  auto& fsrc = src->feature_space[c];
+  auto& fdst = (*dst)[ns];
+  auto& fsrc = (*src)[ns];
 
   src->num_features -= fsrc.size();
   src->reset_total_sum_feat_sq();
@@ -966,8 +939,10 @@ void VW::copy_example_metadata(example* dst, const example* src)
 {
   dst->tag = src->tag;
   dst->example_counter = src->example_counter;
+  dst->_hash_seed = src->_hash_seed;
 
-  dst->ft_offset = src->ft_offset;
+  dst->ft_index_scale = src->ft_index_scale;
+  dst->ft_index_offset = src->ft_index_offset;
 
   dst->partial_prediction = src->partial_prediction;
   if (src->passthrough == nullptr) { dst->passthrough = nullptr; }
@@ -986,14 +961,13 @@ void VW::copy_example_data(example* dst, const example* src)
   copy_example_metadata(dst, src);
 
   // copy feature data
-  dst->indices = src->indices;
-  for (namespace_index c : src->indices) { dst->feature_space[c] = src->feature_space[c]; }
+  dst->delete_all_namespaces();
+  for (namespace_index c : *src) { (*dst)[c] = (*src)[c]; }
   dst->num_features = src->num_features;
   dst->total_sum_feat_sq = src->total_sum_feat_sq;
   dst->_total_sum_feat_sq_calculated = src->_total_sum_feat_sq_calculated;
   dst->_use_permutations = src->_use_permutations;
   dst->interactions = src->interactions;
-  dst->extent_interactions = src->extent_interactions;
   dst->debug_current_reduction_depth = src->debug_current_reduction_depth;
 }
 
@@ -1003,27 +977,26 @@ void VW::copy_example_data_with_label(example* dst, const example* src)
   dst->l = src->l;
 }
 
-VW::primitive_feature_space* VW::export_example(VW::workspace& all, VW::example* ec, size_t& len)
+VW::primitive_feature_space* VW::export_example(VW::workspace& /* all */, VW::example* ec, size_t& len)
 {
-  len = ec->indices.size();
+  len = ec->size();
   auto* fs_ptr = new primitive_feature_space[len];
 
   size_t fs_count = 0;
 
-  for (size_t idx = 0; idx < len; ++idx)
+  for (auto iter = ec->begin(); iter != ec->end(); ++iter)
   {
-    namespace_index i = ec->indices[idx];
-    fs_ptr[fs_count].name = i;
-    fs_ptr[fs_count].len = ec->feature_space[i].size();
-    fs_ptr[fs_count].fs = new feature[fs_ptr[fs_count].len];
+    auto& f = iter.features();
+    fs_ptr[fs_count].ns_index = iter.index();
+    fs_ptr[fs_count].ns_hash = f.namespace_hash;
+    fs_ptr[fs_count].ns_name = new char[f.namespace_name.size() + 1];
+    std::strncpy(fs_ptr[fs_count].ns_name, f.namespace_name.c_str(), f.namespace_name.size() + 1);
+    fs_ptr[fs_count].fs = new feature[f.size()];
+    fs_ptr[fs_count].len = f.size();
 
-    uint32_t stride_shift = all.weights.stride_shift();
-
-    auto& f = ec->feature_space[i];
-    for (size_t f_count = 0; f_count < fs_ptr[fs_count].len; f_count++)
+    for (size_t f_count = 0; f_count < f.size(); f_count++)
     {
       feature t = {f.values[f_count], f.indices[f_count]};
-      t.weight_index >>= stride_shift;
       fs_ptr[fs_count].fs[f_count] = t;
     }
     fs_count++;
@@ -1033,8 +1006,12 @@ VW::primitive_feature_space* VW::export_example(VW::workspace& all, VW::example*
 
 void VW::release_feature_space(primitive_feature_space* features, size_t len)
 {
-  for (size_t i = 0; i < len; i++) { delete[] features[i].fs; }
-  delete (features);
+  for (size_t i = 0; i < len; i++)
+  {
+    delete[] features[i].fs;
+    delete[] features[i].ns_name;
+  }
+  delete[] features;
 }
 
 void VW::save_predictor(VW::workspace& all, const std::string& reg_name)

@@ -93,21 +93,17 @@ void initialize(Search::search& sch, size_t& /*num_actions*/, options_i& options
   options.add_and_parse(new_options);
   data->root_label = VW::cast_to_smaller_type<size_t>(root_label);
 
-  data->ex.indices.push_back(VAL_NAMESPACE);
-  for (size_t i = 1; i < 14; i++) { data->ex.indices.push_back(static_cast<unsigned char>(i) + 'A'); }
-  data->ex.indices.push_back(VW::details::CONSTANT_NAMESPACE);
   data->ex.interactions = &sch.get_vw_pointer_unsafe().feature_tweaks_config.interactions;
-  data->ex.extent_interactions = &sch.get_vw_pointer_unsafe().feature_tweaks_config.extent_interactions;
 
   if (data->one_learner) { sch.set_feature_width(1); }
   else { sch.set_feature_width(3); }
 
-  std::vector<std::vector<VW::namespace_index>> newpairs{{'B', 'C'}, {'B', 'E'}, {'B', 'B'}, {'C', 'C'}, {'D', 'D'},
-      {'E', 'E'}, {'F', 'F'}, {'G', 'G'}, {'E', 'F'}, {'B', 'H'}, {'B', 'J'}, {'E', 'L'}, {'d', 'B'}, {'d', 'C'},
-      {'d', 'D'}, {'d', 'E'}, {'d', 'F'}, {'d', 'G'}, {'d', 'd'}};
-  std::vector<std::vector<VW::namespace_index>> newtriples{{'E', 'F', 'G'}, {'B', 'E', 'F'}, {'B', 'C', 'E'},
-      {'B', 'C', 'D'}, {'B', 'E', 'L'}, {'E', 'L', 'M'}, {'B', 'H', 'I'}, {'B', 'C', 'C'}, {'B', 'E', 'J'},
-      {'B', 'E', 'H'}, {'B', 'J', 'K'}, {'B', 'E', 'N'}};
+  VW::interaction_spec_type newpairs{{'B', 'C'}, {'B', 'E'}, {'B', 'B'}, {'C', 'C'}, {'D', 'D'}, {'E', 'E'}, {'F', 'F'},
+      {'G', 'G'}, {'E', 'F'}, {'B', 'H'}, {'B', 'J'}, {'E', 'L'}, {'d', 'B'}, {'d', 'C'}, {'d', 'D'}, {'d', 'E'},
+      {'d', 'F'}, {'d', 'G'}, {'d', 'd'}};
+  VW::interaction_spec_type newtriples{{'E', 'F', 'G'}, {'B', 'E', 'F'}, {'B', 'C', 'E'}, {'B', 'C', 'D'},
+      {'B', 'E', 'L'}, {'E', 'L', 'M'}, {'B', 'H', 'I'}, {'B', 'C', 'C'}, {'B', 'E', 'J'}, {'B', 'E', 'H'},
+      {'B', 'J', 'K'}, {'B', 'E', 'N'}};
 
   all.feature_tweaks_config.interactions.clear();
   all.feature_tweaks_config.interactions.insert(
@@ -121,33 +117,29 @@ void initialize(Search::search& sch, size_t& /*num_actions*/, options_i& options
   sch.set_label_parser(VW::cs_label_parser_global, [](const VW::polylabel& l) -> bool { return l.cs.costs.empty(); });
 }
 
-void inline add_feature(
-    VW::example& ex, uint64_t idx, unsigned char ns, uint64_t mask, uint64_t multiplier, bool /* audit */ = false)
+void inline add_feature(VW::example& ex, uint64_t idx, VW::namespace_index ns, bool /* audit */ = false)
 {
-  ex.feature_space[static_cast<int>(ns)].push_back(1.0f, (idx * multiplier) & mask);
+  ex[ns].add_feature_raw(idx, 1.0f);
 }
 
-void add_all_features(VW::example& ex, VW::example& src, unsigned char tgt_ns, uint64_t mask, uint64_t multiplier,
-    uint64_t offset, bool /* audit */ = false)
+void add_all_features(
+    VW::example& ex, VW::example& src, VW::namespace_index tgt_ns, uint64_t offset, bool /* audit */ = false)
 {
-  VW::features& tgt_fs = ex.feature_space[tgt_ns];
-  for (VW::namespace_index ns : src.indices)
+  VW::features& tgt_fs = ex[tgt_ns];
+  for (VW::namespace_index ns : src)
   {
     if (ns != VW::details::CONSTANT_NAMESPACE)
     {  // ignore VW::details::CONSTANT_NAMESPACE
-      for (VW::feature_index i : src.feature_space[ns].indices)
-      {
-        tgt_fs.push_back(1.0f, ((i / multiplier + offset) * multiplier) & mask);
-      }
+      for (VW::feature_index i : src[ns].indices) { tgt_fs.add_feature_raw(i + offset, 1.0f); }
     }
   }
 }
 
 void inline reset_ex(VW::example& ex)
 {
+  ex.delete_all_namespaces();
   ex.num_features = 0;
   ex.reset_total_sum_feat_sq();
-  for (VW::features& fs : ex) { fs.clear(); }
 }
 
 // arc-hybrid System.
@@ -249,11 +241,8 @@ size_t transition_eager(Search::search& sch, uint64_t a_id, uint32_t idx, uint32
 
 void extract_features(Search::search& sch, uint32_t idx, VW::multi_ex& ec)
 {
-  VW::workspace& all = sch.get_vw_pointer_unsafe();
   task_data* data = sch.get_task_data<task_data>();
   reset_ex(data->ex);
-  uint64_t mask = sch.get_mask();
-  uint64_t multiplier = static_cast<uint64_t>(all.reduction_state.total_feature_width) << all.weights.stride_shift();
 
   auto& stack = data->stack;
   auto& tags = data->tags;
@@ -297,16 +286,8 @@ void extract_features(Search::search& sch, uint32_t idx, VW::multi_ex& ec)
   for (size_t i = 0; i < 13; i++)
   {
     uint64_t additional_offset = static_cast<uint64_t>(i * OFFSET_CONST);
-    if (!ec_buf[i])
-    {
-      add_feature(ex, static_cast<uint64_t>(438129041) + additional_offset, static_cast<unsigned char>((i + 1) + 'A'),
-          mask, multiplier);
-    }
-    else
-    {
-      add_all_features(
-          ex, *ec_buf[i], 'A' + static_cast<unsigned char>(i + 1), mask, multiplier, additional_offset, false);
-    }
+    if (!ec_buf[i]) { add_feature(ex, static_cast<uint64_t>(438129041) + additional_offset, (i + 1) + 'A'); }
+    else { add_all_features(ex, *ec_buf[i], 'A' + i + 1, additional_offset, false); }
   }
 
   // Other features
@@ -328,11 +309,12 @@ void extract_features(Search::search& sch, uint32_t idx, VW::multi_ex& ec)
   for (size_t j = 0; j < 10; j++)
   {
     additional_offset += j * 1023;
-    add_feature(ex, temp[j] + additional_offset, VAL_NAMESPACE, mask, multiplier);
+    add_feature(ex, temp[j] + additional_offset, VAL_NAMESPACE);
   }
   size_t count = 0;
-  for (VW::features& fs : data->ex)
+  for (auto ns : data->ex)
   {
+    auto& fs = data->ex[ns];
     fs.sum_feat_sq = static_cast<float>(fs.size());
     count += fs.size();
   }

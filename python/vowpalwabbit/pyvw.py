@@ -616,7 +616,7 @@ class Workspace(pylibvw.vw):
         Returns:
             float: Weight for the given feature and namespace name
         """
-        space_hash = self.hash_space(namespace_name)
+        space_hash = self.hash_namespace(namespace_name)
         feat_hash = self.hash_feature(feature_name, space_hash)
         return self.get_weight(feat_hash)
 
@@ -1040,7 +1040,7 @@ class ExampleNamespace:
             v: Feature value, by default is 1.0
         """
         if self.ns_hash is None:
-            self.ns_hash = self.ex.vw.hash_space(self.ns)
+            self.ns_hash = self.ex.vw.hash_namespace(self.ns)
         self.ex.push_feature(self.ns, feature, v, self.ns_hash)
 
     def pop_feature(self):
@@ -1728,9 +1728,9 @@ class Example(pylibvw.example):
                 if type(ns) != NamespaceId:
                     ns = self.get_ns(ns)
                 ns_hash = (
-                    self.vw.hash_space(ns.full)
+                    self.vw.hash_namespace(ns.full)
                     if ns.full
-                    else self.vw.hash_space(ns.ns)
+                    else self.vw.hash_namespace(ns.ns)
                 )
             return self.vw.hash_feature(feature, ns_hash)
         raise Exception("cannot extract feature of type: " + str(type(feature)))
@@ -1838,7 +1838,7 @@ class Example(pylibvw.example):
             >>> ex = vw.example('1 |a two features |b more features here')
             >>> ex.push_features('x', ['a', 'b'])
             >>> ex.push_features('y', [('c', 1.), 'd'])
-            >>> space_hash = vw.hash_space('x')
+            >>> space_hash = vw.hash_namespace('x')
             >>> feat_hash  = vw.hash_feature('a', space_hash)
             >>> ex.push_features('x', [feat_hash]) #'x' should match the space_hash!
             >>> ex.num_features_in('x')
@@ -1848,11 +1848,11 @@ class Example(pylibvw.example):
         """
         ns = self.get_ns(ns)
         self.ensure_namespace_exists(ns)
-        ns_hash = self.vw.hash_space(ns.full) if ns.full else self.vw.hash_space(ns.ns)
+        ns_hash = self.vw.hash_namespace(ns.full) if ns.full else self.vw.hash_namespace(ns.ns)
         self.push_feature_list(
             self.vw, ns.ord_ns, ns_hash, featureList
         )  # much faster just to do it in C++
-        # ns_hash = self.vw.hash_space( ns.ns )
+        # ns_hash = self.vw.hash_namespace( ns.ns )
         # for feature in featureList:
         #     if isinstance(feature, int) or isinstance(feature, str):
         #         f = feature

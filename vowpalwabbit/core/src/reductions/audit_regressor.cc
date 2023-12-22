@@ -59,29 +59,29 @@ inline void audit_regressor_interaction(audit_regressor_data& dat, const VW::aud
   std::string ns_pre;
   if (!dat.ns_pre.empty()) { ns_pre += '*'; }
 
-  if (!f->ns.empty() && ((f->ns) != " "))
+  if (!f->namespace_name.empty() && ((f->namespace_name) != " "))
   {
-    ns_pre.append(f->ns);
+    ns_pre.append(f->namespace_name);
     ns_pre += '^';
   }
-  if (!f->name.empty())
+  if (!f->feature_name.empty())
   {
-    ns_pre.append(f->name);
+    ns_pre.append(f->feature_name);
     dat.ns_pre.push_back(ns_pre);
   }
 }
 
-inline void audit_regressor_feature(audit_regressor_data& dat, const float, const uint64_t ft_idx)
+inline void audit_regressor_feature(audit_regressor_data& dat, const float, const uint64_t wt_idx)
 {
   auto& weights = dat.all->weights;
-  if (weights[ft_idx] != 0) { ++dat.values_audited; }
+  if (weights[wt_idx] != 0) { ++dat.values_audited; }
   else { return; }
 
   std::string ns_pre;
   for (const auto& s : dat.ns_pre) { ns_pre += s; }
 
   std::ostringstream tempstream;
-  tempstream << ':' << ((ft_idx & weights.mask()) >> weights.stride_shift()) << ':' << weights[ft_idx];
+  tempstream << ':' << ((wt_idx & weights.weight_mask()) >> weights.stride_shift()) << ':' << weights[wt_idx];
 
   std::string temp = ns_pre + tempstream.str() + '\n';
   if (dat.total_class_cnt > 1)
@@ -91,7 +91,7 @@ inline void audit_regressor_feature(audit_regressor_data& dat, const float, cons
 
   dat.out_file.bin_write_fixed(temp.c_str(), static_cast<uint32_t>(temp.size()));
 
-  weights[ft_idx] = 0.;  // mark value audited
+  weights[wt_idx] = 0.;  // mark value audited
 }
 
 void audit_regressor_lda(audit_regressor_data& rd, VW::LEARNER::learner& /* base */, VW::example& ec)
@@ -100,12 +100,12 @@ void audit_regressor_lda(audit_regressor_data& rd, VW::LEARNER::learner& /* base
 
   std::ostringstream tempstream;
   auto& weights = rd.all->weights;
-  for (unsigned char* i = ec.indices.begin(); i != ec.indices.end(); i++)
+  for (auto ns : ec)
   {
-    auto& fs = ec.feature_space[*i];
+    auto& fs = ec[ns];
     for (size_t j = 0; j < fs.size(); ++j)
     {
-      tempstream << '\t' << fs.space_names[j].ns << '^' << fs.space_names[j].name << ':'
+      tempstream << '\t' << fs.audit_info[j].namespace_name << '^' << fs.audit_info[j].feature_name << ':'
                  << ((fs.indices[j] >> weights.stride_shift()) & all.runtime_state.parse_mask);
       for (size_t k = 0; k < all.reduction_state.lda; k++)
       {
@@ -131,19 +131,20 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
   else
   {
     rd.cur_class = 0;
-    const uint64_t old_offset = ec.ft_offset;
+    const uint64_t old_offset = ec.ft_index_offset;
 
     while (rd.cur_class < rd.total_class_cnt)
     {
-      for (unsigned char* i = ec.indices.begin(); i != ec.indices.end(); ++i)
+      for (auto ns : ec)
       {
-        const auto& fs = ec.feature_space[static_cast<size_t>(*i)];
-        if (!fs.space_names.empty())
+        const auto& fs = ec[ns];
+        if (!fs.audit_info.empty())
         {
           for (size_t j = 0; j < fs.size(); ++j)
           {
-            audit_regressor_interaction(rd, &fs.space_names[j]);
-            audit_regressor_feature(rd, fs.values[j], static_cast<uint32_t>(fs.indices[j]) + ec.ft_offset);
+            audit_regressor_interaction(rd, &fs.audit_info[j]);
+            audit_regressor_feature(rd, fs.values[j],
+                VW::details::feature_to_weight_index(fs.indices[j], ec.ft_index_scale, ec.ft_index_offset));
             audit_regressor_interaction(rd, nullptr);
           }
         }
@@ -151,7 +152,8 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
         {
           for (size_t j = 0; j < fs.size(); ++j)
           {
-            audit_regressor_feature(rd, fs.values[j], static_cast<uint32_t>(fs.indices[j]) + ec.ft_offset);
+            audit_regressor_feature(rd, fs.values[j],
+                VW::details::feature_to_weight_index(fs.indices[j], ec.ft_index_scale, ec.ft_index_offset));
           }
         }
       }
@@ -161,24 +163,22 @@ void audit_regressor(audit_regressor_data& rd, VW::LEARNER::learner& base, VW::e
       {
         VW::generate_interactions<audit_regressor_data, const uint64_t, audit_regressor_feature, true,
             audit_regressor_interaction, VW::sparse_parameters>(rd.all->feature_tweaks_config.interactions,
-            rd.all->feature_tweaks_config.extent_interactions, rd.all->feature_tweaks_config.permutations, ec, rd,
-            rd.all->weights.sparse_weights, num_interacted_features,
+            rd.all->feature_tweaks_config.permutations, ec, rd, rd.all->weights.sparse_weights, num_interacted_features,
             rd.all->runtime_state.generate_interactions_object_cache_state);
       }
       else
       {
         VW::generate_interactions<audit_regressor_data, const uint64_t, audit_regressor_feature, true,
             audit_regressor_interaction, VW::dense_parameters>(rd.all->feature_tweaks_config.interactions,
-            rd.all->feature_tweaks_config.extent_interactions, rd.all->feature_tweaks_config.permutations, ec, rd,
-            rd.all->weights.dense_weights, num_interacted_features,
+            rd.all->feature_tweaks_config.permutations, ec, rd, rd.all->weights.dense_weights, num_interacted_features,
             rd.all->runtime_state.generate_interactions_object_cache_state);
       }
 
-      ec.ft_offset += rd.feature_width_below;
+      ec.ft_index_offset += rd.feature_width_below;
       ++rd.cur_class;
     }
 
-    ec.ft_offset = old_offset;  // make sure example is not changed.
+    ec.ft_index_offset = old_offset;  // make sure example is not changed.
   }
 }
 

@@ -7,6 +7,7 @@
 #include "vw/common/future_compat.h"
 #include "vw/common/random.h"
 #include "vw/core/constant.h"
+#include "vw/core/interactions_predict.h"
 #include "vw/core/numeric_casts.h"
 #include "vw/core/reductions/cb/cb_explore_adf_common.h"
 #include "vw/core/reductions/cb/cb_explore_adf_large_action_space.h"
@@ -63,18 +64,20 @@ TEST(Las, CreationOfTheOgAMatrix)
     auto* ex = examples[action_index];
     // test sanity - test assumes no shared features
     EXPECT_EQ(!VW::ec_is_example_header_cb(*ex), true);
-    for (auto ns : ex->indices)
+    for (auto ns : *ex)
     {
-      for (size_t i = 0; i < ex->feature_space[ns].indices.size(); i++)
+      for (size_t i = 0; i < (*ex)[ns].indices.size(); i++)
       {
-        auto ft_index = ex->feature_space[ns].indices[i];
-        auto ft_value = ex->feature_space[ns].values[i];
+        auto ft_index = (*ex)[ns].indices[i];
+        auto ft_value = (*ex)[ns].values[i];
 
         if (ns == VW::details::DEFAULT_NAMESPACE) { EXPECT_FLOAT_EQ(ft_value, ft_values[i]); }
         else if (ns == VW::details::CONSTANT_NAMESPACE) { EXPECT_FLOAT_EQ(ft_value, 1.f); }
 
-        EXPECT_EQ(
-            action_space->explore._A.coeffRef(action_index, (ft_index & vw->weights.dense_weights.mask())), ft_value);
+        EXPECT_EQ(action_space->explore._A.coeffRef(action_index,
+                      (VW::details::feature_to_weight_index(ft_index, ex->ft_index_scale, ex->ft_index_offset) &
+                          vw->weights.dense_weights.weight_mask())),
+            ft_value);
       }
     }
 
@@ -265,7 +268,7 @@ TEST(Las, CheckAtTimesOmegaIsY)
         auto* ex = examples[action_index];
         // test sanity - test assumes no shared features
         EXPECT_EQ(!VW::ec_is_example_header_cb(*ex), true);
-        for (auto ns : ex->indices)
+        for (auto ns : *ex)
         {
           _UNUSED(ns);
           for (uint64_t col = 0; col < d; col++)

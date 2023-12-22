@@ -27,15 +27,17 @@
 #endif
 
 #include "vw/common/future_compat.h"
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/core/error_reporting.h"
 #include "vw/core/global_data.h"
+#include "vw/core/hash.h"
 #include "vw/core/hashstring.h"
 #include "vw/core/parser.h"
 #include "vw/core/setup_base.h"
 #include "vw/core/vw_fwd.h"
 
 #include <memory>
+#include <vector>
 
 namespace VW
 {
@@ -201,8 +203,10 @@ bool is_ring_example(const VW::workspace& all, const example* ae);
 class primitive_feature_space  // just a helper definition.
 {
 public:
-  unsigned char name;
-  feature* fs;
+  VW::namespace_index ns_index;
+  VW::namespace_index ns_hash;
+  char* ns_name;
+  feature* fs;  // owning raw pointer, must be freed by release_feature_space()
   size_t len;
 };
 
@@ -277,52 +281,6 @@ inline void releaseFeatureSpace(primitive_feature_space* features, size_t len)  
 void save_predictor(VW::workspace& all, const std::string& reg_name);
 void save_predictor(VW::workspace& all, io_buf& buf);
 
-// inlines
-
-// First create the hash of a namespace.
-inline uint64_t hash_space(VW::workspace& all, const std::string& s)
-{
-  return all.parser_runtime.example_parser->hasher(s.data(), s.length(), all.runtime_config.hash_seed);
-}
-inline uint64_t hash_space_static(const std::string& s, const std::string& hash)
-{
-  return get_hasher(hash)(s.data(), s.length(), 0);
-}
-inline uint64_t hash_space_cstr(VW::workspace& all, const char* fstr)
-{
-  return all.parser_runtime.example_parser->hasher(fstr, strlen(fstr), all.runtime_config.hash_seed);
-}
-// Then use it as the seed for hashing features.
-inline uint64_t hash_feature(VW::workspace& all, const std::string& s, uint64_t u)
-{
-  return all.parser_runtime.example_parser->hasher(s.data(), s.length(), u) & all.runtime_state.parse_mask;
-}
-inline uint64_t hash_feature_static(const std::string& s, uint64_t u, const std::string& h, uint32_t num_bits)
-{
-  size_t parse_mark = (1 << num_bits) - 1;
-  return get_hasher(h)(s.data(), s.length(), u) & parse_mark;
-}
-
-inline uint64_t hash_feature_cstr(VW::workspace& all, const char* fstr, uint64_t u)
-{
-  return all.parser_runtime.example_parser->hasher(fstr, strlen(fstr), u) & all.runtime_state.parse_mask;
-}
-
-inline uint64_t chain_hash(VW::workspace& all, const std::string& name, const std::string& value, uint64_t u)
-{
-  // chain hash is hash(feature_value, hash(feature_name, namespace_hash)) & parse_mask
-  return all.parser_runtime.example_parser->hasher(
-             value.data(), value.length(), all.parser_runtime.example_parser->hasher(name.data(), name.length(), u)) &
-      all.runtime_state.parse_mask;
-}
-
-inline uint64_t chain_hash_static(
-    const std::string& name, const std::string& value, uint64_t u, hash_func_t hash_func, uint64_t parse_mask)
-{
-  // chain hash is hash(feature_value, hash(feature_name, namespace_hash)) & parse_mask
-  return hash_func(value.data(), value.length(), hash_func(name.data(), name.length(), u)) & parse_mask;
-}
-
 inline float get_weight(VW::workspace& all, uint32_t index, uint32_t offset)
 {
   return (&all.weights[static_cast<uint64_t>(index) << all.weights.stride_shift()])[offset];
@@ -343,9 +301,10 @@ inline void init_features(primitive_feature_space& fs, size_t features_count)
   fs.len = features_count;
 }
 
-inline void set_feature(primitive_feature_space& fs, size_t index, uint64_t feature_hash, float value)
+inline void set_feature(
+    primitive_feature_space& fs, size_t index, VW::feature_index feature_hash, VW::feature_value value)
 {
-  fs.fs[index].weight_index = feature_hash;
-  fs.fs[index].x = value;
+  fs.fs[index].index = feature_hash;
+  fs.fs[index].value = value;
 }
 }  // namespace VW

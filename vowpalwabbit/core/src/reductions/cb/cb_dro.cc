@@ -39,7 +39,7 @@ public:
     // Ergo, the following always optimizes the bound on the associated
     // deterministic argmax score policy.
 
-    multiline_learn_or_predict<false>(base, examples, examples[0]->ft_offset);
+    multiline_learn_or_predict<false>(base, examples, examples[0]->ft_index_offset);
 
     if (is_learn)
     {
@@ -78,7 +78,7 @@ public:
         std::for_each(examples.begin(), examples.end(), [qlb](VW::example* item) { item->weight *= qlb; });
 
         // TODO: make sure descendants "do the right thing" with example->weight
-        multiline_learn_or_predict<true>(base, examples, examples[0]->ft_offset);
+        multiline_learn_or_predict<true>(base, examples, examples[0]->ft_index_offset);
 
         // restore the original weights
         auto save_weight_it = _save_weight.begin();

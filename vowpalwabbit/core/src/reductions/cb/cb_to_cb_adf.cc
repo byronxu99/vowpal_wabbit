@@ -28,7 +28,7 @@ public:
 template <bool is_learn>
 void predict_or_learn(cb_to_cb_adf& data, learner& base, VW::example& ec)
 {
-  data.adf_data.copy_example_to_adf(*data.weights, ec);
+  data.adf_data.copy_example_to_adf(ec);
 
   VW::cb_label backup_ld;
   VW::cb_label new_ld;
@@ -217,8 +217,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::cb_to_cb_adf_setup(VW::set
 
   if (num_actions <= 0) { THROW("cb num actions must be positive"); }
 
-  data->adf_data.init_adf_data(num_actions, base->feature_width_below, all.feature_tweaks_config.interactions,
-      all.feature_tweaks_config.extent_interactions);
+  data->adf_data.init_adf_data(num_actions, all.feature_tweaks_config.interactions);
 
   // see csoaa.cc ~ line 894 / setup for csldf_setup
   all.parser_runtime.example_parser->emptylines_separate_examples = false;

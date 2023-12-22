@@ -47,7 +47,7 @@ public:
 void merge_options_from_header_strings(const std::vector<std::string>& strings, bool skip_interactions,
     VW::config::options_i& options, bool& is_ccb_input_model);
 
-std::vector<extent_term> parse_full_name_interactions(VW::workspace& all, VW::string_view str);
+// std::vector<extent_term> parse_full_name_interactions(VW::workspace& all, VW::string_view str);
 
 /**
  * @brief Extract namespace, feature name, and optional feature value from ignored feature string

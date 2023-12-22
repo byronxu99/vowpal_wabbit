@@ -62,7 +62,7 @@ int main(int argc, char* argv[])
   size_t rank = atoi(location);
 
   // global model params
-  std::vector<unsigned char> first_pair;
+  std::vector<VW::namespace_index> first_pair;
   for (auto const& i : model->feature_tweaks_config.interactions)
   {
     if (i.size() == 2)
@@ -77,8 +77,8 @@ int main(int argc, char* argv[])
     return 2;
   }
 
-  unsigned char left_ns = first_pair[0];
-  unsigned char right_ns = first_pair[1];
+  VW::namespace_index left_ns = first_pair[0];
+  VW::namespace_index right_ns = first_pair[1];
   auto& weights = model->weights.dense_weights;
 
   FILE* file;
@@ -101,35 +101,38 @@ int main(int argc, char* argv[])
 
     ec = VW::read_example(*model, line);
 
-    // write out features for left namespace
-    VW::features& left = ec->feature_space[left_ns];
-    for (size_t i = 0; i < left.size(); ++i)
+    if (ec->contains(left_ns) && ec->contains(right_ns))
     {
-      left_linear << left.space_names[i].name << '\t' << weights[left.indices[i]];
+      // write out features for left namespace
+      VW::features& left = (*ec)[left_ns];
+      for (size_t i = 0; i < left.size(); ++i)
+      {
+        left_linear << left.audit_info[i].feature_name << '\t' << weights[left.indices[i]];
 
-      left_quadratic << left.space_names[i].name;
-      for (size_t k = 1; k <= rank; k++) { left_quadratic << '\t' << weights[(left.indices[i] + k)]; }
+        left_quadratic << left.audit_info[i].feature_name;
+        for (size_t k = 1; k <= rank; k++) { left_quadratic << '\t' << weights[(left.indices[i] + k)]; }
+      }
+      left_linear << std::endl;
+      left_quadratic << std::endl;
+
+      // write out features for right namespace
+      VW::features& right = (*ec)[right_ns];
+      for (size_t i = 0; i < right.size(); ++i)
+      {
+        right_linear << right.audit_info[i].feature_name << '\t' << weights[right.indices[i]];
+
+        right_quadratic << right.audit_info[i].feature_name;
+        for (size_t k = 1; k <= rank; k++) { right_quadratic << '\t' << weights[(right.indices[i] + k + rank)]; }
+      }
+      right_linear << std::endl;
+      right_quadratic << std::endl;
     }
-    left_linear << std::endl;
-    left_quadratic << std::endl;
-
-    // write out features for right namespace
-    VW::features& right = ec->feature_space[right_ns];
-    for (size_t i = 0; i < right.size(); ++i)
-    {
-      right_linear << right.space_names[i].name << '\t' << weights[right.indices[i]];
-
-      right_quadratic << right.space_names[i].name;
-      for (size_t k = 1; k <= rank; k++) { right_quadratic << '\t' << weights[(right.indices[i] + k + rank)]; }
-    }
-    right_linear << std::endl;
-    right_quadratic << std::endl;
 
     VW::finish_example(*model, *ec);
   }
 
   // write constant
-  constant << weights[ec->feature_space[VW::details::CONSTANT_NAMESPACE].indices[0]] << std::endl;
+  constant << weights[VW::details::CONSTANT] << std::endl;
 
   // clean up
   model->finish();

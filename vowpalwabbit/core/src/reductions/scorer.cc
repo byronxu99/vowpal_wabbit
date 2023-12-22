@@ -44,7 +44,7 @@ void predict_or_learn(scorer& s, VW::LEARNER::learner& base, VW::example& ec)
   }
 
   ec.pred.scalar = link(ec.pred.scalar);
-  VW_DBG(ec) << "ex#= " << ec.example_counter << ", offset=" << ec.ft_offset << ", lbl=" << ec.l.simple.label
+  VW_DBG(ec) << "ex#= " << ec.example_counter << ", offset=" << ec.ft_index_offset << ", lbl=" << ec.l.simple.label
              << ", pred= " << ec.pred.scalar << ", wt=" << ec.weight << ", gd.raw=" << ec.partial_prediction
              << ", loss=" << ec.loss << std::endl;
 }
@@ -61,7 +61,7 @@ void update(scorer& s, VW::LEARNER::learner& base, VW::example& ec)
 {
   if (s.all->set_minmax) { s.all->set_minmax(ec.l.simple.label); }
   base.update(ec);
-  VW_DBG(ec) << "ex#= " << ec.example_counter << ", offset=" << ec.ft_offset << ", lbl=" << ec.l.simple.label
+  VW_DBG(ec) << "ex#= " << ec.example_counter << ", offset=" << ec.ft_index_offset << ", lbl=" << ec.l.simple.label
              << ", pred= " << ec.pred.scalar << ", wt=" << ec.weight << ", gd.raw=" << ec.partial_prediction
              << ", loss=" << ec.loss << std::endl;
 }

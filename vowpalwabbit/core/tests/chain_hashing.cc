@@ -27,20 +27,20 @@ TEST(ChainHashing, BetweenFormats)
   {
     VW::multi_ex examples;
     examples.push_back(&VW::get_unused_example(vw.get()));
-    auto example = examples[0];
+    auto& example = *examples[0];
 
-    VW::parsers::text::read_line(*vw, example, text.c_str());
-    setup_example(*vw, example);
+    VW::parsers::text::read_line(*vw, &example, text.c_str());
+    setup_example(*vw, &example);
 
-    auto& indices = example->feature_space['f'].indices;
+    auto& indices = example['f'].indices;
     txt_idx = indices[0];
     VW::finish_example(*vw, examples);
   }
   {
     auto examples = vwtest::parse_json(*vw, json_text);
-    auto example = examples[0];
+    auto& example = *examples[0];
 
-    auto& indices = example->feature_space['f'].indices;
+    auto& indices = example['f'].indices;
     json_idx = indices[0];
     VW::finish_example(*vw, examples);
   }

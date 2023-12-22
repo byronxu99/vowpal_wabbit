@@ -54,7 +54,7 @@ public:
   VW::v_array<char> tag;  // An identifier for the example.
 
   size_t example_counter;
-  uint64_t ft_offset;
+  uint64_t ft_index_offset;
   float global_weight;
 
   size_t num_features;      // precomputed, cause it's fast&easy.
@@ -69,7 +69,7 @@ flat_example* flatten_sort_example(VW::workspace& all, VW::example* ec)
   fec.tag = ec->tag;
   fec.ex_reduction_features = ec->ex_reduction_features;
   fec.example_counter = ec->example_counter;
-  fec.ft_offset = ec->ft_offset;
+  fec.ft_index_offset = ec->ft_index_offset;
   fec.num_features = ec->num_features;
 
   flatten_features(all, *ec, fec.fs);
@@ -86,11 +86,11 @@ size_t read_model_field_flat_example(VW::io_buf& io, flat_example& fe, VW::label
   bytes += lbl_parser.read_cached_label(fe.l, fe.ex_reduction_features, io);
   bytes += VW::model_utils::read_model_field(io, fe.tag);
   bytes += VW::model_utils::read_model_field(io, fe.example_counter);
-  bytes += VW::model_utils::read_model_field(io, fe.ft_offset);
+  bytes += VW::model_utils::read_model_field(io, fe.ft_index_offset);
   bytes += VW::model_utils::read_model_field(io, fe.global_weight);
   bytes += VW::model_utils::read_model_field(io, fe.num_features);
   bytes += VW::model_utils::read_model_field(io, fe.total_sum_feat_sq);
-  unsigned char index = 0;
+  VW::namespace_index index = 0;
   bytes += ::VW::parsers::cache::details::read_cached_index(io, index);
   bool sorted = true;
   bytes += ::VW::parsers::cache::details::read_cached_features(io, fe.fs, sorted);
@@ -98,18 +98,18 @@ size_t read_model_field_flat_example(VW::io_buf& io, flat_example& fe, VW::label
 }
 
 size_t write_model_field_flat_example(VW::io_buf& io, const flat_example& fe, const std::string& upstream_name,
-    bool text, VW::label_parser& lbl_parser, uint64_t parse_mask)
+    bool text, VW::label_parser& lbl_parser, uint64_t /* parse_mask */)
 {
   size_t bytes = 0;
   lbl_parser.cache_label(fe.l, fe.ex_reduction_features, io, upstream_name + "_label", text);
   bytes += VW::model_utils::write_model_field(io, fe.tag, upstream_name + "_tag", text);
   bytes += VW::model_utils::write_model_field(io, fe.example_counter, upstream_name + "_example_counter", text);
-  bytes += VW::model_utils::write_model_field(io, fe.ft_offset, upstream_name + "_ft_offset", text);
+  bytes += VW::model_utils::write_model_field(io, fe.ft_index_offset, upstream_name + "_ft_offset", text);
   bytes += VW::model_utils::write_model_field(io, fe.global_weight, upstream_name + "_global_weight", text);
   bytes += VW::model_utils::write_model_field(io, fe.num_features, upstream_name + "_num_features", text);
   bytes += VW::model_utils::write_model_field(io, fe.total_sum_feat_sq, upstream_name + "_total_sum_feat_sq", text);
   ::VW::parsers::cache::details::cache_index(io, 0);
-  ::VW::parsers::cache::details::cache_features(io, fe.fs, parse_mask);
+  ::VW::parsers::cache::details::cache_features(io, fe.fs);
   return bytes;
 }
 

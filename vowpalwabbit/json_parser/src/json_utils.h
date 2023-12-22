@@ -1,8 +1,9 @@
 #pragma once
 
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/core/feature_group.h"
 #include "vw/core/global_data.h"
+#include "vw/core/parse_primitives.h"
 #include "vw/core/vw.h"
 
 #include <cstdint>
@@ -21,89 +22,93 @@ template <bool audit>
 class namespace_builder
 {
 public:
-  char feature_group;
-  feature_index namespace_hash;
+  example* ex;
+  std::string name;
+  bool hash_all;
   features* ftrs;
-  size_t feature_count;
-  const char* name;
 
-  void add_feature(feature_value v, feature_index i, const char* feature_name)
+  namespace_builder(example* _ex, const char* _name, bool _hash_all) : ex(_ex), name(_name), hash_all(_hash_all)
+  {
+    // operator[] will create a new namespace if it doesn't exist
+    ftrs = &(*ex)[name];
+  }
+
+  ~namespace_builder()
+  {
+    // delete namespace if it is empty
+    if (ftrs->size() == 0) { ex->delete_namespace(name); }
+  }
+
+  // Add a feature with integer index and float value
+  void add_feature(feature_index i, feature_value v)
   {
     // filter out 0-values
     if (v == 0) { return; }
 
-    ftrs->push_back(v, i);
-    feature_count++;
-
-    if (audit) { ftrs->space_names.emplace_back(name, feature_name); }
+    ftrs->add_feature(i, v, audit);
   }
 
-  void add_feature(const char* str, hash_func_t hash_func, uint64_t parse_mask)
+  // Add a feature with integer index, float value, and custom audit string
+  void add_feature(feature_index i, feature_value v, std::string feature_name)
   {
-    auto hashed_feature = hash_func(str, strlen(str), namespace_hash) & parse_mask;
-    ftrs->push_back(1., hashed_feature);
-    feature_count++;
+    // filter out 0-values
+    if (v == 0) { return; }
 
-    if (audit) { ftrs->space_names.emplace_back(name, str); }
+    ftrs->add_feature_raw(i, v);
+    if (audit) { ftrs->add_audit_string(std::move(feature_name)); }
   }
 
-  void add_feature(const char* key, const char* value, hash_func_t hash_func, uint64_t parse_mask)
+  // Add a feature with string name and float value
+  // Feature name may be parsed as int depending on hash_all
+  void add_feature(const char* name, feature_value value = 1.f)
   {
-    ftrs->push_back(1., VW::chain_hash_static(key, value, namespace_hash, hash_func, parse_mask));
-    feature_count++;
-    if (audit) { ftrs->space_names.emplace_back(name, key, value); }
+    if (name == nullptr || name[0] == '\0') { return; }
+
+    // filter out 0-values
+    if (value == 0) { return; }
+
+    if (hash_all)
+    {
+      // always treat feature name as a string
+      ftrs->add_feature(name, value, audit);
+    }
+    else
+    {
+      // check if the string is an integer
+      if (VW::details::is_string_integer(name))
+      {
+        VW::feature_index index = std::strtoll(name, nullptr, 10);
+        ftrs->add_feature(index, value, audit);
+      }
+      else { ftrs->add_feature(name, value, audit); }
+    }
+  }
+
+  // Add a feature with string name and string value
+  // Feature name may be parsed as int depending on hash_all
+  // Feature value is assumed to be a string and will not be parsed as float
+  void add_feature(const char* name, const char* value)
+  {
+    if (name == nullptr || name[0] == '\0') { return; }
+
+    if (hash_all)
+    {
+      // always treat feature name as a string
+      ftrs->add_feature(name, value, audit);
+    }
+    else
+    {
+      // check if the string is an integer
+      if (VW::details::is_string_integer(name))
+      {
+        VW::feature_index index = std::strtoll(name, nullptr, 10);
+        ftrs->add_feature(index, value, audit);
+      }
+      else { ftrs->add_feature(name, value, audit); }
+    }
   }
 };
 
-template <bool audit>
-void push_ns(VW::example* ex, const char* ns, std::vector<namespace_builder<audit>>& namespaces, hash_func_t hash_func,
-    uint64_t hash_seed)
-{
-  namespace_builder<audit> n;
-  n.feature_group = ns[0];
-  n.namespace_hash = hash_func(ns, strlen(ns), hash_seed);
-  n.ftrs = ex->feature_space.data() + ns[0];
-  n.feature_count = 0;
-  n.name = ns;
-
-  if (!namespaces.empty())
-  {
-    // Close last
-    auto& top = namespaces.back();
-    if (!top.ftrs->namespace_extents.empty() && top.ftrs->namespace_extents.back().end_index == 0)
-    {
-      top.ftrs->end_ns_extent();
-    }
-  }
-  // Add new
-  n.ftrs->start_ns_extent(n.namespace_hash);
-
-  namespaces.push_back(std::move(n));
-}
-
-template <bool audit>
-void pop_ns(VW::example* ex, std::vector<namespace_builder<audit>>& namespaces)
-{
-  auto& ns = namespaces.back();
-  if (ns.feature_count > 0)
-  {
-    auto feature_group = ns.feature_group;
-    // Do not insert feature_group if it already exists.
-    if (std::find(ex->indices.begin(), ex->indices.end(), feature_group) == ex->indices.end())
-    {
-      ex->indices.push_back(feature_group);
-    }
-  }
-
-  ns.ftrs->end_ns_extent();
-  namespaces.pop_back();
-
-  if (!namespaces.empty())
-  {
-    auto& top = namespaces.back();
-    top.ftrs->start_ns_extent(top.namespace_hash);
-  }
-}
 }  // namespace details
 }  // namespace json
 }  // namespace parsers

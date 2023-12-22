@@ -4,6 +4,7 @@
 
 #include "vw/core/feature_group.h"
 
+#include "vw/core/hash.h"
 #include "vw/core/v_array.h"
 
 #include <algorithm>
@@ -16,8 +17,7 @@ void VW::features::clear()
   sum_feat_sq = 0.f;
   values.clear();
   indices.clear();
-  space_names.clear();
-  namespace_extents.clear();
+  audit_info.clear();
 }
 
 void VW::features::truncate_to(const audit_iterator& pos, float sum_feat_sq_of_removed_section)
@@ -39,15 +39,7 @@ void VW::features::truncate_to(size_t i, float sum_feat_sq_of_removed_section)
   values.resize(i);
   if (indices.end() != indices.begin()) { indices.resize(i); }
 
-  if (space_names.size() > i) { space_names.erase(space_names.begin() + i, space_names.end()); }
-
-  while (!namespace_extents.empty() && namespace_extents.back().begin_index >= i) { namespace_extents.pop_back(); }
-
-  // Check if the truncation cuts an extent in the middle.
-  if (!namespace_extents.empty())
-  {
-    if (namespace_extents.back().end_index > i) { namespace_extents.back().end_index = i; }
-  }
+  if (audit_info.size() > i) { audit_info.erase(audit_info.begin() + i, audit_info.end()); }
 }
 
 void VW::features::truncate_to(const audit_iterator& pos) { truncate_to(std::distance(audit_begin(), pos)); }
@@ -73,67 +65,64 @@ void VW::features::concat(const features& other)
   //  - empty() && !other.audit -> push val, idx
 
   // Cannot merge two feature groups if one has audit info and the other does not.
-  assert(!(!empty() && (space_names.empty() != other.space_names.empty())));
+  assert(!(!empty() && (audit_info.empty() != other.audit_info.empty())));
   sum_feat_sq += other.sum_feat_sq;
 
-  const auto extent_offset = indices.size();
   for (size_t i = 0; i < other.size(); ++i)
   {
     values.push_back(other.values[i]);
     indices.push_back(other.indices[i]);
   }
 
-  if (!other.space_names.empty())
+  if (!other.audit_info.empty())
   {
-    space_names.insert(space_names.end(), other.space_names.begin(), other.space_names.end());
-  }
-
-  // If the back of the current list and the front of the other list have the same hash then merge the extent.
-  size_t offset = 0;
-  if (!namespace_extents.empty() && !other.namespace_extents.empty() &&
-      (namespace_extents.back().hash == other.namespace_extents.front().hash))
-  {
-    namespace_extents.back().end_index +=
-        (other.namespace_extents.front().end_index - other.namespace_extents.front().begin_index);
-    offset = 1;
-  }
-
-  for (size_t i = offset; i < other.namespace_extents.size() - offset; ++i)
-  {
-    const auto& ns_extent = other.namespace_extents[i];
-    namespace_extents.emplace_back(
-        ns_extent.begin_index + extent_offset, ns_extent.end_index + extent_offset, ns_extent.hash);
+    audit_info.insert(audit_info.end(), other.audit_info.begin(), other.audit_info.end());
   }
 }
 
-void VW::features::push_back(feature_value v, feature_index i)
+void VW::features::add_feature_raw(feature_index i, feature_value v)
 {
   values.push_back(v);
   indices.push_back(i);
   sum_feat_sq += v * v;
 }
 
-void VW::features::push_back(feature_value v, feature_index i, uint64_t hash)
+void VW::features::add_audit_string(std::string feature_name)
 {
-  // If there is an open extent but of a different hash - we must close it before we do anything.
-  if (!namespace_extents.empty() && namespace_extents.back().hash != hash && (namespace_extents.back().end_index == 0))
-  {
-    end_ns_extent();
-  }
+  audit_info.emplace_back(namespace_name, namespace_hash, std::move(feature_name));
+}
 
-  // We only need to extend the extent if it has had its end index set. If the end index is 0, then we assume the extent
-  // is open and will be closed before the example is finished being constructed.
-  const bool should_extend_existing =
-      !namespace_extents.empty() && namespace_extents.back().hash == hash && namespace_extents.back().end_index != 0;
-  // If there is an extent but of a different hash - we must add a new one.
-  const bool should_create_new = namespace_extents.empty() || namespace_extents.back().hash != hash;
+void VW::features::add_audit_string(std::string feature_name, std::string str_value)
+{
+  audit_info.emplace_back(namespace_name, namespace_hash, std::move(feature_name), std::move(str_value));
+}
 
-  if (should_extend_existing) { namespace_extents.back().end_index++; }
-  else if (should_create_new) { namespace_extents.emplace_back(indices.size(), indices.size() + 1, hash); }
+void VW::features::add_feature(feature_index i, feature_value v, bool audit)
+{
+  VW::feature_index index = VW::hash_feature(i, namespace_hash);
+  add_feature_raw(index, v * namespace_value);
+  if (audit) { add_audit_string(std::to_string(i)); }
+}
 
-  values.push_back(v);
-  indices.push_back(i);
-  sum_feat_sq += v * v;
+void VW::features::add_feature(feature_index i, VW::string_view str_value, bool audit)
+{
+  VW::feature_index index = VW::chain_hash_feature(i, str_value, namespace_hash);
+  add_feature_raw(index, namespace_value);
+  if (audit) { add_audit_string(std::to_string(i), std::string(str_value)); }
+}
+
+void VW::features::add_feature(VW::string_view feature_name, feature_value v, bool audit)
+{
+  VW::feature_index index = VW::hash_feature(feature_name, namespace_hash);
+  add_feature_raw(index, v * namespace_value);
+  if (audit) { add_audit_string(std::string(feature_name)); }
+}
+
+void VW::features::add_feature(VW::string_view feature_name, VW::string_view str_value, bool audit)
+{
+  VW::feature_index index = VW::chain_hash_feature(feature_name, str_value, namespace_hash);
+  add_feature_raw(index, namespace_value);
+  if (audit) { add_audit_string(std::string(feature_name), std::string(str_value)); }
 }
 
 // https://stackoverflow.com/questions/17074324/how-can-i-sort-two-vectors-in-the-same-way-with-criteria-that-uses-only-one-of
@@ -194,58 +183,6 @@ void push_many(std::vector<std::pair<bool, uint64_t>>& vec, size_t num, bool is_
   for (auto i = std::size_t{0}; i < num; ++i) { vec.emplace_back(is_valid, hash); }
 }
 
-namespace VW
-{
-namespace details
-{
-// This function converts the list of ranges into a flat list of elements
-// corresponding to each index in the given list of ranges. The
-// overall_feature_space_size is used to fill th elements between th last range
-// ending and the end of the overall logical list. This function is used to
-// perform elementwise operations such as filtering and sorting when combined
-// with the other vectors in a features object.
-std::vector<std::pair<bool, uint64_t>> flatten_namespace_extents(
-    const std::vector<namespace_extent>& extents, size_t overall_feature_space_size)
-{
-  assert(extents.empty() || (overall_feature_space_size >= extents.back().end_index));
-  std::vector<std::pair<bool, uint64_t>> flattened;
-  flattened.reserve(overall_feature_space_size);
-  auto last_end = std::size_t{0};
-  for (const auto& extent : extents)
-  {
-    if (extent.begin_index > last_end) { push_many(flattened, extent.begin_index - last_end, false, 0); }
-    push_many(flattened, extent.end_index - extent.begin_index, true, extent.hash);
-    last_end = extent.end_index;
-  }
-  if (overall_feature_space_size > last_end) { push_many(flattened, overall_feature_space_size - last_end, false, 0); }
-  return flattened;
-}
-
-// This function can take the output of flatten_namespace_extents and reverse it
-// to get back to the original representation required in the features object.
-std::vector<namespace_extent> unflatten_namespace_extents(const std::vector<std::pair<bool, uint64_t>>& extents)
-{
-  if (extents.empty()) { return {}; }
-  std::vector<namespace_extent> results;
-  auto last_start = std::size_t{0};
-  auto current = extents[0];
-  for (auto i = std::size_t{1}; i < extents.size(); ++i)
-  {
-    if (current != extents[i])
-    {
-      // Check if it was a valid sequence, or an empty segment.
-      if (current.first) { results.emplace_back(last_start, i, current.second); }
-      last_start = i;
-      current = extents[i];
-    }
-  }
-
-  if (current.first) { results.emplace_back(last_start, extents.size(), current.second); }
-  return results;
-}
-}  // namespace details
-}  // namespace VW
-
 bool VW::features::sort(uint64_t parse_mask)
 {
   if (indices.empty()) { return false; }
@@ -258,44 +195,10 @@ bool VW::features::sort(uint64_t parse_mask)
     return (masked_index_first < masked_index_second) ||
         ((masked_index_first == masked_index_second) && (value_first < value_second));
   };
-  auto flat_extents = VW::details::flatten_namespace_extents(namespace_extents, indices.size());
   const auto dest_index_vec = sort_permutation(indices, values, comparator);
-  if (!space_names.empty()) { apply_permutation_in_place(dest_index_vec, values, indices, flat_extents, space_names); }
-  else { apply_permutation_in_place(dest_index_vec, values, indices, flat_extents); }
-  namespace_extents = VW::details::unflatten_namespace_extents(flat_extents);
+  if (!audit_info.empty()) { apply_permutation_in_place(dest_index_vec, values, indices, audit_info); }
+  else { apply_permutation_in_place(dest_index_vec, values, indices); }
   return true;
-}
-
-void VW::features::start_ns_extent(uint64_t hash)
-{
-  // Either the list should be empty or the last one should have a valid end index.
-  assert(namespace_extents.empty() || (!namespace_extents.empty() && namespace_extents.back().end_index != 0));
-  namespace_extents.emplace_back(indices.size(), hash);
-}
-
-void VW::features::end_ns_extent()
-{
-  // There should have been an extent started.
-  assert(!namespace_extents.empty());
-  // If the last extent has already been ended this is an error.
-  assert(namespace_extents.back().end_index == 0);
-
-  const auto end_index = indices.size();
-  namespace_extents.back().end_index = end_index;
-
-  // If the size of the extent is empty then just remove it.
-  if (namespace_extents.back().begin_index == namespace_extents.back().end_index) { namespace_extents.pop_back(); }
-
-  // If the most recent extent is actually the same as the previous one, merge them.
-  if (namespace_extents.size() > 1)
-  {
-    auto& prev = namespace_extents[namespace_extents.size() - 2];
-    if (prev.hash == namespace_extents.back().hash)
-    {
-      prev.end_index = end_index;
-      namespace_extents.pop_back();
-    }
-  }
 }
 
 float VW::features_dot_product(const features& fs1, const features& fs2)
@@ -321,4 +224,33 @@ float VW::features_dot_product(const features& fs1, const features& fs2)
     }
   }
   return dotprod;
+}
+
+VW::scope_exit_guard VW::features::stash_features()
+{
+  auto values_copy = values;
+  auto indices_copy = indices;
+  auto audit_info_copy = audit_info;
+  auto sum_feat_sq_copy = sum_feat_sq;
+
+#ifdef HAS_STD14
+  return VW::scope_exit_guard(
+      [this, values_copy = std::move(values_copy), indices_copy = std::move(indices_copy),
+          audit_info_copy = std::move(audit_info_copy), sum_feat_sq_copy]() mutable
+      {
+        values = std::move(values_copy);
+        indices = std::move(indices_copy);
+        audit_info = std::move(audit_info_copy);
+        sum_feat_sq = sum_feat_sq_copy;
+      });
+#else
+  return VW::scope_exit_guard(
+      [this, values_copy, indices_copy, audit_info_copy, sum_feat_sq_copy]() mutable
+      {
+        values = std::move(values_copy);
+        indices = std::move(indices_copy);
+        audit_info = std::move(audit_info_copy);
+        sum_feat_sq = sum_feat_sq_copy;
+      });
+#endif
 }

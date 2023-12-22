@@ -63,7 +63,7 @@ class index_feature
 public:
   uint32_t document;
   VW::feature f;
-  bool operator<(const index_feature b) const { return f.weight_index < b.f.weight_index; }
+  bool operator<(const index_feature b) const { return f.index < b.f.index; }
 };
 
 class lda
@@ -715,11 +715,14 @@ float lda_loop(lda& l, VW::v_array<float>& Elogtheta, float* v, VW::example* ec,
 
     score = 0;
     doc_length = 0;
-    for (VW::features& fs : *ec)
+    for (auto ns : *ec)
     {
+      auto& fs = (*ec)[ns];
       for (VW::features::iterator& f : fs)
       {
-        float* u_for_w = &(weights[f.index()]) + l.topics + 1;
+        VW::feature_index weight_index =
+            VW::details::feature_to_weight_index(f.index(), ec->ft_index_scale, ec->ft_index_offset);
+        float* u_for_w = &(weights[weight_index & weights.weight_mask()]) + l.topics + 1;
         float c_w = find_cw(l, u_for_w, v);
         xc_w = c_w * f.value();
         score += -f.value() * std::log(c_w);
@@ -765,7 +768,8 @@ public:
 void save_load(lda& l, VW::io_buf& model_file, bool read, bool text)
 {
   VW::workspace& all = *(l.all);
-  uint64_t length = static_cast<uint64_t>(1) << all.initial_weights_config.num_bits;
+  uint64_t length = static_cast<uint64_t>(1)
+      << (all.initial_weights_config.feature_hash_bits + all.initial_weights_config.feature_width_bits);
   if (read)
   {
     VW::details::initialize_regressor(all);
@@ -857,7 +861,7 @@ void learn_batch(lda& l, std::vector<example*>& batch)
     for (size_t k = 0; k < l.all->reduction_state.lda; k++) { l.total_lambda.push_back(0.f); }
     // This part does not work with sparse parameters
     size_t stride = weights.stride();
-    for (size_t i = 0; i <= weights.mask(); i += stride)
+    for (size_t i = 0; i <= weights.weight_mask(); i += stride)
     {
       VW::weight* w = &(weights[i]);
       for (size_t k = 0; k < l.all->reduction_state.lda; k++) { l.total_lambda[k] += w[k]; }
@@ -887,10 +891,10 @@ void learn_batch(lda& l, std::vector<example*>& batch)
   auto last_weight_index = std::numeric_limits<uint64_t>::max();
   for (index_feature* s = &l.sorted_features[0]; s <= &l.sorted_features.back(); s++)
   {
-    if (last_weight_index == s->f.weight_index) { continue; }
-    last_weight_index = s->f.weight_index;
-    // float *weights_for_w = &(weights[s->f.weight_index]);
-    float* weights_for_w = &(weights[s->f.weight_index & weights.mask()]);
+    if (last_weight_index == s->f.index) { continue; }
+    last_weight_index = s->f.index;
+    // float *weights_for_w = &(weights[s->f.index]);
+    float* weights_for_w = &(weights[s->f.index & weights.weight_mask()]);
     float decay_component = l.decay_levels.end()[-2] -
         l.decay_levels.end()[static_cast<int>(-1 - l.example_t + *(weights_for_w + l.all->reduction_state.lda))];
     float decay = std::fmin(1.0f, VW::details::correctedExp(decay_component));
@@ -925,9 +929,9 @@ void learn_batch(lda& l, std::vector<example*>& batch)
     for (index_feature* s = &l.sorted_features[0]; s <= &l.sorted_features.back();)
     {
       index_feature* next = s + 1;
-      while (next <= &l.sorted_features.back() && next->f.weight_index == s->f.weight_index) { next++; }
+      while (next <= &l.sorted_features.back() && next->f.index == s->f.index) { next++; }
 
-      float* word_weights = &(weights[s->f.weight_index]);
+      float* word_weights = &(weights[s->f.index]);
       for (size_t k = 0; k < l.all->reduction_state.lda; k++, ++word_weights)
       {
         float new_value = minuseta * *word_weights;
@@ -937,9 +941,9 @@ void learn_batch(lda& l, std::vector<example*>& batch)
       for (; s != next; s++)
       {
         float* v_s = &(l.v[static_cast<size_t>(s->document) * static_cast<size_t>(l.all->reduction_state.lda)]);
-        float* u_for_w = &(weights[s->f.weight_index]) + l.all->reduction_state.lda + 1;
-        float c_w = eta * find_cw(l, u_for_w, v_s) * s->f.x;
-        word_weights = &(weights[s->f.weight_index]);
+        float* u_for_w = &(weights[s->f.index]) + l.all->reduction_state.lda + 1;
+        float c_w = eta * find_cw(l, u_for_w, v_s) * s->f.value;
+        word_weights = &(weights[s->f.index]);
         for (size_t k = 0; k < l.all->reduction_state.lda; k++, ++u_for_w, ++word_weights)
         {
           float new_value = *u_for_w * v_s[k] * c_w;
@@ -979,11 +983,14 @@ void learn(lda& l, VW::example& ec)
 
   const auto new_example_batch_index = static_cast<uint32_t>(l.batch_buffer.size()) - 1;
   l.doc_lengths.push_back(0);
-  for (const auto& fs : ec)
+  for (auto ns : ec)
   {
+    auto& fs = ec[ns];
     for (const auto& f : fs)
     {
-      index_feature temp = {new_example_batch_index, VW::feature(f.value(), f.index())};
+      auto weight_index = VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset);
+      index_feature temp = {
+          new_example_batch_index, VW::feature(f.value(), weight_index & l.all->weights.weight_mask())};
       l.sorted_features.push_back(temp);
       l.doc_lengths[new_example_batch_index] += static_cast<int>(f.value());
     }
@@ -997,13 +1004,15 @@ void learn_with_metrics(lda& l, VW::example& ec)
   {
     // build feature to example map
     uint64_t stride_shift = l.all->weights.stride_shift();
-    uint64_t weight_mask = l.all->weights.mask();
+    uint64_t weight_mask = l.all->weights.weight_mask();
 
-    for (VW::features& fs : ec)
+    for (auto ns : ec)
     {
+      auto& fs = ec[ns];
       for (VW::features::iterator& f : fs)
       {
-        uint64_t idx = (f.index() & weight_mask) >> stride_shift;
+        auto weight_index = VW::details::feature_to_weight_index(f.index(), ec.ft_index_scale, ec.ft_index_offset);
+        auto idx = (weight_index & weight_mask) >> stride_shift;
         l.feature_counts[idx] += static_cast<uint32_t>(f.value());
         l.feature_to_example_map[idx].push_back(ec.example_counter);
       }
@@ -1041,10 +1050,11 @@ public:
 template <class T>
 void get_top_weights(VW::workspace* all, int top_words_count, int topic, std::vector<VW::feature>& output, T& weights)
 {
-  uint64_t length = static_cast<uint64_t>(1) << all->initial_weights_config.num_bits;
+  uint64_t length = static_cast<uint64_t>(1)
+      << (all->initial_weights_config.feature_hash_bits + all->initial_weights_config.feature_width_bits);
 
   // get top features for this topic
-  auto cmp = [](VW::feature left, VW::feature right) { return left.x > right.x; };
+  auto cmp = [](VW::feature left, VW::feature right) { return left.value > right.value; };
   std::priority_queue<VW::feature, std::vector<VW::feature>, decltype(cmp)> top_features(cmp);
   typename T::iterator iter = weights.begin();
 
@@ -1056,7 +1066,7 @@ void get_top_weights(VW::workspace* all, int top_words_count, int topic, std::ve
   for (uint64_t i = top_words_count; i < length; i++, ++iter)
   {
     weight v = (&(*iter))[topic];
-    if (v > top_features.top().x)
+    if (v > top_features.top().value)
     {
       top_features.pop();
       top_features.push({v, i});
@@ -1075,7 +1085,8 @@ void get_top_weights(VW::workspace* all, int top_words_count, int topic, std::ve
 template <class T>
 void compute_coherence_metrics(lda& l, T& weights)
 {
-  uint64_t length = static_cast<uint64_t>(1) << l.all->initial_weights_config.num_bits;
+  uint64_t length = static_cast<uint64_t>(1)
+      << (l.all->initial_weights_config.feature_hash_bits + l.all->initial_weights_config.feature_width_bits);
 
   std::vector<std::vector<feature_pair>> topics_word_pairs;
   topics_word_pairs.resize(l.topics);
@@ -1085,7 +1096,7 @@ void compute_coherence_metrics(lda& l, T& weights)
   for (size_t topic = 0; topic < l.topics; topic++)
   {
     // get top features for this topic
-    auto cmp = [](VW::feature& left, VW::feature& right) { return left.x > right.x; };
+    auto cmp = [](VW::feature& left, VW::feature& right) { return left.value > right.value; };
     std::priority_queue<VW::feature, std::vector<VW::feature>, decltype(cmp)> top_features(cmp);
     typename T::iterator iter = weights.begin();
     for (uint64_t i = 0; i < std::min(static_cast<uint64_t>(top_words_count), length); i++, ++iter)
@@ -1095,7 +1106,7 @@ void compute_coherence_metrics(lda& l, T& weights)
 
     for (typename T::iterator v = weights.begin(); v != weights.end(); ++v)
     {
-      if ((&(*v))[topic] > top_features.top().x)
+      if ((&(*v))[topic] > top_features.top().value)
       {
         top_features.pop();
         top_features.push(VW::feature((&(*v))[topic], v.index()));
@@ -1107,7 +1118,7 @@ void compute_coherence_metrics(lda& l, T& weights)
     top_features_idx.resize(top_features.size());
     for (int i = (int)top_features.size() - 1; i >= 0; i--)
     {
-      top_features_idx[i] = top_features.top().weight_index;
+      top_features_idx[i] = top_features.top().index;
       top_features.pop();
     }
 
@@ -1335,9 +1346,10 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::lda_setup(VW::setup_base_i
   ld->example_t = all.update_rule_config.initial_t;
   if (ld->compute_coherence_metrics)
   {
-    ld->feature_counts.resize(static_cast<uint32_t>(VW::details::UINT64_ONE << all.initial_weights_config.num_bits));
-    ld->feature_to_example_map.resize(
-        static_cast<uint32_t>(VW::details::UINT64_ONE << all.initial_weights_config.num_bits));
+    size_t new_size = static_cast<size_t>(1)
+        << (all.initial_weights_config.feature_hash_bits + all.initial_weights_config.feature_width_bits);
+    ld->feature_counts.resize(new_size);
+    ld->feature_to_example_map.resize(new_size);
   }
 
   float temp = ceilf(logf(static_cast<float>(all.reduction_state.lda * 2 + 1)) / logf(2.f));

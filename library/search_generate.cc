@@ -296,49 +296,41 @@ public:
       VW::example ex;
 
       // length info
-      auto ns_hash_l = VW::hash_space(vw_obj, "l");
-      auto& fs_l = ex.feature_space['l'];
-      ex.indices.push_back('l');
-      fs_l.push_back(static_cast<float>(n), VW::hash_feature(vw_obj, "in", ns_hash_l));
-      fs_l.push_back(static_cast<float>(m), VW::hash_feature(vw_obj, "out", ns_hash_l));
-      if (n != m) { fs_l.push_back(static_cast<float>(n - m), VW::hash_feature(vw_obj, "diff", ns_hash_l)); }
+      auto& fs_l = ex["l"];
+      fs_l.add_feature("in", static_cast<float>(n));
+      fs_l.add_feature("out", static_cast<float>(m));
+      if (n != m) { fs_l.add_feature("diff", static_cast<float>(n - m)); }
 
       // suffixes thus far
-      auto ns_hash_s = VW::hash_space(vw_obj, "s");
-      auto& fs_s = ex.feature_space['s'];
-      ex.indices.push_back('s');
+      auto& fs_s = ex["s"];
       std::string tmp("$");
       for (int i = m; i >= m - 15 && i >= 0; i--)
       {
         std::stringstream ss;
         ss << out[i] << tmp;
         tmp = ss.str();
-        fs_s.push_back(1.f, VW::hash_feature(vw_obj, "p=" + tmp, ns_hash_s));
+        fs_s.add_feature("p=" + tmp, 1.f);
       }
 
       // characters thus far
-      auto ns_hash_c = VW::hash_space(vw_obj, "c");
-      auto& fs_c = ex.feature_space['c'];
-      ex.indices.push_back('c');
-      for (char c : out) { fs_c.push_back(1.f, VW::hash_feature(vw_obj, "c=" + std::string(1, c), ns_hash_c)); }
-      fs_c.push_back(1.f, VW::hash_feature(vw_obj, "c=$", ns_hash_c));
+      auto& fs_c = ex["c"];
+      for (char c : out) { fs_c.add_feature("c=" + std::string(1, c), 1.f); }
+      fs_c.add_feature("c=$", 1.f);
 
       // words thus far
-      auto ns_hash_w = VW::hash_space(vw_obj, "w");
-      auto& fs_w = ex.feature_space['w'];
-      ex.indices.push_back('w');
+      auto& fs_w = ex["w"];
       tmp = "";
       for (char c : out)
       {
         if (c == '^') { continue; }
         if (c == ' ')
         {
-          fs_w.push_back(1.f, VW::hash_feature(vw_obj, "w=" + tmp + "$", ns_hash_w));
+          fs_w.add_feature("w=" + tmp + "$", 1.f);
           tmp = "";
         }
         else { tmp += c; }
       }
-      fs_w.push_back(1.f, VW::hash_feature(vw_obj, "w=" + tmp, ns_hash_w));
+      fs_w.add_feature("w=" + tmp, 1.f);
 
       // do we match the trie?
       if (_dict)
@@ -346,26 +338,21 @@ public:
         next.clear();
         _dict->get_next(nullptr, next);
 
-        auto ns_hash_d = VW::hash_space(vw_obj, "d");
-        auto& fs_d = ex.feature_space['d'];
-        ex.indices.push_back('d');
+        auto& fs_d = ex["d"];
 
         char best_char = '~';
         float best_count = 0.;
         for (const auto& xx : next)
         {
-          if (xx.cw > 0.) { fs_d.push_back(xx.cw, VW::hash_feature(vw_obj, "c=" + std::string(1, xx.c), ns_hash_d)); }
-          if (xx.sw > 0.) { fs_d.push_back(xx.sw, VW::hash_feature(vw_obj, "mc=" + xx.s, ns_hash_d)); }
+          if (xx.cw > 0.) { fs_d.add_feature("c=" + std::string(1, xx.c), xx.cw); }
+          if (xx.sw > 0.) { fs_d.add_feature("mc=" + xx.s, xx.sw); }
           if (xx.sw > best_count)
           {
             best_count = xx.sw;
             best_char = xx.c;
           }
         }
-        if (best_count > 0.)
-        {
-          fs_d.push_back(best_count, VW::hash_feature(vw_obj, "best=" + std::string(1, best_char), ns_hash_d));
-        }
+        if (best_count > 0.) { fs_d.add_feature("best=" + std::string(1, best_char), best_count); }
       }
 
       // input
@@ -376,20 +363,18 @@ public:
         ex("c=" + in.in[n]);
       ex("c=$");
       */
-      auto ns_hash_i = VW::hash_space(vw_obj, "i");
-      auto& fs_i = ex.feature_space['i'];
-      ex.indices.push_back('i');
+      auto& fs_i = ex["i"];
       tmp = "";
       for (char c : in.in)
       {
         if (c == ' ')
         {
-          fs_i.push_back(1.f, VW::hash_feature(vw_obj, "w=" + tmp, ns_hash_i));
+          fs_i.add_feature("w=" + tmp, 1.f);
           tmp = "";
         }
         else { tmp += c; }
       }
-      fs_i.push_back(1.f, VW::hash_feature(vw_obj, "w=" + tmp, ns_hash_i));
+      fs_i.add_feature("w=" + tmp, 1.f);
 
       ref.clear();
 

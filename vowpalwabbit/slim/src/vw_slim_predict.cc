@@ -11,42 +11,48 @@ uint64_t ceil_log_2(uint64_t v)
   else { return 1 + ceil_log_2(v >> 1); }
 }
 
-namespace_copy_guard::namespace_copy_guard(VW::example_predict& ex, unsigned char ns) : _ex(ex), _ns(ns)
+namespace_copy_guard::namespace_copy_guard(VW::example_predict& ex, VW::namespace_index ns) : _ex(ex), _ns(ns)
 {
-  if (std::end(_ex.indices) == std::find(std::begin(_ex.indices), std::end(_ex.indices), ns))
+  if (!ex.contains(ns))
   {
-    _ex.indices.push_back(_ns);
+    // New namespace will be created
+    // We must delete the entire namespace when we are done
     _remove_ns = true;
   }
-  else { _remove_ns = false; }
+  else
+  {
+    // Namespace already exists
+    // We must restore the namespace's features when we are done
+    _remove_ns = false;
+    _restore_guard = ex[ns].stash_features();
+  }
 }
 
 namespace_copy_guard::~namespace_copy_guard()
 {
-  _ex.indices.pop_back();
-  if (_remove_ns) { _ex.feature_space[_ns].clear(); }
+  if (_remove_ns) { _ex.delete_namespace(_ns); }
 }
 
 void namespace_copy_guard::feature_push_back(VW::feature_value v, VW::feature_index idx)
 {
-  _ex.feature_space[_ns].push_back(v, idx);
+  _ex[_ns].add_feature_raw(idx, v);
 }
 
-feature_offset_guard::feature_offset_guard(VW::example_predict& ex, uint64_t ft_offset)
-    : _ex(ex), _old_ft_offset(ex.ft_offset)
+feature_offset_guard::feature_offset_guard(VW::example_predict& ex, uint64_t ft_index_offset)
+    : _ex(ex), _old_ft_index_offset(ex.ft_index_offset)
 {
-  _ex.ft_offset = ft_offset;
+  _ex.ft_index_offset = ft_index_offset;
 }
 
-feature_offset_guard::~feature_offset_guard() { _ex.ft_offset = _old_ft_offset; }
+feature_offset_guard::~feature_offset_guard() { _ex.ft_index_offset = _old_ft_index_offset; }
 
 stride_shift_guard::stride_shift_guard(VW::example_predict& ex, uint64_t shift) : _ex(ex), _shift(shift)
 {
   if (_shift > 0)
   {
-    for (auto ns : _ex.indices)
+    for (auto ns : _ex)
     {
-      for (auto& f : _ex.feature_space[ns]) { f.index() <<= _shift; }
+      for (auto& f : _ex[ns]) { f.index() <<= _shift; }
     }
   }
 }
@@ -55,9 +61,9 @@ stride_shift_guard::~stride_shift_guard()
 {
   if (_shift > 0)
   {
-    for (auto ns : _ex.indices)
+    for (auto ns : _ex)
     {
-      for (auto& f : _ex.feature_space[ns]) { f.index() >>= _shift; }
+      for (auto& f : _ex[ns]) { f.index() >>= _shift; }
     }
   }
 }

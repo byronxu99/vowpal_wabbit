@@ -1,11 +1,12 @@
 set(vw_common_sources
     include/vw/common/vw_exception.h
+    include/vw/common/fnv_hash.h
     include/vw/common/future_compat.h
-    include/vw/common/hash.h
     include/vw/common/string_view.h
     include/vw/common/random.h
     include/vw/common/random_details.h
     include/vw/common/text_utils.h
+    include/vw/common/uniform_hash.h
     include/vw/common/vwvis.h
 )
 

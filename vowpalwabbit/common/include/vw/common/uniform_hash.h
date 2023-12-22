@@ -29,6 +29,7 @@ license as described in the file LICENSE.
 #pragma once
 
 #include "vw/common/future_compat.h"
+#include "vw/common/string_view.h"
 
 #include <sys/types.h>
 
@@ -125,6 +126,12 @@ VW_STD14_CONSTEXPR inline uint32_t uniform_hash(const char* data, size_t len, ui
 {
   return details::murmurhash_x86_32(data, len, seed);
 }
+
+VW_STD14_CONSTEXPR inline uint32_t uniform_hash(VW::string_view data, uint32_t seed)
+{
+  return details::murmurhash_x86_32(data.begin(), data.size(), seed);
+}
+
 }  // namespace VW
 
 VW_DEPRECATED("uniform_hash has been moved into VW namespace")

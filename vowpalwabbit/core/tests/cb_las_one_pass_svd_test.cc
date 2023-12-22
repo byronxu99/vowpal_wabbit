@@ -420,10 +420,11 @@ TEST(Las, ComputeDotProdScalarAndSimdHaveSameResults)
     VW::multi_ex examples;
     examples.push_back(VW::read_example(*vw, generate_example(/*num_namespaces=*/2, /*num_features=*/5)));
     auto* ex = examples[0];
+    auto indices = ex->namespaces();
     auto interactions =
         VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
             vw->feature_tweaks_config.interactions,
-            std::set<VW::namespace_index>(ex->indices.begin(), ex->indices.end()));
+            std::unordered_set<VW::namespace_index>(indices.begin(), indices.end()));
     ex->interactions = &interactions;
     EXPECT_EQ(interactions.size(), 0);
 
@@ -438,10 +439,11 @@ TEST(Las, ComputeDotProdScalarAndSimdHaveSameResults)
     VW::multi_ex examples;
     examples.push_back(VW::read_example(*vw, generate_example(/*num_namespaces=*/2, /*num_features=*/50)));
     auto* ex = examples[0];
+    auto indices = ex->namespaces();
     auto interactions =
         VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
             vw->feature_tweaks_config.interactions,
-            std::set<VW::namespace_index>(ex->indices.begin(), ex->indices.end()));
+            std::unordered_set<VW::namespace_index>(indices.begin(), indices.end()));
     ex->interactions = &interactions;
     EXPECT_EQ(interactions.size(), 0);
 
@@ -456,10 +458,11 @@ TEST(Las, ComputeDotProdScalarAndSimdHaveSameResults)
     VW::multi_ex examples;
     examples.push_back(VW::read_example(*vw, generate_example(/*num_namespaces=*/2, /*num_features=*/5)));
     auto* ex = examples[0];
+    auto indices = ex->namespaces();
     auto interactions =
         VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
             vw->feature_tweaks_config.interactions,
-            std::set<VW::namespace_index>(ex->indices.begin(), ex->indices.end()));
+            std::unordered_set<VW::namespace_index>(indices.begin(), indices.end()));
     ex->interactions = &interactions;
     EXPECT_EQ(interactions.size(), 6);
 
@@ -474,10 +477,11 @@ TEST(Las, ComputeDotProdScalarAndSimdHaveSameResults)
     VW::multi_ex examples;
     examples.push_back(VW::read_example(*vw, generate_example(/*num_namespaces=*/2, /*num_features=*/50)));
     auto* ex = examples[0];
+    auto indices = ex->namespaces();
     auto interactions =
         VW::details::compile_interactions<VW::details::generate_namespace_combinations_with_repetition, false>(
             vw->feature_tweaks_config.interactions,
-            std::set<VW::namespace_index>(ex->indices.begin(), ex->indices.end()));
+            std::unordered_set<VW::namespace_index>(indices.begin(), indices.end()));
     ex->interactions = &interactions;
     EXPECT_EQ(interactions.size(), 6);
 
@@ -657,18 +661,6 @@ TEST(Las, ScalarAndSimdGenerateSamePredictions)
     // Cubics & generic interactions are not supported yet
     auto vw_simd = VW::initialize(vwtest::make_args(
         "--cb_explore_adf", "--large_action_space", "--quiet", "--cubic", ":::", "--las_hint_explicit_simd"));
-
-    VW::LEARNER::learner* learner =
-        require_multiline(vw_simd->l->get_learner_by_name_prefix("cb_explore_adf_large_action_space"));
-    auto* action_space = (internal_action_space_op*)learner->get_internal_type_erased_data_pointer_test_use_only();
-    EXPECT_NE(action_space, nullptr);
-
-    EXPECT_FALSE(action_space->explore.impl._test_only_use_simd());
-  }
-  {
-    // Extent interactions are not supported yet
-    auto vw_simd = VW::initialize(vwtest::make_args("--cb_explore_adf", "--large_action_space", "--quiet",
-        "--experimental_full_name_interactions", "A|B", "--las_hint_explicit_simd"));
 
     VW::LEARNER::learner* learner =
         require_multiline(vw_simd->l->get_learner_by_name_prefix("cb_explore_adf_large_action_space"));

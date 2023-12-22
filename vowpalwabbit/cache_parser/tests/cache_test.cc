@@ -28,8 +28,8 @@ TEST(Cache, WriteAndReadExample)
   io_writer.add_file(VW::io::create_vector_writer(backing_vector));
 
   VW::parsers::cache::details::cache_temp_buffer temp_buffer;
-  VW::parsers::cache::write_example_to_cache(io_writer, &src_ex, workspace->parser_runtime.example_parser->lbl_parser,
-      workspace->runtime_state.parse_mask, temp_buffer);
+  VW::parsers::cache::write_example_to_cache(
+      io_writer, &src_ex, workspace->parser_runtime.example_parser->lbl_parser, temp_buffer);
   io_writer.flush();
 
   VW::io_buf io_reader;
@@ -41,15 +41,15 @@ TEST(Cache, WriteAndReadExample)
   VW::parsers::cache::read_example_from_cache(workspace.get(), io_reader, examples);
   EXPECT_EQ(io_reader.unflushed_bytes_count(), backing_vector->size());
 
-  EXPECT_EQ(dest_ex.indices.size(), 2);
-  EXPECT_EQ(dest_ex.feature_space['n'].size(), 3);
-  EXPECT_EQ(dest_ex.feature_space['s'].size(), 1);
+  EXPECT_EQ(dest_ex.size(), 2);
+  EXPECT_EQ(dest_ex["ns1"].size(), 3);
+  EXPECT_EQ(dest_ex["ss2"].size(), 1);
 
-  EXPECT_THAT(src_ex.feature_space['s'].values, Pointwise(FloatNear(1e-3f), dest_ex.feature_space['s'].values));
-  EXPECT_THAT(src_ex.feature_space['s'].indices, Pointwise(Eq(), dest_ex.feature_space['s'].indices));
+  EXPECT_THAT(src_ex["ss2"].values, Pointwise(FloatNear(1e-3f), dest_ex["ss2"].values));
+  EXPECT_THAT(src_ex["ss2"].indices, Pointwise(Eq(), dest_ex["ss2"].indices));
 
-  EXPECT_THAT(src_ex.feature_space['n'].values, Pointwise(FloatNear(1e-3f), dest_ex.feature_space['n'].values));
-  EXPECT_THAT(src_ex.feature_space['n'].indices, Pointwise(Eq(), dest_ex.feature_space['n'].indices));
+  EXPECT_THAT(src_ex["ns1"].values, Pointwise(FloatNear(1e-3f), dest_ex["ns1"].values));
+  EXPECT_THAT(src_ex["ns1"].indices, Pointwise(Eq(), dest_ex["ns1"].indices));
 
   EXPECT_FLOAT_EQ(src_ex.l.simple.label, dest_ex.l.simple.label);
 }
@@ -79,8 +79,8 @@ TEST(Cache, WriteAndReadLargeExample)
   io_writer.add_file(VW::io::create_vector_writer(backing_vector));
 
   VW::parsers::cache::details::cache_temp_buffer temp_buffer;
-  VW::parsers::cache::write_example_to_cache(io_writer, &src_ex, workspace->parser_runtime.example_parser->lbl_parser,
-      workspace->runtime_state.parse_mask, temp_buffer);
+  VW::parsers::cache::write_example_to_cache(
+      io_writer, &src_ex, workspace->parser_runtime.example_parser->lbl_parser, temp_buffer);
   io_writer.flush();
 
   VW::io_buf io_reader;
@@ -91,12 +91,12 @@ TEST(Cache, WriteAndReadLargeExample)
   examples.push_back(&dest_ex);
   VW::parsers::cache::read_example_from_cache(workspace.get(), io_reader, examples);
 
-  EXPECT_EQ(src_ex.indices.size(), dest_ex.indices.size());
-  for (auto idx : {' ', 'a', 'b', 'c', 'd', 'e', 'f'})
+  EXPECT_EQ(src_ex.size(), dest_ex.size());
+  for (std::string idx : {" ", "a", "b", "c", "d", "e", "f"})
   {
-    EXPECT_EQ(src_ex.feature_space[idx].size(), dest_ex.feature_space[idx].size());
-    EXPECT_THAT(src_ex.feature_space[idx].values, Pointwise(FloatNear(1e-3f), dest_ex.feature_space[idx].values));
-    EXPECT_THAT(src_ex.feature_space[idx].indices, Pointwise(Eq(), dest_ex.feature_space[idx].indices));
+    EXPECT_EQ(src_ex[idx].size(), dest_ex[idx].size());
+    EXPECT_THAT(src_ex[idx].values, Pointwise(FloatNear(1e-3f), dest_ex[idx].values));
+    EXPECT_THAT(src_ex[idx].indices, Pointwise(Eq(), dest_ex[idx].indices));
   }
 }
 
@@ -150,15 +150,13 @@ TEST(Cache, WriteAndReadFeatures)
   VW::io_buf io_writer;
   io_writer.add_file(VW::io::create_vector_writer(backing_vector));
 
-  uint64_t mask = (1 << 18) - 1;
-
   VW::features feats;
-  feats.push_back(1.f, 23424542 & mask);
-  feats.push_back(4.f, 1231987 & mask);
-  feats.push_back(1.1f, 675 & mask);
-  feats.push_back(1.34f, 1 & mask);
-  feats.push_back(1.1f, 567 & mask);
-  VW::parsers::cache::details::cache_features(io_writer, feats, mask);
+  feats.add_feature_raw(23424542, 1.f);
+  feats.add_feature_raw(1231987, 4.f);
+  feats.add_feature_raw(675, 1.1f);
+  feats.add_feature_raw(1, 1.34f);
+  feats.add_feature_raw(567, 1.1f);
+  VW::parsers::cache::details::cache_features(io_writer, feats);
   io_writer.flush();
 
   VW::io_buf io_reader;

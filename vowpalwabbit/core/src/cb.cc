@@ -201,7 +201,7 @@ void ::VW::details::print_update_cb(VW::workspace& all, bool is_test, const VW::
         if (VW::ec_is_example_header_cb(*(*ec_seq)[i]))
         {
           num_features += (ec_seq->size() - 1) *
-              ((*ec_seq)[i]->get_num_features() - (*ec_seq)[i]->feature_space[VW::details::CONSTANT_NAMESPACE].size());
+              ((*ec_seq)[i]->get_num_features() - (*(*ec_seq)[i])[VW::details::CONSTANT_NAMESPACE].size());
         }
         else { num_features += (*ec_seq)[i]->get_num_features(); }
       }

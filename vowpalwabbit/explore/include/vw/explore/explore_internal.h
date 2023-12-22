@@ -4,9 +4,9 @@
 
 #pragma once
 
-#include "vw/common/hash.h"
 #include "vw/common/random.h"
 #include "vw/common/random_details.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/explore/explore_error_codes.h"
 
 #include <algorithm>

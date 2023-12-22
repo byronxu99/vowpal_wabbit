@@ -93,7 +93,7 @@ public:
   using iterator = details::dense_iterator<VW::weight>;
   using const_iterator = details::dense_iterator<const VW::weight>;
 
-  dense_parameters(size_t length, uint32_t stride_shift = 0);
+  dense_parameters(uint32_t feature_hash_bits, uint32_t feature_width_bits, uint32_t stride_shift = 0);
   dense_parameters();
 
   dense_parameters(const dense_parameters& other) = delete;
@@ -102,10 +102,7 @@ public:
   dense_parameters(dense_parameters&&) noexcept;
 
   bool not_null();
-  VW::weight* first()
-  {
-    return _begin.get();
-  }  // TODO: Temporary fix for allreduce.
+  VW::weight* first() { return _begin.get(); }  // TODO: Temporary fix for allreduce.
 
   VW::weight* data() { return _begin.get(); }
 
@@ -119,6 +116,7 @@ public:
   const_iterator cbegin() const { return const_iterator(_begin.get(), _begin.get(), stride_shift()); }
   const_iterator cend() const { return const_iterator(_begin.get() + _weight_mask + 1, _begin.get(), stride_shift()); }
 
+  // operator[] is a 1-dimensional index into a flattened array
   inline const VW::weight& operator[](size_t i) const { return _begin.get()[i & _weight_mask]; }
   inline VW::weight& operator[](size_t i) { return _begin.get()[i & _weight_mask]; }
 
@@ -126,11 +124,32 @@ public:
   inline const VW::weight& get(size_t i) const { return operator[](i); }
   inline VW::weight& get(size_t i) { return operator[](i); }
 
+  // index() is a 3-dimensional index
+  inline VW::weight& index(size_t hash_index, size_t width_index, size_t stride_index = 0)
+  {
+    return operator[](
+        (hash_index << (_feature_width_bits + _stride_shift)) + (width_index << _stride_shift) + stride_index);
+  }
+  inline const VW::weight& index(size_t hash_index, size_t width_index, size_t stride_index = 0) const
+  {
+    return operator[](
+        (hash_index << (_feature_width_bits + _stride_shift)) + (width_index << _stride_shift) + stride_index);
+  }
+
+  // strided_index() is a 2-dimensional index
+  // first dimension includes hash index and feature width index
+  // second dimension is the stride index
+  inline VW::weight& strided_index(size_t hash_width_index, size_t stride_index = 0)
+  {
+    return operator[]((hash_width_index << _stride_shift) + stride_index);
+  }
+  inline const VW::weight& strided_index(size_t hash_width_index, size_t stride_index = 0) const
+  {
+    return operator[]((hash_width_index << _stride_shift) + stride_index);
+  }
+
   VW_ATTR(nodiscard) static dense_parameters shallow_copy(const dense_parameters& input);
   VW_ATTR(nodiscard) static dense_parameters deep_copy(const dense_parameters& input);
-
-  inline VW::weight& strided_index(size_t index) { return operator[](index << _stride_shift); }
-  inline const VW::weight& strided_index(size_t index) const { return operator[](index << _stride_shift); }
 
   template <typename Lambda>
   void set_default(Lambda&& default_func)
@@ -148,13 +167,16 @@ public:
 
   void set_zero(size_t offset);
 
-  uint64_t mask() const { return _weight_mask; }
+  uint64_t hash_mask() const { return _hash_mask; }
+  uint64_t weight_mask() const { return _weight_mask; }
 
   uint64_t raw_length() const { return _weight_mask + 1; }
 
   uint64_t stride() const { return static_cast<uint64_t>(1) << _stride_shift; }
-
   uint32_t stride_shift() const { return _stride_shift; }
+
+  uint32_t feature_hash_bits() const { return _feature_hash_bits; }
+  uint32_t feature_width_bits() const { return _feature_width_bits; }
 
   void stride_shift(uint32_t stride_shift) { _stride_shift = stride_shift; }
 
@@ -166,8 +188,15 @@ public:
 
 private:
   std::shared_ptr<VW::weight> _begin;
-  uint64_t _weight_mask;  // (stride*(1 << num_bits) -1)
+  uint32_t _feature_hash_bits;
+  uint32_t _feature_width_bits;
   uint32_t _stride_shift;
+
+  // (1 << feature_hash_bits) - 1
+  uint64_t _hash_mask;
+
+  // (1 << (feature_hash_bits + feature_width_bits + stride_shift)) - 1
+  uint64_t _weight_mask;
 };
 }  // namespace VW
 using dense_parameters VW_DEPRECATED("dense_parameters moved into VW namespace") = VW::dense_parameters;

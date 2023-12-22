@@ -20,7 +20,7 @@ bool worse()
 }
 
 // This sets up example with correct ineractions vector
-void apply_config(example* ec, interaction_vec_t* live_interactions)
+void apply_config(example* ec, VW::interaction_spec_type* live_interactions)
 {
   if (ec == nullptr) { return; }
   ec->interactions = live_interactions;
@@ -35,7 +35,7 @@ bool count_namespaces(const multi_ex& ecs, std::map<namespace_index, uint64_t>& 
   bool new_ns_seen = false;
   for (const example* ex : ecs)
   {
-    for (const auto& ns : ex->indices)
+    for (const auto ns : *ex)
     {
       if (!VW::is_interaction_ns(ns)) { continue; }
       // CCB_SLOT_NAMESPACE should be accounted for since generate_interactions treats it as a normal namespace
@@ -71,17 +71,17 @@ void fail_if_enabled(VW::workspace& all, const std::set<std::string>& not_compat
   }
 }
 
-std::string ns_to_str(unsigned char ns)
+std::string ns_to_str(VW::namespace_index ns)
 {
   if (ns == VW::details::CONSTANT_NAMESPACE) { return "[constant]"; }
   else if (ns == VW::details::CCB_SLOT_NAMESPACE) { return "[ccbslot]"; }
   else if (ns == VW::details::CCB_ID_NAMESPACE) { return "[ccbid]"; }
   else if (ns == VW::details::WILDCARD_NAMESPACE) { return "[wild]"; }
   else if (ns == VW::details::DEFAULT_NAMESPACE) { return "[default]"; }
-  else { return std::string(1, ns); }
+  else { return std::to_string(ns); }
 }
 
-std::string interaction_vec_t_to_string(const std::vector<std::vector<namespace_index>>& interactions)
+std::string interaction_spec_to_string(const std::vector<std::vector<namespace_index>>& interactions)
 {
   std::stringstream ss;
   for (const std::vector<VW::namespace_index>& v : interactions)

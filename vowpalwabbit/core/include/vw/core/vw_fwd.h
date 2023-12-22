@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <cstdint>  // for uint64_t
+
 // forward declarations
 namespace VW
 {
@@ -25,7 +27,7 @@ class shared_data;
 class parser;
 class features;
 
-using namespace_index = unsigned char;
+using namespace_index = uint64_t;
 
 namespace LEARNER
 {

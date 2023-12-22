@@ -49,7 +49,7 @@ public:
 
   bool rank = false;
   VW::action_scores a_s;
-  uint64_t ft_offset = 0;
+  uint64_t ft_index_offset = 0;
 
   std::vector<VW::action_scores> stored_preds;
 };
@@ -70,56 +70,54 @@ void compute_wap_values(std::vector<VW::cs_class*> costs)
 // Rather than finding the corresponding namespace and feature in ec,
 // add a new feature with opposite value (but same index) to ec to a special VW::details::WAP_LDF_NAMESPACE.
 // This is faster and allows fast undo in unsubtract_example().
-void subtract_feature(VW::example& ec, float feature_value_x, uint64_t weight_index)
+void subtract_feature(VW::example& ec, float feature_value_x, uint64_t feature_index)
 {
-  ec.feature_space[VW::details::WAP_LDF_NAMESPACE].push_back(
-      -feature_value_x, weight_index, VW::details::WAP_LDF_NAMESPACE);
+  ec[VW::details::WAP_LDF_NAMESPACE].add_feature_raw(feature_index, -feature_value_x);
 }
 
 // Iterate over all features of ecsub including quadratic and cubic features and subtract them from ec.
 void subtract_example(VW::workspace& all, VW::example* ec, VW::example* ecsub)
 {
-  auto& wap_fs = ec->feature_space[VW::details::WAP_LDF_NAMESPACE];
+  auto& wap_fs = (*ec)[VW::details::WAP_LDF_NAMESPACE];
   wap_fs.sum_feat_sq = 0;
+  auto restore = ecsub->stash_scale_offset();
+  ecsub->ft_index_scale = 1;
+  ecsub->ft_index_offset = 0;
   VW::foreach_feature<VW::example&, uint64_t, subtract_feature>(all, *ecsub, *ec);
-  ec->indices.push_back(VW::details::WAP_LDF_NAMESPACE);
   ec->num_features += wap_fs.size();
   ec->reset_total_sum_feat_sq();
 }
 
 void unsubtract_example(VW::example* ec, VW::io::logger& logger)
 {
-  if (ec->indices.empty())
+  if (ec->empty())
   {
     logger.err_error("Internal error (bug): trying to unsubtract_example, but there are no namespaces");
     return;
   }
 
-  if (ec->indices.back() != VW::details::WAP_LDF_NAMESPACE)
+  if (!ec->contains(VW::details::WAP_LDF_NAMESPACE))
   {
-    logger.err_error(
-        "Internal error (bug): trying to unsubtract_example, but either it wasn't added, or something was added "
-        "after and not removed");
+    logger.err_error("Internal error (bug): trying to unsubtract_example, but WAP LDF namespace wasn't added");
     return;
   }
 
-  auto& fs = ec->feature_space[VW::details::WAP_LDF_NAMESPACE];
+  auto& fs = (*ec)[VW::details::WAP_LDF_NAMESPACE];
   ec->num_features -= fs.size();
+  ec->delete_namespace(VW::details::WAP_LDF_NAMESPACE);
   ec->reset_total_sum_feat_sq();
-  fs.clear();
-  ec->indices.pop_back();
 }
 
 void make_single_prediction(ldf& data, learner& base, VW::example& ec)
 {
-  uint64_t old_offset = ec.ft_offset;
+  uint64_t old_offset = ec.ft_index_offset;
 
   VW::details::append_example_namespace_from_memory(data.label_features, ec, ec.l.cs.costs[0].class_index);
 
   auto restore_guard = VW::scope_exit(
       [&data, old_offset, &ec]
       {
-        ec.ft_offset = old_offset;
+        ec.ft_index_offset = old_offset;
         // WARNING: Access of label information when making prediction is
         // problematic.
         ec.l.cs.costs[0].partial_prediction = ec.partial_prediction;
@@ -131,7 +129,7 @@ void make_single_prediction(ldf& data, learner& base, VW::example& ec)
   ec.l.simple = VW::simple_label{FLT_MAX};
   ec.ex_reduction_features.template get<VW::simple_label_reduction_features>().reset_to_default();
 
-  ec.ft_offset = data.ft_offset;
+  ec.ft_index_offset = data.ft_index_offset;
   base.predict(ec);  // make a prediction
 }
 
@@ -202,19 +200,19 @@ void do_actual_learning_wap(ldf& data, learner& base, VW::multi_ex& ec_seq)
 
       // learn
       float old_weight = ec1->weight;
-      uint64_t old_offset = ec1->ft_offset;
+      uint64_t old_offset = ec1->ft_index_offset;
       simple_red_features.initial = 0.;
       simple_lbl.label = (costs1[0].x < costs2[0].x) ? -1.0f : 1.0f;
       ec1->weight = value_diff;
       ec1->partial_prediction = 0.;
       subtract_example(*data.all, ec1, ec2);
-      ec1->ft_offset = data.ft_offset;
+      ec1->ft_index_offset = data.ft_index_offset;
 
       // Guard inner example state restore against throws
       auto restore_guard_inner = VW::scope_exit(
           [&data, old_offset, old_weight, &costs2, &ec2, &ec1]
           {
-            ec1->ft_offset = old_offset;
+            ec1->ft_index_offset = old_offset;
             ec1->weight = old_weight;
             unsubtract_example(ec1, data.all->logger);
             VW::details::truncate_example_namespace_from_memory(data.label_features, *ec2, costs2[0].class_index);
@@ -273,14 +271,14 @@ void do_actual_learning_oaa(ldf& data, learner& base, VW::multi_ex& ec_seq)
 
     // Prepare examples for learning
     VW::details::append_example_namespace_from_memory(data.label_features, *ec, costs[0].class_index);
-    uint64_t old_offset = ec->ft_offset;
-    ec->ft_offset = data.ft_offset;
+    uint64_t old_offset = ec->ft_index_offset;
+    ec->ft_index_offset = data.ft_index_offset;
 
     // Guard example state restore against throws
     auto restore_guard = VW::scope_exit(
         [&save_cs_label, &data, &costs, old_offset, old_weight, &ec]
         {
-          ec->ft_offset = old_offset;
+          ec->ft_index_offset = old_offset;
           VW::details::truncate_example_namespace_from_memory(data.label_features, *ec, costs[0].class_index);
           ec->weight = old_weight;
           ec->partial_prediction = costs[0].partial_prediction;
@@ -304,7 +302,7 @@ void learn_csoaa_ldf(ldf& data, learner& base, VW::multi_ex& ec_seq_all)
     return;  // nothing to do
   }
 
-  data.ft_offset = ec_seq_all[0]->ft_offset;
+  data.ft_index_offset = ec_seq_all[0]->ft_index_offset;
 
   /////////////////////// learn
   if (!test_ldf_sequence(ec_seq_all, data.all->logger))
@@ -347,7 +345,7 @@ void predict_csoaa_ldf(ldf& data, learner& base, VW::multi_ex& ec_seq_all)
     return;  // nothing to do
   }
 
-  data.ft_offset = ec_seq_all[0]->ft_offset;
+  data.ft_index_offset = ec_seq_all[0]->ft_index_offset;
 
   uint32_t num_classes = static_cast<uint32_t>(ec_seq_all.size());
   // Predicted class as index of input examples.
@@ -377,7 +375,7 @@ void predict_csoaa_ldf_probabilities(ldf& data, learner& base, VW::multi_ex& ec_
     return;  // nothing to do
   }
 
-  data.ft_offset = ec_seq_all[0]->ft_offset;
+  data.ft_index_offset = ec_seq_all[0]->ft_index_offset;
   auto restore_guard =
       VW::scope_exit([&ec_seq_all] { convert_to_probabilities(ec_seq_all, ec_seq_all[0]->pred.scalars); });
 
@@ -392,7 +390,7 @@ void predict_csoaa_ldf_probabilities(ldf& data, learner& base, VW::multi_ex& ec_
  */
 void predict_csoaa_ldf_rank(ldf& data, learner& base, VW::multi_ex& ec_seq_all)
 {
-  data.ft_offset = ec_seq_all[0]->ft_offset;
+  data.ft_index_offset = ec_seq_all[0]->ft_index_offset;
   if (ec_seq_all.empty())
   {
     return;  // nothing more to do
@@ -477,8 +475,7 @@ size_t cs_count_features(const VW::multi_ex& ec_seq)
   {
     if (VW::is_cs_example_header(*ec))
     {
-      num_features +=
-          (ec_seq.size() - 1) * (ec->get_num_features() - ec->feature_space[VW::details::CONSTANT_NAMESPACE].size());
+      num_features += (ec_seq.size() - 1) * (ec->get_num_features() - ec[VW::details::CONSTANT_NAMESPACE].size());
     }
     else { num_features += ec->get_num_features(); }
   }

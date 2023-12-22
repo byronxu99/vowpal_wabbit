@@ -54,13 +54,12 @@ void autolink::prepare_example(VW::LEARNER::learner& base, VW::example& ec) cons
   float base_pred = ec.pred.scalar;
 
   // Add features of label.
-  ec.indices.push_back(VW::details::AUTOLINK_NAMESPACE);
-  auto& fs = ec.feature_space[VW::details::AUTOLINK_NAMESPACE];
+  auto& fs = ec[VW::details::AUTOLINK_NAMESPACE];
   for (size_t i = 0; i < _poly_degree; i++)
   {
     if (base_pred != 0.f)
     {
-      fs.push_back(base_pred, AUTOCONSTANT + (i << _stride_shift), VW::details::AUTOLINK_NAMESPACE);
+      fs.add_feature_raw(AUTOCONSTANT + i, base_pred);
       base_pred *= ec.pred.scalar;
     }
   }
@@ -69,10 +68,8 @@ void autolink::prepare_example(VW::LEARNER::learner& base, VW::example& ec) cons
 
 void autolink::reset_example(VW::example& ec)
 {
-  auto& fs = ec.feature_space[VW::details::AUTOLINK_NAMESPACE];
+  ec.delete_namespace(VW::details::AUTOLINK_NAMESPACE);
   ec.reset_total_sum_feat_sq();
-  fs.clear();
-  ec.indices.pop_back();
 }
 
 template <bool is_learn>

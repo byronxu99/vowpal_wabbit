@@ -25,12 +25,6 @@ public:
   // [ w*(1,x_l,x_r) , l^1*x_l, r^1*x_r, l^2*x_l, r^2*x_2, ... ]
   VW::v_array<float> sub_predictions;
 
-  // array for temp storage of indices during prediction
-  VW::v_array<unsigned char> predict_indices;
-
-  // array for temp storage of indices
-  VW::v_array<unsigned char> indices;
-
   // array for temp storage of features
   VW::features temp_features;
 
@@ -50,30 +44,27 @@ void predict(mf& data, learner& base, VW::example& ec)
   if (cache_sub_predictions) { data.sub_predictions[0] = ec.partial_prediction; }
   prediction += ec.partial_prediction;
 
-  // store namespace indices
-  data.predict_indices = ec.indices;
-
-  // erase indices
-  ec.indices.clear();
-  ec.indices.push_back(0);
-
-  auto* saved_interactions = ec.interactions;
-  auto restore_guard = VW::scope_exit([saved_interactions, &ec] { ec.interactions = saved_interactions; });
-
-  std::vector<std::vector<VW::namespace_index>> empty_interactions;
-  ec.interactions = &empty_interactions;
+  // stash data and clear example
+  auto restore_features_guard = ec.stash_features();
+  auto saved_features = ec.feature_space();
+  auto restore_interactions_guard = ec.stash_interactions();
+  auto saved_interactions = *ec.interactions;
+  ec.delete_all_namespaces();
+  ec.interactions->clear();
 
   // add interaction terms to prediction
-  for (auto& i : *saved_interactions)
+  for (auto& i : saved_interactions)
   {
-    auto left_ns = static_cast<int>(i[0]);
-    auto right_ns = static_cast<int>(i[1]);
+    auto left_ns = i[0];
+    auto right_ns = i[1];
 
-    if (ec.feature_space[left_ns].size() > 0 && ec.feature_space[right_ns].size() > 0)
+    if (ec[left_ns].size() > 0 && ec[right_ns].size() > 0)
     {
       for (size_t k = 1; k <= data.rank; k++)
       {
-        ec.indices[0] = static_cast<VW::namespace_index>(left_ns);
+        // set example to left namespace only
+        ec.delete_all_namespaces();
+        ec[left_ns] = saved_features[left_ns];
 
         // compute l^k * x_l using base learner
         base.predict(ec, k);
@@ -81,7 +72,8 @@ void predict(mf& data, learner& base, VW::example& ec)
         if (cache_sub_predictions) { data.sub_predictions[2 * k - 1] = x_dot_l; }
 
         // set example to right namespace only
-        ec.indices[0] = static_cast<VW::namespace_index>(right_ns);
+        ec.delete_all_namespaces();
+        ec[right_ns] = saved_features[right_ns];
 
         // compute r^k * x_r using base learner
         base.predict(ec, k + data.rank);
@@ -93,8 +85,6 @@ void predict(mf& data, learner& base, VW::example& ec)
       }
     }
   }
-  // restore namespace indices and label
-  ec.indices = data.predict_indices;
 
   // finalize prediction
   ec.partial_prediction = prediction;
@@ -111,35 +101,33 @@ void learn(mf& data, learner& base, VW::example& ec)
   base.update(ec);
   ec.pred.scalar = ec.updated_prediction;
 
-  // store namespace indices
-  data.indices = ec.indices;
-
-  // erase indices
-  ec.indices.clear();
-  ec.indices.push_back(0);
-
-  auto* saved_interactions = ec.interactions;
-  std::vector<std::vector<VW::namespace_index>> empty_interactions;
-  ec.interactions = &empty_interactions;
+  // stash data and clear example
+  auto restore_features_guard = ec.stash_features();
+  auto saved_features = ec.feature_space();
+  auto restore_interactions_guard = ec.stash_interactions();
+  auto saved_interactions = *ec.interactions;
+  ec.delete_all_namespaces();
+  ec.interactions->clear();
 
   // update interaction terms
   // looping over all pairs of non-empty namespaces
-  for (auto& i : *saved_interactions)
+  for (auto& i : saved_interactions)
   {
-    int left_ns = static_cast<int>(i[0]);
-    int right_ns = static_cast<int>(i[1]);
+    int left_ns = i[0];
+    int right_ns = i[1];
 
-    if (ec.feature_space[left_ns].size() > 0 && ec.feature_space[right_ns].size() > 0)
+    if (ec[left_ns].size() > 0 && ec[right_ns].size() > 0)
     {
       // set example to left namespace only
-      ec.indices[0] = static_cast<VW::namespace_index>(left_ns);
+      ec.delete_all_namespaces();
+      ec[left_ns] = saved_features[left_ns];
 
       // store feature values in left namespace
-      data.temp_features = ec.feature_space[left_ns];
+      data.temp_features = ec[left_ns];
 
       for (size_t k = 1; k <= data.rank; k++)
       {
-        auto& fs = ec.feature_space[left_ns];
+        auto& fs = ec[left_ns];
         // multiply features in left namespace by r^k * x_r
         for (size_t j = 0; j < fs.size(); ++j) { fs.values[j] *= data.sub_predictions[2 * k]; }
 
@@ -156,14 +144,15 @@ void learn(mf& data, learner& base, VW::example& ec)
       }
 
       // set example to right namespace only
-      ec.indices[0] = static_cast<VW::namespace_index>(right_ns);
+      ec.delete_all_namespaces();
+      ec[right_ns] = saved_features[right_ns];
 
       // store feature values for right namespace
-      data.temp_features = ec.feature_space[right_ns];
+      data.temp_features = ec[right_ns];
 
       for (size_t k = 1; k <= data.rank; k++)
       {
-        auto& fs = ec.feature_space[right_ns];
+        auto& fs = ec[right_ns];
         // multiply features in right namespace by l^k * x_l
         for (size_t j = 0; j < fs.size(); ++j) { fs.values[j] *= data.sub_predictions[2 * k - 1]; }
 
@@ -176,12 +165,9 @@ void learn(mf& data, learner& base, VW::example& ec)
       }
     }
   }
-  // restore namespace indices
-  ec.indices = data.indices;
 
   // restore original prediction
   ec.pred.scalar = predicted;
-  ec.interactions = saved_interactions;
 }
 }  // namespace
 
@@ -202,7 +188,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::mf_setup(VW::setup_base_i&
   // for eventual calls to base learner
   auto non_pair_count =
       std::count_if(all.feature_tweaks_config.interactions.begin(), all.feature_tweaks_config.interactions.end(),
-          [](const std::vector<unsigned char>& interaction) { return interaction.size() != 2; });
+          [](const std::vector<VW::namespace_index>& interaction) { return interaction.size() != 2; });
   if (non_pair_count > 0) { THROW("can only use pairs with new_mf"); }
 
   all.initial_weights_config.random_positive_weights = true;

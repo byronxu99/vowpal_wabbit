@@ -4,7 +4,7 @@
 
 #pragma once
 #include "vw/common/future_compat.h"
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 
 #include <cstddef>  // defines size_t
 #include <cstdint>

@@ -103,28 +103,28 @@ inline uint64_t stride_un_shift(const stagewise_poly& poly, uint64_t idx)
   return idx >> poly.all->weights.stride_shift();
 }
 
-inline uint64_t do_ft_offset(const stagewise_poly& poly, uint64_t idx)
+inline uint64_t do_ft_index_offset(const stagewise_poly& poly, uint64_t idx)
 {
-  assert(!poly.original_ec || poly.synth_ec.ft_offset == poly.original_ec->ft_offset);
-  return idx + poly.synth_ec.ft_offset;
+  assert(!poly.original_ec || poly.synth_ec.ft_index_offset == poly.original_ec->ft_index_offset);
+  return idx + poly.synth_ec.ft_index_offset;
 }
 
-inline uint64_t un_ft_offset(const stagewise_poly& poly, uint64_t idx)
+inline uint64_t un_ft_index_offset(const stagewise_poly& poly, uint64_t idx)
 {
-  assert(!poly.original_ec || poly.synth_ec.ft_offset == poly.original_ec->ft_offset);
-  if (poly.synth_ec.ft_offset == 0) { return idx; }
+  assert(!poly.original_ec || poly.synth_ec.ft_index_offset == poly.original_ec->ft_index_offset);
+  if (poly.synth_ec.ft_index_offset == 0) { return idx; }
   else
   {
-    while (idx < poly.synth_ec.ft_offset) { idx += poly.all->length() << poly.all->weights.stride_shift(); }
-    return idx - poly.synth_ec.ft_offset;
+    while (idx < poly.synth_ec.ft_index_offset) { idx += poly.all->length() << poly.all->weights.stride_shift(); }
+    return idx - poly.synth_ec.ft_index_offset;
   }
 }
 
-inline uint64_t wid_mask(const stagewise_poly& poly, uint64_t wid) { return wid & poly.all->weights.mask(); }
+inline uint64_t wid_mask(const stagewise_poly& poly, uint64_t wid) { return wid & poly.all->weights.weight_mask(); }
 
 inline uint64_t wid_mask_un_shifted(const stagewise_poly& poly, uint64_t wid)
 {
-  return stride_un_shift(poly, wid & poly.all->weights.mask());
+  return stride_un_shift(poly, wid & poly.all->weights.weight_mask());
 }
 
 inline uint64_t constant_feat(const stagewise_poly& poly)
@@ -149,20 +149,20 @@ void depthsbits_create(stagewise_poly& poly)
 inline bool parent_get(const stagewise_poly& poly, uint64_t wid)
 {
   assert(wid % stride_shift(poly, 1) == 0);
-  assert(do_ft_offset(poly, wid) % stride_shift(poly, 1) == 0);
-  return poly.depthsbits[wid_mask_un_shifted(poly, do_ft_offset(poly, wid)) * 2 + 1] & PARENT_BIT;
+  assert(do_ft_index_offset(poly, wid) % stride_shift(poly, 1) == 0);
+  return poly.depthsbits[wid_mask_un_shifted(poly, do_ft_index_offset(poly, wid)) * 2 + 1] & PARENT_BIT;
 }
 
 inline void parent_toggle(stagewise_poly& poly, uint64_t wid)
 {
   assert(wid % stride_shift(poly, 1) == 0);
-  assert(do_ft_offset(poly, wid) % stride_shift(poly, 1) == 0);
-  poly.depthsbits[wid_mask_un_shifted(poly, do_ft_offset(poly, wid)) * 2 + 1] ^= PARENT_BIT;
+  assert(do_ft_index_offset(poly, wid) % stride_shift(poly, 1) == 0);
+  poly.depthsbits[wid_mask_un_shifted(poly, do_ft_index_offset(poly, wid)) * 2 + 1] ^= PARENT_BIT;
 }
 
 inline bool cycle_get(const stagewise_poly& poly, uint64_t wid)
 {
-  // note: intentionally leaving out ft_offset.
+  // note: intentionally leaving out ft_index_offset.
   assert(wid % stride_shift(poly, 1) == 0);
   if ((poly.depthsbits[wid_mask_un_shifted(poly, wid) * 2 + 1] & CYCLE_BIT) > 0) { return true; }
   else { return false; }
@@ -170,7 +170,7 @@ inline bool cycle_get(const stagewise_poly& poly, uint64_t wid)
 
 inline void cycle_toggle(stagewise_poly& poly, uint64_t wid)
 {
-  // note: intentionally leaving out ft_offset.
+  // note: intentionally leaving out ft_index_offset.
   assert(wid % stride_shift(poly, 1) == 0);
   poly.depthsbits[wid_mask_un_shifted(poly, wid) * 2 + 1] ^= CYCLE_BIT;
 }
@@ -178,15 +178,15 @@ inline void cycle_toggle(stagewise_poly& poly, uint64_t wid)
 inline uint8_t min_depths_get(const stagewise_poly& poly, uint64_t wid)
 {
   assert(wid % stride_shift(poly, 1) == 0);
-  assert(do_ft_offset(poly, wid) % stride_shift(poly, 1) == 0);
-  return poly.depthsbits[stride_un_shift(poly, do_ft_offset(poly, wid)) * 2];
+  assert(do_ft_index_offset(poly, wid) % stride_shift(poly, 1) == 0);
+  return poly.depthsbits[stride_un_shift(poly, do_ft_index_offset(poly, wid)) * 2];
 }
 
 inline void min_depths_set(stagewise_poly& poly, uint64_t wid, uint8_t depth)
 {
   assert(wid % stride_shift(poly, 1) == 0);
-  assert(do_ft_offset(poly, wid) % stride_shift(poly, 1) == 0);
-  poly.depthsbits[stride_un_shift(poly, do_ft_offset(poly, wid)) * 2] = depth;
+  assert(do_ft_index_offset(poly, wid) % stride_shift(poly, 1) == 0);
+  poly.depthsbits[stride_un_shift(poly, do_ft_index_offset(poly, wid)) * 2] = depth;
 }
 
 #ifdef DEBUG
@@ -284,11 +284,11 @@ void sort_data_update_support(stagewise_poly& poly)
 {
   assert(poly.num_examples);
 
-  // ft_offset affects parent_set / parent_get.  This state must be reset at end.
-  uint64_t pop_ft_offset = poly.original_ec->ft_offset;
-  poly.synth_ec.ft_offset = 0;
+  // ft_index_offset affects parent_set / parent_get.  This state must be reset at end.
+  uint64_t pop_ft_index_offset = poly.original_ec->ft_index_offset;
+  poly.synth_ec.ft_index_offset = 0;
   assert(poly.original_ec);
-  poly.original_ec->ft_offset = 0;
+  poly.original_ec->ft_index_offset = 0;
 
   size_t num_new_features =
       static_cast<size_t>(std::pow(poly.sum_input_sparsity * 1.0f / poly.num_examples, poly.sched_exponent));
@@ -368,8 +368,8 @@ void sort_data_update_support(stagewise_poly& poly)
 #endif  // DEBUG
 
   // it's okay that these may have been initially unequal; synth_ec value irrelevant so far.
-  poly.original_ec->ft_offset = pop_ft_offset;
-  poly.synth_ec.ft_offset = pop_ft_offset;
+  poly.original_ec->ft_index_offset = pop_ft_index_offset;
+  poly.synth_ec.ft_index_offset = pop_ft_index_offset;
 }
 
 void synthetic_reset(stagewise_poly& poly, VW::example& ec)
@@ -379,42 +379,39 @@ void synthetic_reset(stagewise_poly& poly, VW::example& ec)
   poly.synth_ec.tag = ec.tag;
   poly.synth_ec.example_counter = ec.example_counter;
   poly.synth_ec.interactions = &poly.all->feature_tweaks_config.interactions;
-  poly.synth_ec.extent_interactions = &poly.all->feature_tweaks_config.extent_interactions;
 
   /**
-   * Some comments on ft_offset.
+   * Some comments on ft_index_offset.
    *
    * The plan is to do the feature mapping dfs with weight indices ignoring
-   * the ft_offset.  This is because ft_offset is then added at the end,
-   * guaranteeing local/strided access on synth_ec.  This might not matter
-   * too much in this implementation (where, e.g., --oaa runs one after the
-   * other, not interleaved), but who knows.
+   * the ft_index_offset.  This is because ft_index_offset is then added at
+   * the end, guaranteeing local/strided access on synth_ec.  This might not
+   * matter too much in this implementation (where, e.g., --oaa runs one after
+   * the other, not interleaved), but who knows.
    *
-   * (The other choice is to basically ignore adjusting for ft_offset when
-   * doing the traversal, which means synth_ec.ft_offset is 0 here...)
+   * (The other choice is to basically ignore adjusting for ft_index_offset when
+   * doing the traversal, which means synth_ec.ft_index_offset is 0 here...)
    *
-   * Anyway, so here is how ft_offset matters:
+   * Anyway, so here is how ft_index_offset matters:
    *   - synthetic_create_rec must "normalize it out" of the fed weight value
    *   - parent and min_depths set/get are adjusted for it.
    *   - cycle set/get are not adjusted for it, since it doesn't matter for them.
    *   - operations on the whole weight vector (sorting, save_load, all_reduce)
-   *     ignore ft_offset, just treat the thing as a flat vector.
+   *     ignore ft_index_offset, just treat the thing as a flat vector.
    **/
-  poly.synth_ec.ft_offset = ec.ft_offset;
+  poly.synth_ec.ft_index_offset = ec.ft_index_offset;
 
   poly.synth_ec.test_only = ec.test_only;
   poly.synth_ec.end_pass = ec.end_pass;
   poly.synth_ec.sorted = ec.sorted;
 
-  poly.synth_ec.feature_space[TREE_ATOMICS].clear();
+  poly.synth_ec[TREE_ATOMICS].clear();
   poly.synth_ec.num_features = 0;
-
-  if (poly.synth_ec.indices.size() == 0) { poly.synth_ec.indices.push_back(TREE_ATOMICS); }
 }
 
 void synthetic_decycle(stagewise_poly& poly)
 {
-  VW::features& fs = poly.synth_ec.feature_space[TREE_ATOMICS];
+  VW::features& fs = poly.synth_ec[TREE_ATOMICS];
   for (size_t i = 0; i < fs.size(); ++i)
   {
     assert(cycle_get(poly, fs.indices[i]));
@@ -425,8 +422,8 @@ void synthetic_decycle(stagewise_poly& poly)
 void synthetic_create_rec(stagewise_poly& poly, float v, uint64_t findex)
 {
   // Note: need to un_ft_shift since gd::foreach_feature bakes in the offset.
-  uint64_t wid_atomic = wid_mask(poly, un_ft_offset(poly, findex));
-  uint64_t wid_cur = child_wid(poly, wid_atomic, poly.synth_rec_f.weight_index);
+  uint64_t wid_atomic = wid_mask(poly, un_ft_index_offset(poly, findex));
+  uint64_t wid_cur = child_wid(poly, wid_atomic, poly.synth_rec_f.index);
   assert(wid_atomic % stride_shift(poly, 1) == 0);
 
   // Note: only mutate learner state when in training mode.  This is because
@@ -442,8 +439,8 @@ void synthetic_create_rec(stagewise_poly& poly, float v, uint64_t findex)
                 << (uint64_t)min_depths_get(poly, wid_cur) << " to depth " << poly.cur_depth << std::endl;
 #endif  // DEBUG
       // XXX arguably, should also fear transplants that occured with
-      // a different ft_offset ; e.g., need to look out for cross-reduction
-      // collisions.  Have not played with this issue yet...
+      // a different ft_index_offset ; e.g., need to look out for cross-
+      // reduction collisions.  Have not played with this issue yet...
       parent_toggle(poly, wid_cur);
     }
     min_depths_set(poly, wid_cur, static_cast<uint8_t>(poly.cur_depth));
@@ -458,11 +455,11 @@ void synthetic_create_rec(stagewise_poly& poly, float v, uint64_t findex)
     ++poly.depths[poly.cur_depth];
 #endif  // DEBUG
 
-    VW::feature temp = {v * poly.synth_rec_f.x, wid_cur};
-    poly.synth_ec.feature_space[TREE_ATOMICS].push_back(temp.x, temp.weight_index);
+    VW::feature temp = {v * poly.synth_rec_f.value, wid_cur};
+    poly.synth_ec[TREE_ATOMICS].add_feature_raw(temp.index, temp.value);
     poly.synth_ec.num_features++;
 
-    if (parent_get(poly, temp.weight_index))
+    if (parent_get(poly, temp.index))
     {
       VW::feature parent_f = poly.synth_rec_f;
       poly.synth_rec_f = temp;
@@ -483,8 +480,8 @@ void synthetic_create(stagewise_poly& poly, VW::example& ec, bool training)
 
   poly.cur_depth = 0;
 
-  poly.synth_rec_f.x = 1.0;
-  poly.synth_rec_f.weight_index = constant_feat_masked(poly);  // note: not ft_offset'd
+  poly.synth_rec_f.value = 1.0;
+  poly.synth_rec_f.index = constant_feat_masked(poly);  // note: not ft_index_offset'd
   poly.training = training;
   /*
    * Another choice is to mark the constant feature as the single initial

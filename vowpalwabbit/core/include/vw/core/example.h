@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "vw/common/fnv_hash.h"
 #include "vw/core/action_score.h"
 #include "vw/core/active_multiclass_prediction.h"
 #include "vw/core/cb.h"
@@ -32,10 +33,14 @@ namespace VW
 {
 class workspace;
 }
+
 namespace VW
 {
+// Forward declare friend functions for example
+void copy_example_metadata(example* dst, const example* src);
 void copy_example_data(example* dst, const example* src);
 void setup_example(VW::workspace& all, example* ae);
+VW::example& get_unused_example(VW::workspace* all);
 
 class polylabel
 {
@@ -137,15 +142,15 @@ public:
     _total_sum_feat_sq_calculated = false;
   }
 
+  friend void VW::copy_example_metadata(example* dst, const example* src);
   friend void VW::copy_example_data(example* dst, const example* src);
   friend void VW::setup_example(VW::workspace& all, example* ae);
+  friend VW::example& get_unused_example(VW::workspace* all);
 
 private:
   bool _total_sum_feat_sq_calculated = false;
   bool _use_permutations = false;
 };
-
-class workspace;
 
 // TODO: make workspace and example const
 void flatten_features(VW::workspace& all, example& ec, features& fs);
@@ -153,12 +158,20 @@ void flatten_features(VW::workspace& all, example& ec, features& fs);
 inline bool example_is_newline(const example& ec) { return ec.is_newline; }
 
 inline bool valid_ns(char c) { return !(c == '|' || c == ':'); }
+inline bool valid_ns(VW::string_view s)
+{
+  return s.find('|') == VW::string_view::npos && s.find(':') == VW::string_view::npos;
+}
 
 namespace details
 {
 inline void add_passthrough_feature_magic(example& ec, uint64_t magic, uint64_t i, float x)
 {
-  if (ec.passthrough) { ec.passthrough->push_back(x, (VW::details::FNV_PRIME * magic) ^ i); }
+  if (ec.passthrough)
+  {
+    auto passthrough_hasher = VW::fnv_hasher().hash(magic).hash(i);
+    ec.passthrough->add_feature_raw(passthrough_hasher.get_full_hash(), x);
+  }
 }
 }  // namespace details
 

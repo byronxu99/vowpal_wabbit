@@ -224,18 +224,16 @@ void insert_example_at_node(recall_tree& b, uint32_t cn, VW::example& ec)
 void add_node_id_feature(recall_tree& b, uint32_t cn, VW::example& ec)
 {
   VW::workspace* all = b.all;
-  uint64_t mask = all->weights.mask();
-  size_t ss = all->weights.stride_shift();
+  uint64_t mask = all->weights.hash_mask();
 
-  ec.indices.push_back(VW::details::NODE_ID_NAMESPACE);
-  auto& fs = ec.feature_space[VW::details::NODE_ID_NAMESPACE];
+  auto& fs = ec[VW::details::NODE_ID_NAMESPACE];
 
-  if (b.node_only) { fs.push_back(1., ((static_cast<uint64_t>(868771) * cn) << ss) & mask); }
+  if (b.node_only) { fs.add_feature_raw((static_cast<uint64_t>(868771) * cn) & mask, 1.); }
   else
   {
     while (cn > 0)
     {
-      fs.push_back(1., ((static_cast<uint64_t>(868771) * cn) << ss) & mask);
+      fs.add_feature_raw((static_cast<uint64_t>(868771) * cn) & mask, 1.);
       cn = b.nodes[cn].parent;
     }
   }
@@ -246,9 +244,7 @@ void add_node_id_feature(recall_tree& b, uint32_t cn, VW::example& ec)
 
 void remove_node_id_feature(recall_tree& /* b */, uint32_t /* cn */, VW::example& ec)
 {
-  auto& fs = ec.feature_space[VW::details::NODE_ID_NAMESPACE];
-  fs.clear();
-  ec.indices.pop_back();
+  ec.delete_namespace(VW::details::NODE_ID_NAMESPACE);
 }
 
 uint32_t oas_predict(recall_tree& b, learner& base, uint32_t cn, VW::example& ec)

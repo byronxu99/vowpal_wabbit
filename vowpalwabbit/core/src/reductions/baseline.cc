@@ -22,19 +22,17 @@ constexpr float MAX_MULTIPLIER = 1000.f;
 
 void VW::reductions::baseline::set_baseline_enabled(VW::example* ec)
 {
-  if (!baseline_enabled(ec)) { ec->indices.push_back(VW::details::BASELINE_ENABLED_MESSAGE_NAMESPACE); }
+  (*ec)[VW::details::BASELINE_ENABLED_MESSAGE_NAMESPACE].add_feature_raw(0, 0);
 }
 
 void VW::reductions::baseline::reset_baseline_disabled(VW::example* ec)
 {
-  const auto it = std::find(ec->indices.begin(), ec->indices.end(), VW::details::BASELINE_ENABLED_MESSAGE_NAMESPACE);
-  if (it != ec->indices.end()) { ec->indices.erase(it); }
+  ec->delete_namespace(VW::details::BASELINE_ENABLED_MESSAGE_NAMESPACE);
 }
 
 bool VW::reductions::baseline::baseline_enabled(const VW::example* ec)
 {
-  const auto it = std::find(ec->indices.begin(), ec->indices.end(), VW::details::BASELINE_ENABLED_MESSAGE_NAMESPACE);
-  return it != ec->indices.end();
+  return ec->contains(VW::details::BASELINE_ENABLED_MESSAGE_NAMESPACE);
 }
 
 class baseline_data
@@ -53,12 +51,13 @@ void init_global(baseline_data& data)
 {
   if (!data.global_only) { return; }
   // use a separate global constant
-  data.ec.indices.push_back(VW::details::CONSTANT_NAMESPACE);
   // different index from constant to avoid conflicts
-  data.ec.feature_space[VW::details::CONSTANT_NAMESPACE].push_back(1,
-      ((VW::details::CONSTANT - 17) * data.all->reduction_state.total_feature_width)
-          << data.all->weights.stride_shift(),
-      VW::details::CONSTANT_NAMESPACE);
+  data.ec[VW::details::CONSTANT_NAMESPACE].add_feature_raw(VW::details::CONSTANT + 17, 1.f);
+  /*
+  data.ec[VW::details::CONSTANT_NAMESPACE].add_feature_raw(
+      ((VW::details::CONSTANT + 17) * data.all->reduction_state.total_feature_width)
+          << data.all->weights.stride_shift(), 1.f);
+  */
   data.ec.reset_total_sum_feat_sq();
   data.ec.num_features++;
 }
@@ -183,7 +182,6 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::baseline_setup(VW::setup_b
 
   // initialize baseline example's interactions.
   data->ec.interactions = &all.feature_tweaks_config.interactions;
-  data->ec.extent_interactions = &all.feature_tweaks_config.extent_interactions;
   data->all = &all;
 
   const auto loss_function_type = all.loss_config.loss->get_type();

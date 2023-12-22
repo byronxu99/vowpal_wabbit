@@ -4,8 +4,8 @@
 
 #pragma once
 
-#include "vw/common/hash.h"
 #include "vw/common/string_view.h"
+#include "vw/common/uniform_hash.h"
 #include "vw/io/io_adapter.h"
 
 #include <algorithm>

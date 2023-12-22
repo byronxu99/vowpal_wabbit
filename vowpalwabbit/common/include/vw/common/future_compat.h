@@ -14,6 +14,10 @@
 #    define HAS_STD17
 #  endif
 
+#  if __cplusplus >= 202002L || defined(_MSC_VER) && (_MSC_VER >= 1929) && (_MSVC_LANG >= 202002L)
+#    define HAS_STD20
+#  endif
+
 #  ifdef HAS_STD17
 #    define VW_STD17_CONSTEXPR constexpr
 #    define VW_ATTR(name) [[name]]

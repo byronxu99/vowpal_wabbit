@@ -168,10 +168,10 @@ void predict_or_learn(csoaa& c, learner& base, VW::example& ec)
     if (second_best_cost < FLT_MAX)
     {
       float margin = second_best_cost - ec.partial_prediction;
-      VW_ADD_PASSTHROUGH_FEATURE(ec, VW::details::CONSTANT * 2, margin);
-      VW_ADD_PASSTHROUGH_FEATURE(ec, VW::details::CONSTANT * 2 + 1 + second_best, 1.);
+      VW_ADD_PASSTHROUGH_FEATURE(ec, VW::details::CONSTANT + 2, margin);
+      VW_ADD_PASSTHROUGH_FEATURE(ec, VW::details::CONSTANT + 2 + 1 + second_best, 1.);
     }
-    else { VW_ADD_PASSTHROUGH_FEATURE(ec, VW::details::CONSTANT * 3, 1.); }
+    else { VW_ADD_PASSTHROUGH_FEATURE(ec, VW::details::CONSTANT + 3, 1.); }
   }
 
   ec.pred.multiclass = prediction;

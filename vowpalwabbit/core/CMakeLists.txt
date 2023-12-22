@@ -45,6 +45,7 @@ set(vw_core_headers
   include/vw/core/generic_range.h
   include/vw/core/global_data.h
   include/vw/core/guard.h
+  include/vw/core/hash.h
   include/vw/core/hashstring.h
   include/vw/core/interactions_predict.h
   include/vw/core/interactions.h
@@ -207,6 +208,7 @@ set(vw_core_sources
   src/feature_group.cc
   src/gen_cs_example.cc
   src/global_data.cc
+  src/hash.cc
   src/hashstring.cc
   src/interactions.cc
   src/io_buf.cc
@@ -412,7 +414,7 @@ target_include_directories(vw_core PRIVATE ${CMAKE_CURRENT_LIST_DIR}/src)
 
 if (VW_FEAT_LAS_SIMD)
   set_source_files_properties(src/reductions/cb/details/large_action/compute_dot_prod_avx2.cc PROPERTIES COMPILE_FLAGS "-mfma -mavx2")
-  set_source_files_properties(src/reductions/cb/details/large_action/compute_dot_prod_avx512.cc PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512bw -mavx512vl -mavx512vpopcntdq")
+  set_source_files_properties(src/reductions/cb/details/large_action/compute_dot_prod_avx512.cc PROPERTIES COMPILE_FLAGS "-mavx512f -mavx512bw -mavx512ifma -mavx512vl -mavx512vpopcntdq")
 endif()
 
 if(VW_FEAT_CSV)

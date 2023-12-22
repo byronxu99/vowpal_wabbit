@@ -222,14 +222,14 @@ void cb_explore_adf_base<ExploreType>::_update_stats(
   {
     if (VW::ec_is_example_header_cb(*example))
     {
-      num_features += (ec_seq.size() - 1) *
-          (example->get_num_features() - example->feature_space[VW::details::CONSTANT_NAMESPACE].size());
-      num_namespaces += (ec_seq.size() - 1) * example->indices.size();
+      num_features +=
+          (ec_seq.size() - 1) * (example->get_num_features() - (*example)[VW::details::CONSTANT_NAMESPACE].size());
+      num_namespaces += (ec_seq.size() - 1) * example->size();
     }
     else
     {
       num_features += example->get_num_features();
-      num_namespaces += example->indices.size();
+      num_namespaces += example->size();
     }
   }
 

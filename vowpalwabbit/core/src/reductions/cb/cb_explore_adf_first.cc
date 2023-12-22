@@ -57,8 +57,8 @@ template <bool is_learn>
 void cb_explore_adf_first::predict_or_learn_impl(learner& base, VW::multi_ex& examples)
 {
   // Explore tau times, then act according to optimal.
-  if (is_learn) { multiline_learn_or_predict<true>(base, examples, examples[0]->ft_offset); }
-  else { multiline_learn_or_predict<false>(base, examples, examples[0]->ft_offset); }
+  if (is_learn) { multiline_learn_or_predict<true>(base, examples, examples[0]->ft_index_offset); }
+  else { multiline_learn_or_predict<false>(base, examples, examples[0]->ft_index_offset); }
 
   VW::v_array<VW::action_score>& preds = examples[0]->pred.a_s;
   uint32_t num_actions = static_cast<uint32_t>(preds.size());

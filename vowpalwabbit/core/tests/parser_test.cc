@@ -21,26 +21,6 @@ TEST(Parser, DecodeInlineHexTest)
   EXPECT_EQ(VW::decode_inline_hex("\\x01 unrelated \\x56", nl), "\x01 unrelated \x56");
 }
 
-TEST(Parser, ParseTextWithExtents)
-{
-  auto vw = VW::initialize(vwtest::make_args("--no_stdin", "--quiet"));
-  auto* ex = VW::read_example(*vw, "|features a b |new_features a b |features2 c d |empty |features c d");
-
-  EXPECT_EQ(ex->feature_space['f'].size(), 6);
-  EXPECT_EQ(ex->feature_space['n'].size(), 2);
-  EXPECT_EQ(ex->feature_space['3'].size(), 0);
-
-  EXPECT_EQ(ex->feature_space['f'].namespace_extents.size(), 3);
-  EXPECT_EQ(ex->feature_space['n'].namespace_extents.size(), 1);
-
-  EXPECT_EQ(ex->feature_space['f'].namespace_extents[0], (VW::namespace_extent{0, 2, VW::hash_space(*vw, "features")}));
-  EXPECT_EQ(
-      ex->feature_space['f'].namespace_extents[1], (VW::namespace_extent{2, 4, VW::hash_space(*vw, "features2")}));
-  EXPECT_EQ(ex->feature_space['f'].namespace_extents[2], (VW::namespace_extent{4, 6, VW::hash_space(*vw, "features")}));
-
-  VW::finish_example(*vw, *ex);
-}
-
 TEST(Parser, TrimWhitespaceTest)
 {
   EXPECT_TRUE("" == VW::trim_whitespace(VW::string_view("")));

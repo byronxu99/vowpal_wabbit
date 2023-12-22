@@ -3,12 +3,12 @@
 // license as described in the file LICENSE.
 #pragma once
 
-#include "vw/allreduce/allreduce_type.h"
 #include "vw/common/future_compat.h"
 #include "vw/common/string_view.h"
 #include "vw/core/array_parameters.h"
 #include "vw/core/constant.h"
 #include "vw/core/error_reporting.h"
+#include "vw/core/example_predict.h"
 #include "vw/core/input_parser.h"
 #include "vw/core/interaction_generation_state.h"
 #include "vw/core/metrics_collector.h"
@@ -27,6 +27,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 // Thread cannot be used in managed C++, tell the compiler that this is unmanaged even if included in a managed project.
@@ -106,36 +107,34 @@ public:
 class feature_tweaks_config
 {
 public:
-  bool add_constant;
+  bool add_constant = true;
   float initial_constant;
-  bool permutations;  // if true - permutations of features generated instead of simple combinations. false by default
+  bool permutations =
+      false;  // if true - permutations of features generated instead of simple combinations. false by default
   // Referenced by examples as their set of interactions. Can be overriden by learners.
-  std::vector<std::vector<namespace_index>> interactions;
-  std::vector<std::vector<extent_term>> extent_interactions;
-  bool ignore_some;
-  std::array<bool, NUM_NAMESPACES> ignore;  // a set of namespaces to ignore
-  bool ignore_some_linear;
-  std::array<bool, NUM_NAMESPACES> ignore_linear;  // a set of namespaces to ignore for linear
+  VW::interaction_spec_type interactions;
+  bool invert_ignore_as_keep = false;  // if true - ignore all namespaces except those in ignore set. false by default
+  std::unordered_set<VW::namespace_index> ignore;         // a set of namespaces to ignore
+  std::unordered_set<VW::namespace_index> ignore_linear;  // a set of namespaces to ignore for linear
   std::unordered_map<std::string, std::set<std::string>>
       ignore_features_dsjson;  // a map from hash(namespace) to a vector of hash(feature). This flag is only available
                                // for dsjson.
 
-  bool redefine_some;                                  // --redefine param was used
-  std::array<unsigned char, NUM_NAMESPACES> redefine;  // keeps new chars for namespaces
+  std::unordered_map<VW::namespace_index, std::string> redefine;  // map some namespaces to different names
   std::unique_ptr<VW::kskip_ngram_transformer> skip_gram_transformer;
-  std::vector<std::string> limit_strings;      // descriptor of feature limits
-  std::array<uint32_t, NUM_NAMESPACES> limit;  // count to limit features by
-  std::array<uint64_t, NUM_NAMESPACES>
+  std::vector<std::string> limit_strings;                   // descriptor of feature limits
+  std::unordered_map<VW::namespace_index, uint32_t> limit;  // count to limit features by
+  std::unordered_map<VW::namespace_index, uint64_t>
       affix_features;  // affixes to generate (up to 16 per namespace - 4 bits per affix)
-  std::array<bool, NUM_NAMESPACES> spelling_features;  // generate spelling features for which namespace
-  std::vector<std::string> dictionary_path;            // where to look for dictionaries
+  std::unordered_set<VW::namespace_index> spelling_features;  // generate spelling features for which namespace
+  std::vector<std::string> dictionary_path;                   // where to look for dictionaries
 
   // feature_dict can be created in either loaded_dictionaries or namespace_dictionaries.
   // use shared pointers to avoid the question of ownership
   std::vector<details::dictionary_info>
       loaded_dictionaries;  // which dictionaries have we loaded from a file to memory?
   // This array is required to be value initialized so that the std::vectors are constructed.
-  std::array<std::vector<std::shared_ptr<details::feature_dict>>, NUM_NAMESPACES>
+  std::unordered_map<VW::namespace_index, std::vector<std::shared_ptr<details::feature_dict>>>
       namespace_dictionaries{};  // each namespace has a list of dictionaries attached to it
 };
 
@@ -170,7 +169,13 @@ public:
 class initial_weights_config
 {
 public:
-  uint32_t num_bits;      // log_2 of the number of features.
+  // number of bits to truncate feature hashes
+  uint32_t feature_hash_bits;
+
+  // log2 of number of weight vectors per feature index
+  // set by VW::details::parse_sources()
+  uint32_t feature_width_bits;
+
   size_t normalized_idx;  // offset idx where the norm is stored (1 or 2 depending on whether adaptive is true)
   std::vector<std::string> initial_regressors;
   float initial_weight;
@@ -207,10 +212,18 @@ public:
   bool active;
   bool bfgs;
   uint32_t lda;
+
   // hack to support cb model loading into ccb learner
   bool is_ccb_input_model = false;
-  void* /*Search::search*/ searchstr;
-  bool invariant_updates;  // Should we use importance aware/safe updates, gd only
+
+  // Actual type is Search::search*
+  void* searchstr;
+
+  // Should we use importance aware/safe updates, gd only
+  bool invariant_updates;
+
+  // set by VW::details::parse_sources()
+  // does not include stride
   uint32_t total_feature_width;
 };
 
@@ -257,6 +270,7 @@ public:
 #ifdef VW_FEAT_FLATBUFFERS_ENABLED
   std::unique_ptr<VW::parsers::flatbuffer::parser> flat_converter;
 #endif
+  bool hash_all;  // if true, integer features are also hashed as strings
 };
 
 class output_config
@@ -342,7 +356,11 @@ public:
   std::string id;
   std::string feature_mask;
 
-  size_t length() { return (static_cast<size_t>(1)) << initial_weights_config.num_bits; };
+  size_t length()
+  {
+    return (static_cast<size_t>(1)) << (initial_weights_config.feature_hash_bits +
+               initial_weights_config.feature_width_bits);
+  };
 
   void (*print_by_ref)(VW::io::writer*, float, float, const v_array<char>&, VW::io::logger&);
   void (*print_text_by_ref)(VW::io::writer*, const std::string&, const v_array<char>&, VW::io::logger&);
@@ -369,8 +387,8 @@ namespace details
 void print_result_by_ref(
     VW::io::writer* f, float res, float weight, const VW::v_array<char>& tag, VW::io::logger& logger);
 
-void compile_limits(std::vector<std::string> limits, std::array<uint32_t, VW::NUM_NAMESPACES>& dest, bool quiet,
-    VW::io::logger& logger);
+void compile_limits(std::vector<std::string> limits, std::unordered_map<VW::namespace_index, uint32_t>& dest,
+    uint64_t hash_seed, bool quiet, VW::io::logger& logger);
 }  // namespace details
 }  // namespace VW
 

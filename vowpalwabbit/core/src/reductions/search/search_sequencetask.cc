@@ -398,7 +398,6 @@ void initialize(Search::search& sch, size_t& num_actions, options_i& /*options*/
     lab.reset_to_default();
     lab.costs.push_back(default_wclass);
     data->ldf_examples[a].interactions = &sch.get_vw_pointer_unsafe().feature_tweaks_config.interactions;
-    data->ldf_examples[a].extent_interactions = &sch.get_vw_pointer_unsafe().feature_tweaks_config.extent_interactions;
   }
 
   data->num_actions = num_actions;
@@ -413,8 +412,9 @@ void my_update_example_indices(
     Search::search& sch, bool /* audit */, VW::example* ec, uint64_t mult_amount, uint64_t plus_amount)
 {
   size_t ss = sch.get_stride_shift();
-  for (VW::features& fs : *ec)
+  for (auto ns : *ec)
   {
+    auto& fs = (*ec)[ns];
     for (VW::feature_index& idx : fs.indices) { idx = (((idx >> ss) * mult_amount) + plus_amount) << ss; }
   }
 }

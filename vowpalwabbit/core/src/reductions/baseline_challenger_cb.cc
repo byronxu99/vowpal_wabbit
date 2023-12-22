@@ -72,7 +72,7 @@ public:
   template <bool is_learn>
   inline void learn_or_predict(learner& base, multi_ex& examples)
   {
-    multiline_learn_or_predict<false>(base, examples, examples[0]->ft_offset);
+    multiline_learn_or_predict<false>(base, examples, examples[0]->ft_index_offset);
 
     // must not be const since we mutate it at the end
     auto& action_scores = examples[0]->pred.a_s;
@@ -95,7 +95,7 @@ public:
         baseline.update(w2, r);
       }
 
-      multiline_learn_or_predict<true>(base, examples, examples[0]->ft_offset);
+      multiline_learn_or_predict<true>(base, examples, examples[0]->ft_index_offset);
     }
 
     // We play baseline if policy expectation is worse than the baseline lower bound

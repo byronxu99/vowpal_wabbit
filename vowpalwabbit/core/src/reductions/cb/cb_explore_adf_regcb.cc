@@ -167,7 +167,7 @@ void cb_explore_adf_regcb::get_cost_ranges(float delta, learner& base, VW::multi
 
 void cb_explore_adf_regcb::predict_impl(learner& base, VW::multi_ex& examples)
 {
-  multiline_learn_or_predict<false>(base, examples, examples[0]->ft_offset);
+  multiline_learn_or_predict<false>(base, examples, examples[0]->ft_index_offset);
   VW::v_array<VW::action_score>& preds = examples[0]->pred.a_s;
   uint32_t num_actions = static_cast<uint32_t>(preds.size());
 
@@ -225,7 +225,7 @@ void cb_explore_adf_regcb::learn_impl(learner& base, VW::multi_ex& examples)
     }
   }
 
-  multiline_learn_or_predict<true>(base, examples, examples[0]->ft_offset);
+  multiline_learn_or_predict<true>(base, examples, examples[0]->ft_index_offset);
   ++_counter;
   examples[0]->pred.a_s = std::move(preds);
 }

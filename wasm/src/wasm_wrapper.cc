@@ -216,7 +216,7 @@ struct vw_model_basic
       if (features.hasOwnProperty(key.c_str()))
       {
         auto values = emscripten::convertJSArrayToNumberVector<float>(features[key]);
-        auto namespace_hash = VW::hash_space(*this->vw_ptr, key);
+        auto namespace_hash = VW::hash_namespace(*this->vw_ptr, key);
         auto namespace_slot = key.length() > 0 ? key[0] : ' ';
         auto anon_index = 0;
         auto& feature_group = ex->feature_space[namespace_slot];

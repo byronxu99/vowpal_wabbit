@@ -87,8 +87,6 @@ void initialize(Search::search& sch, size_t& /*num_actions*/, options_i& options
     {
       my_task_data->ldf_entity[a].l.cs.costs.push_back(default_wclass);
       my_task_data->ldf_entity[a].interactions = &sch.get_vw_pointer_unsafe().feature_tweaks_config.interactions;
-      my_task_data->ldf_entity[a].extent_interactions =
-          &sch.get_vw_pointer_unsafe().feature_tweaks_config.extent_interactions;
     }
     my_task_data->ldf_relation = my_task_data->ldf_entity.data() + 4;
     sch.set_options(Search::IS_LDF);
@@ -404,8 +402,9 @@ void run(Search::search& sch, VW::multi_ex& ec)
 // this is totally bogus for the example -- you'd never actually do this!
 void update_example_indices(bool /* audit */, VW::example* ec, uint64_t mult_amount, uint64_t plus_amount)
 {
-  for (VW::features& fs : *ec)
+  for (auto ns : *ec)
   {
+    auto& fs = (*ec)[ns];
     for (VW::feature_index& idx : fs.indices) { idx = ((idx * mult_amount) + plus_amount); }
   }
 }

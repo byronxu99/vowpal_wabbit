@@ -6,6 +6,7 @@
 
 #include "vw/common/text_utils.h"
 #include "vw/config/options_cli.h"
+#include "vw/core/hash.h"
 #include "vw/core/learner.h"
 #include "vw/core/memory.h"
 #include "vw/core/parse_args.h"
@@ -228,8 +229,15 @@ extern "C"
       VW_HANDLE handle, VW_FEATURE_SPACE feature_space, const char* name)
   {
     auto* f = reinterpret_cast<VW::primitive_feature_space*>(feature_space);
-    f->name = *name;
-    return VW_HashSpaceA(handle, name);
+    f->ns_name = const_cast<char*>(name);
+    auto ns_hash = VW_HashSpaceA(handle, name);
+    f->ns_hash = ns_hash;
+    if (std::strncmp(name, VW::details::DEFAULT_NAMESPACE_STR, 1) == 0)
+    {
+      f->ns_index = VW::details::DEFAULT_NAMESPACE;
+    }
+    else { f->ns_index = ns_hash; }
+    return ns_hash;
   }
 
   VW_DLL_PUBLIC void VW_CALLING_CONV VW_InitFeatures(VW_FEATURE_SPACE feature_space, size_t features_count)
@@ -281,14 +289,14 @@ extern "C"
   {
     auto* pointer = static_cast<VW::workspace*>(handle);
     std::string str(s);
-    return VW::hash_space(*pointer, str);
+    return VW::hash_namespace(*pointer, str);
   }
 
   VW_DLL_PUBLIC size_t VW_CALLING_CONV VW_HashSpaceStaticA(const char* s, const char* h = "strings")
   {
     std::string str(s);
     std::string hash(h);
-    return VW::hash_space_static(str, hash);
+    return VW::hash_namespace_static(str, hash);
   }
 
 #ifdef USE_CODECVT

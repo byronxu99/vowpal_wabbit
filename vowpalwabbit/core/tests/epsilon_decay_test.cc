@@ -253,7 +253,7 @@ TEST(EpsilonDecay, ScoreBoundsUnit)
   // Initialize epsilon_decay_data class with 5 models
   uint64_t num_models = 5;
   uint32_t feature_width = 8;
-  VW::dense_parameters dense_weights(num_models);
+  VW::dense_parameters dense_weights(num_models, 0);
   epsilon_decay_data ep_data(
       num_models, 100, .05, dense_weights, "", false, feature_width, 0, 1.f, 0, false, 1e-6, "bisect", false, true);
 
@@ -339,7 +339,7 @@ TEST(EpsilonDecay, HorizonBoundsUnit)
   // Initialize epsilon_decay_data class with 5 models
   uint64_t num_models = 5;
   uint32_t feature_width = 8;
-  VW::dense_parameters dense_weights(num_models);
+  VW::dense_parameters dense_weights(num_models, 0);
   epsilon_decay_data ep_data(
       num_models, 100, .05, dense_weights, "", false, feature_width, 0, 1.f, 0, false, 1e-6, "bisect", false, true);
 

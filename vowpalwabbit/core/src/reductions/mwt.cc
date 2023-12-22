@@ -17,6 +17,7 @@
 #include "vw/io/logger.h"
 
 #include <cmath>
+#include <unordered_set>
 
 using namespace VW::LEARNER;
 using namespace VW::config;
@@ -58,8 +59,8 @@ public:
 class mwt
 {
 public:
-  std::array<bool, VW::NUM_NAMESPACES> namespaces{};  // the set of namespaces to evaluate.
-  std::vector<policy_data> evals;                     // accrued losses of features.
+  std::unordered_set<VW::namespace_index> namespaces{};  // the set of namespaces to evaluate.
+  std::vector<policy_data> evals;                        // accrued losses of features.
   std::pair<bool, VW::cb_class> optional_observation;
   VW::v_array<uint64_t> policies;
   double total = 0.;
@@ -67,7 +68,7 @@ public:
   bool learn = false;
 
   VW::v_array<VW::namespace_index> indices;  // excluded namespaces
-  std::array<VW::features, VW::NUM_NAMESPACES> feature_space;
+  VW::feature_groups_type feature_space;
   VW::workspace* all = nullptr;
 };
 
@@ -76,7 +77,7 @@ void value_policy(mwt& c, float val, uint64_t index)  // estimate the value of a
   if (val < 0 || std::floor(val) != val) { c.all->logger.out_error("error {} is not a valid action", val); }
 
   auto value = static_cast<uint32_t>(val);
-  uint64_t new_index = (index & c.all->weights.mask()) >> c.all->weights.stride_shift();
+  uint64_t new_index = (index & c.all->weights.weight_mask()) >> c.all->weights.stride_shift();
 
   if (!c.evals[new_index].seen)
   {
@@ -96,9 +97,12 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
   {
     c.total++;
     // For each nonzero feature in observed namespaces, check it's value.
-    for (unsigned char ns : ec.indices)
+    for (auto ns : ec)
     {
-      if (c.namespaces[ns]) { VW::foreach_feature<mwt, value_policy>(c.all, ec.feature_space[ns], c); }
+      if (c.namespaces.find(ns) != c.namespaces.end())
+      {
+        VW::foreach_feature<mwt, value_policy>(c.all, ec[ns], c, ec.ft_index_scale, ec.ft_index_offset);
+      }
     }
     for (uint64_t policy : c.policies)
     {
@@ -112,24 +116,22 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
   if VW_STD17_CONSTEXPR (exclude || learn)
   {
     c.indices.clear();
-    uint32_t stride_shift = c.all->weights.stride_shift();
-    uint64_t weight_mask = c.all->weights.mask();
-    for (unsigned char ns : ec.indices)
+    uint64_t hash_mask = c.all->weights.weight_mask();
+    for (auto ns : ec)
     {
-      if (c.namespaces[ns])
+      if (c.namespaces.find(ns) != c.namespaces.end())
       {
         c.indices.push_back(ns);
         if (learn)
         {
           c.feature_space[ns].clear();
-          for (VW::features::iterator& f : ec.feature_space[ns])
+          for (VW::features::iterator& f : ec[ns])
           {
-            uint64_t new_index =
-                ((f.index() & weight_mask) >> stride_shift) * c.num_classes + static_cast<uint64_t>(f.value());
-            c.feature_space[ns].push_back(1, new_index << stride_shift);
+            uint64_t new_index = (f.index() & hash_mask) * c.num_classes + static_cast<uint64_t>(f.value());
+            c.feature_space[ns].add_feature_raw(new_index, 1);
           }
         }
-        std::swap(c.feature_space[ns], ec.feature_space[ns]);
+        std::swap(c.feature_space[ns], ec[ns]);
       }
     }
   }
@@ -150,9 +152,9 @@ void predict_or_learn(mwt& c, learner& base, VW::example& ec)
   {
     while (!c.indices.empty())
     {
-      unsigned char ns = c.indices.back();
+      auto ns = c.indices.back();
       c.indices.pop_back();
-      std::swap(c.feature_space[ns], ec.feature_space[ns]);
+      std::swap(c.feature_space[ns], ec[ns]);
     }
   }
   VW_WARNING_STATE_POP
@@ -266,7 +268,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::mwt_setup(VW::setup_base_i
 
   if (!options.add_parse_and_check_necessary(new_options)) { return nullptr; }
 
-  for (char i : s) { c->namespaces[static_cast<unsigned char>(i)] = true; }
+  for (char i : s) { c->namespaces.insert(i); }
   c->all = &all;
 
   c->evals.resize(all.length(), policy_data{});

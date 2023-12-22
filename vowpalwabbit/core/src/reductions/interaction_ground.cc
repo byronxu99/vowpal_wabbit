@@ -85,13 +85,13 @@ private:
   std::shared_ptr<VW::LEARNER::learner> _ik_base;
 };
 
-std::vector<std::vector<VW::namespace_index>> get_ik_interactions(
-    const std::vector<std::vector<VW::namespace_index>>& interactions, const VW::example& observation_ex)
+VW::interaction_spec_type get_ik_interactions(
+    const VW::interaction_spec_type& interactions, const VW::example& observation_ex)
 {
-  std::vector<std::vector<VW::namespace_index>> new_interactions;
+  VW::interaction_spec_type new_interactions;
   for (const auto& interaction : interactions)
   {
-    for (auto obs_ns : observation_ex.indices)
+    for (auto obs_ns : observation_ex)
     {
       if (obs_ns == VW::details::DEFAULT_NAMESPACE) { obs_ns = VW::details::IGL_FEEDBACK_NAMESPACE; }
 
@@ -105,19 +105,17 @@ std::vector<std::vector<VW::namespace_index>> get_ik_interactions(
 
 void add_obs_features_to_ik_ex(VW::example& ik_ex, const VW::example& obs_ex)
 {
-  for (auto obs_ns : obs_ex.indices)
+  for (auto obs_ns : obs_ex)
   {
-    ik_ex.indices.push_back(obs_ns);
-
-    for (size_t i = 0; i < obs_ex.feature_space[obs_ns].indices.size(); i++)
+    for (size_t i = 0; i < obs_ex[obs_ns].size(); i++)
     {
-      auto feature_hash = obs_ex.feature_space[obs_ns].indices[i];
-      auto feature_val = obs_ex.feature_space[obs_ns].values[i];
+      auto feature_hash = obs_ex[obs_ns].indices[i];
+      auto feature_val = obs_ex[obs_ns].values[i];
 
       if (obs_ns == VW::details::DEFAULT_NAMESPACE) { obs_ns = VW::details::IGL_FEEDBACK_NAMESPACE; }
 
-      ik_ex.feature_space[obs_ns].indices.push_back(feature_hash);
-      ik_ex.feature_space[obs_ns].values.push_back(feature_val);
+      ik_ex[obs_ns].indices.push_back(feature_hash);
+      ik_ex[obs_ns].values.push_back(feature_val);
     }
   }
 }
@@ -185,6 +183,7 @@ void learn(VW::reductions::igl::igl_data& igl, learner& base, VW::multi_ex& ec_s
   {
     auto action_ex = ec_seq[i];
     VW::empty_example(*igl.ik_ftrl->all, igl.ik_ex);
+    VW::copy_example_metadata(&igl.ik_ex, action_ex);
 
     // TODO: Do we need constant feature here? If so, VW::add_constant_feature
     VW::details::append_example_namespaces_from_example(igl.ik_ex, *action_ex);
@@ -202,8 +201,6 @@ void learn(VW::reductions::igl::igl_data& igl, learner& base, VW::multi_ex& ec_s
     else { igl.ik_ex.weight = 3 / 4.f / (1 - pa); }
 
     igl.ik_ex.interactions = &ik_interactions;
-    // TODO(low pri): not reuse igl.extent_interactions, need to add in feedback
-    igl.ik_ex.extent_interactions = igl.extent_interactions;
 
     // 2. ik learn
     igl.ik_learner->learn(igl.ik_ex, 0);
@@ -245,7 +242,7 @@ void learn(VW::reductions::igl::igl_data& igl, learner& base, VW::multi_ex& ec_s
     ex->l.cb.reset_to_default();
   }
 
-  ec_seq.push_back(observation_ex);
+  if (observation_ex != nullptr) { ec_seq.push_back(observation_ex); }
   ec_seq[0]->pred.a_s = std::move(stashed_prediction);
 }
 
@@ -291,9 +288,7 @@ void pre_save_load_igl(VW::workspace& all, igl::igl_data& data)
     }
   }
 
-  all.initial_weights_config.num_bits =
-      all.initial_weights_config.num_bits - static_cast<uint32_t>(std::log2(all.reduction_state.total_feature_width));
-  options.get_typed_option<uint32_t>("bit_precision").value(all.initial_weights_config.num_bits);
+  options.get_typed_option<uint32_t>("bit_precision").value(all.initial_weights_config.feature_hash_bits);
 }
 
 void output_igl_prediction(
@@ -327,8 +322,8 @@ void update_stats_igl(const VW::workspace& /* all */, VW::shared_data& sd, const
   {
     if (VW::ec_is_example_header_cb_with_observations(*example))
     {
-      num_features += (ec_seq.size() - 1) *
-          (example->get_num_features() - example->feature_space[VW::details::CONSTANT_NAMESPACE].size());
+      num_features +=
+          (ec_seq.size() - 1) * (example->get_num_features() - (*example)[VW::details::CONSTANT_NAMESPACE].size());
     }
     else { num_features += example->get_num_features(); }
   }
@@ -403,7 +398,6 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::interaction_ground_setup(V
   ld->ik_learner = require_singleline(ik_builder->setup_base_learner());
 
   ld->interactions = all->feature_tweaks_config.interactions;
-  ld->extent_interactions = &all->feature_tweaks_config.extent_interactions;
 
   VW::prediction_type_t pred_type;
 

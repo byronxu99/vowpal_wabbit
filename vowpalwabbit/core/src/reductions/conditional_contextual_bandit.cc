@@ -78,7 +78,6 @@ public:
   std::string id_namespace_str;
   std::string id_namespace_audit_str;
 
-  size_t base_learner_stride_shift = 0;
   bool all_slots_loss_report = false;
   bool no_pred = false;
 
@@ -222,17 +221,18 @@ bool has_action(VW::multi_ex& cb_ex) { return !cb_ex.empty(); }
 // Copy other slot namespaces to shared
 void inject_slot_features(VW::example* shared, VW::example* slot)
 {
-  for (auto index : slot->indices)
+  for (auto ns : *slot)
   {
     // constant namespace should be ignored, as it already exists and we don't want to double it up.
-    if (index == VW::details::CONSTANT_NAMESPACE) { continue; }
+    if (ns == VW::details::CONSTANT_NAMESPACE) { continue; }
 
-    if (index == VW::details::DEFAULT_NAMESPACE)  // slot default namespace has a special namespace in shared
+    auto& ft = (*slot)[ns];
+    // slot default namespace has a special namespace in shared
+    if (ns == VW::details::DEFAULT_NAMESPACE)
     {
-      VW::details::append_example_namespace(
-          *shared, VW::details::CCB_SLOT_NAMESPACE, slot->feature_space[VW::details::DEFAULT_NAMESPACE]);
+      VW::details::append_example_namespace(*shared, VW::details::CCB_SLOT_NAMESPACE, ft);
     }
-    else { VW::details::append_example_namespace(*shared, index, slot->feature_space[index]); }
+    else { VW::details::append_example_namespace(*shared, ns, ft); }
   }
 }
 
@@ -247,22 +247,17 @@ void inject_slot_id(ccb_data& data, VW::example* shared, size_t id)
   {
     const auto current_index_str = "index" + std::to_string(id);
     index = VW::hash_feature(*data.all, current_index_str, data.id_namespace_hash);
-
-    // To maintain indices consistent with what the parser does we must scale.
-    index *= static_cast<uint64_t>(data.all->reduction_state.total_feature_width) << data.base_learner_stride_shift;
     data.slot_id_hashes[id] = index;
   }
   else { index = data.slot_id_hashes[id]; }
 
-  shared->feature_space[VW::details::CCB_ID_NAMESPACE].push_back(1., index, VW::details::CCB_ID_NAMESPACE);
-  shared->indices.push_back(VW::details::CCB_ID_NAMESPACE);
+  (*shared)[VW::details::CCB_ID_NAMESPACE].add_feature_raw(index, 1.);
   if (id == 0) { shared->num_features++; }
 
   if (audit)
   {
     auto current_index_str = "index" + std::to_string(id);
-    shared->feature_space[VW::details::CCB_ID_NAMESPACE].space_names.emplace_back(
-        data.id_namespace_audit_str, current_index_str);
+    (*shared)[VW::details::CCB_ID_NAMESPACE].add_audit_string(current_index_str);
   }
 }
 
@@ -270,23 +265,23 @@ void inject_slot_id(ccb_data& data, VW::example* shared, size_t id)
 template <bool audit>
 void remove_slot_id(VW::example* shared)
 {
-  shared->feature_space[VW::details::CCB_ID_NAMESPACE].clear();
-  shared->indices.pop_back();
+  shared->delete_namespace(VW::details::CCB_ID_NAMESPACE);
 }
 
 void remove_slot_features(VW::example* shared, VW::example* slot)
 {
-  for (auto index : slot->indices)
+  for (auto ns : *slot)
   {
     // constant namespace should be ignored, as it already exists and we don't want to double it up.
-    if (index == VW::details::CONSTANT_NAMESPACE) { continue; }
+    if (ns == VW::details::CONSTANT_NAMESPACE) { continue; }
 
-    if (index == VW::details::DEFAULT_NAMESPACE)  // slot default namespace has a special namespace in shared
+    auto& ft = (*slot)[ns];
+    // slot default namespace has a special namespace in shared
+    if (ns == VW::details::DEFAULT_NAMESPACE)
     {
-      VW::details::truncate_example_namespace(
-          *shared, VW::details::CCB_SLOT_NAMESPACE, slot->feature_space[VW::details::DEFAULT_NAMESPACE]);
+      VW::details::truncate_example_namespace(*shared, VW::details::CCB_SLOT_NAMESPACE, ft);
     }
-    else { VW::details::truncate_example_namespace(*shared, index, slot->feature_space[index]); }
+    else { VW::details::truncate_example_namespace(*shared, ns, ft); }
   }
 }
 
@@ -417,8 +412,9 @@ void learn_or_predict(ccb_data& data, learner& base, VW::multi_ex& examples)
   {
     // We decide that user defined features exist if there is at least one feature space which is not the constant
     // namespace.
-    const bool user_defined_slot_features_exist = !data.slots.empty() && !data.slots[0]->indices.empty() &&
-        data.slots[0]->indices[0] != VW::details::CONSTANT_NAMESPACE;
+    const bool user_defined_slot_features_exist = !data.slots.empty() &&
+        ((!data.slots[0]->empty() && !data.slots[0]->contains(VW::details::CONSTANT_NAMESPACE)) ||
+            data.slots[0]->size() >= 2);
     data.has_seen_multi_slot_example = data.has_seen_multi_slot_example || user_defined_slot_features_exist;
   }
   const bool should_augment_with_slot_info = data.has_seen_multi_slot_example;
@@ -428,8 +424,7 @@ void learn_or_predict(ccb_data& data, learner& base, VW::multi_ex& examples)
   // that the cache will be invalidated.
   if (!previously_should_augment_with_slot_info && should_augment_with_slot_info)
   {
-    insert_ccb_interactions(
-        data.all->feature_tweaks_config.interactions, data.all->feature_tweaks_config.extent_interactions);
+    insert_ccb_interactions(data.all->feature_tweaks_config.interactions);
   }
 
   // This will overwrite the labels with CB.
@@ -479,8 +474,8 @@ void learn_or_predict(ccb_data& data, learner& base, VW::multi_ex& examples)
         // The right thing to do here is to detect library mode and not have to
         // call predict if prediction is
         // not needed for learn.  This will be part of a future PR
-        if (!is_learn) { multiline_learn_or_predict<false>(base, data.cb_ex, examples[0]->ft_offset); }
-        else { multiline_learn_or_predict<true>(base, data.cb_ex, examples[0]->ft_offset); }
+        if (!is_learn) { multiline_learn_or_predict<false>(base, data.cb_ex, examples[0]->ft_index_offset); }
+        else { multiline_learn_or_predict<true>(base, data.cb_ex, examples[0]->ft_index_offset); }
 
         if (!data.no_pred) { save_action_scores_and_exclude_top_action(data, decision_scores); }
         else { exclude_chosen_action(data, examples); }
@@ -494,7 +489,7 @@ void learn_or_predict(ccb_data& data, learner& base, VW::multi_ex& examples)
           {
             slot->num_features += ex->num_features;
             slot->num_features_from_interactions += ex->num_features_from_interactions;
-            slot->num_features -= ex->feature_space[VW::details::CONSTANT_NAMESPACE].size();
+            slot->num_features -= (*ex)[VW::details::CONSTANT_NAMESPACE].size();
           }
         }
         clear_pred_and_label(data);
@@ -625,11 +620,7 @@ void save_load(ccb_data& sm, VW::io_buf& io, bool read, bool text)
     VW::model_utils::write_model_field(io, sm.has_seen_multi_slot_example, "CCB: has_seen_multi_slot_example", text);
   }
 
-  if (read && sm.has_seen_multi_slot_example)
-  {
-    insert_ccb_interactions(
-        sm.all->feature_tweaks_config.interactions, sm.all->feature_tweaks_config.extent_interactions);
-  }
+  if (read && sm.has_seen_multi_slot_example) { insert_ccb_interactions(sm.all->feature_tweaks_config.interactions); }
 }
 }  // namespace
 std::shared_ptr<VW::LEARNER::learner> VW::reductions::ccb_explore_adf_setup(VW::setup_base_i& stack_builder)
@@ -691,10 +682,6 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::ccb_explore_adf_setup(VW::
 
   auto base = require_multiline(stack_builder.setup_base_learner());
 
-  // Stash the base learners stride_shift so we can properly add a feature
-  // later.
-  data->base_learner_stride_shift = all.weights.stride_shift();
-
   // Extract from lower level reductions
   data->shared = nullptr;
   data->all = &all;
@@ -702,7 +689,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::ccb_explore_adf_setup(VW::
 
   data->id_namespace_str = "_id";
   data->id_namespace_audit_str = "_ccb_slot_index";
-  data->id_namespace_hash = VW::hash_space(all, data->id_namespace_str);
+  data->id_namespace_hash = VW::hash_namespace(all, data->id_namespace_str);
 
   auto l = make_reduction_learner(std::move(data), base, learn_or_predict<true>, learn_or_predict<false>,
       stack_builder.get_setupfn_name(ccb_explore_adf_setup))
@@ -723,11 +710,10 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::ccb_explore_adf_setup(VW::
 // CCB adds the following interactions:
 //   1. Every existing interaction + VW::details::CCB_ID_NAMESPACE
 //   2. wildcard_namespace + VW::details::CCB_ID_NAMESPACE
-void VW::reductions::ccb::insert_ccb_interactions(std::vector<std::vector<VW::namespace_index>>& interactions_to_add_to,
-    std::vector<std::vector<extent_term>>& extent_interactions_to_add_to)
+void VW::reductions::ccb::insert_ccb_interactions(VW::interaction_spec_type& interactions_to_add_to)
 {
   const auto reserve_size = interactions_to_add_to.size() * 2;
-  std::vector<std::vector<VW::namespace_index>> new_interactions;
+  VW::interaction_spec_type new_interactions;
   new_interactions.reserve(reserve_size);
   for (const auto& inter : interactions_to_add_to)
   {
@@ -738,21 +724,6 @@ void VW::reductions::ccb::insert_ccb_interactions(std::vector<std::vector<VW::na
   interactions_to_add_to.reserve(interactions_to_add_to.size() + new_interactions.size() + 2);
   std::move(new_interactions.begin(), new_interactions.end(), std::back_inserter(interactions_to_add_to));
   interactions_to_add_to.push_back({VW::details::WILDCARD_NAMESPACE, VW::details::CCB_ID_NAMESPACE});
-
-  std::vector<std::vector<extent_term>> new_extent_interactions;
-  new_extent_interactions.reserve(new_extent_interactions.size() * 2);
-  for (const auto& inter : extent_interactions_to_add_to)
-  {
-    new_extent_interactions.push_back(inter);
-    new_extent_interactions.back().emplace_back(VW::details::CCB_ID_NAMESPACE, VW::details::CCB_ID_NAMESPACE);
-    new_extent_interactions.push_back(inter);
-  }
-  extent_interactions_to_add_to.reserve(extent_interactions_to_add_to.size() + new_extent_interactions.size() + 2);
-  std::move(new_extent_interactions.begin(), new_extent_interactions.end(),
-      std::back_inserter(extent_interactions_to_add_to));
-  extent_interactions_to_add_to.push_back(
-      {std::make_pair(VW::details::WILDCARD_NAMESPACE, VW::details::WILDCARD_NAMESPACE),
-          std::make_pair(VW::details::CCB_ID_NAMESPACE, VW::details::CCB_ID_NAMESPACE)});
 }
 
 bool VW::reductions::ccb::ec_is_example_header(VW::example const& ec)

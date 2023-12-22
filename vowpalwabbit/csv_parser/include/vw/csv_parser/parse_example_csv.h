@@ -37,8 +37,11 @@ int parse_csv_examples(VW::workspace* all, io_buf& buf, VW::multi_ex& examples);
 class csv_parser : public VW::details::input_parser
 {
 public:
-  std::vector<std::string> header_fn;
-  std::vector<std::string> header_ns;
+  std::vector<std::string> header_namespace_names;
+  std::vector<std::string> header_feature_names_str;
+  std::vector<VW::feature_index> header_feature_names_int;
+  std::vector<bool> feature_name_is_int;
+
   size_t line_num = 0;
   csv_parser_options options;
   VW::v_array<size_t> label_list;

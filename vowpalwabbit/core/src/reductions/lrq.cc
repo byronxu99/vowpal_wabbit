@@ -8,6 +8,7 @@
 #include "vw/config/options.h"
 #include "vw/core/example.h"
 #include "vw/core/global_data.h"
+#include "vw/core/interactions_predict.h"
 #include "vw/core/learner.h"
 #include "vw/core/memory.h"
 #include "vw/core/parse_args.h"  // for spoof_hex_encoded_namespaces
@@ -16,6 +17,8 @@
 
 #include <cfloat>
 #include <cstring>
+#include <unordered_map>
+#include <unordered_set>
 
 using namespace VW::LEARNER;
 using namespace VW::config;
@@ -26,18 +29,14 @@ class lrq_state
 {
 public:
   VW::workspace* all = nullptr;  // feature creation, audit, hash_inv
-  bool lrindices[256];
-  size_t orig_size[256];
-  std::set<std::string> lrpairs;
+  std::unordered_set<VW::namespace_index> lrindices;
+  std::unordered_map<VW::namespace_index, size_t> orig_size;
+  std::unordered_set<std::string> lrpairs;
   bool dropout = false;
   uint64_t seed = 0;
   uint64_t initial_seed = 0;
 
-  lrq_state()
-  {
-    std::fill(lrindices, lrindices + 256, false);
-    std::fill(orig_size, orig_size + 256, 0);
-  }
+  lrq_state() = default;
 };
 
 bool valid_int(const char* s)
@@ -71,12 +70,31 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
 {
   VW::workspace& all = *lrq.all;
 
-  // Remember original features
-
-  memset(lrq.orig_size, 0, sizeof(lrq.orig_size));
-  for (VW::namespace_index i : ec.indices)
+  // Imitate old behavior of setup_example where features are scaled before learn/predict
+  // Scale feature indices and then set ft_index_scale to 1 so we don't scale again
+  auto old_ft_index_scale = ec.ft_index_scale;
+  uint64_t multiplier = static_cast<uint64_t>(all.reduction_state.total_feature_width) << all.weights.stride_shift();
+  for (auto ns : ec)
   {
-    if (lrq.lrindices[i]) { lrq.orig_size[i] = ec.feature_space[i].size(); }
+    for (auto& ft_idx : ec[ns].indices) { ft_idx *= multiplier; }
+  }
+  ec.ft_index_scale = 1;
+
+  // Undo the previous operation when we are done
+  auto restore_ft_index_scale = VW::scope_exit(
+      [&ec, old_ft_index_scale, multiplier]()
+      {
+        for (auto ns : ec)
+        {
+          for (auto& ft_idx : ec[ns].indices) { ft_idx /= multiplier; }
+        }
+        ec.ft_index_scale = old_ft_index_scale;
+      });
+
+  // Remember original features
+  for (VW::namespace_index i : ec)
+  {
+    if (lrq.lrindices.find(i) != lrq.lrindices.end()) { lrq.orig_size[i] = ec[i].size(); }
   }
 
   size_t which = (is_learn && !example_is_test(ec)) ? ec.example_counter : 0;
@@ -89,6 +107,7 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
   float scale = (!lrq.dropout || do_dropout) ? 1.f : 0.5f;
 
   uint32_t stride_shift = lrq.all->weights.stride_shift();
+  uint64_t weight_mask = lrq.all->weights.weight_mask();
   for (unsigned int iter = 0; iter < maxiter; ++iter, ++which)
   {
     // Add left LRQ features, holding right LRQ features fixed
@@ -98,21 +117,21 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
 
     for (std::string const& i : lrq.lrpairs)
     {
-      unsigned char left = i[which % 2];
-      unsigned char right = i[(which + 1) % 2];
+      VW::namespace_index left = VW::namespace_string_to_index(all, std::string{i[which % 2]});
+      VW::namespace_index right = VW::namespace_string_to_index(all, std::string{i[(which + 1) % 2]});
       unsigned int k = atoi(i.c_str() + 2);
 
-      auto& left_fs = ec.feature_space[left];
+      auto& left_fs = ec[left];
       for (unsigned int lfn = 0; lfn < lrq.orig_size[left]; ++lfn)
       {
         float lfx = left_fs.values[lfn];
-        uint64_t lindex = left_fs.indices[lfn] + ec.ft_offset;
         for (unsigned int n = 1; n <= k; ++n)
         {
           if (!do_dropout || cheesyrbit(lrq.seed))
           {
-            uint64_t lwindex = (lindex + (static_cast<uint64_t>(n) << stride_shift));
-            VW::weight* lw = &lrq.all->weights[lwindex];
+            // note that here we have already scaled the feature indices
+            auto lwindex = left_fs.indices[lfn] + (static_cast<uint64_t>(n) << stride_shift) + ec.ft_index_offset;
+            VW::weight* lw = &lrq.all->weights[lwindex & weight_mask];
 
             // perturb away from saddle point at (0, 0)
             if (is_learn)
@@ -123,21 +142,20 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
               }
             }
 
-            auto& right_fs = ec.feature_space[right];
+            auto& right_fs = ec[right];
             for (unsigned int rfn = 0; rfn < lrq.orig_size[right]; ++rfn)
             {
-              // NB: ec.ft_offset added by base learner
+              // unlike for lw, ec.ft_index_offset will be added by base learner
               float rfx = right_fs.values[rfn];
-              uint64_t rindex = right_fs.indices[rfn];
-              uint64_t rwindex = (rindex + (static_cast<uint64_t>(n) << stride_shift));
-
-              right_fs.push_back(scale * *lw * lfx * rfx, rwindex);
+              uint64_t new_feature_index = right_fs.indices[rfn] + (static_cast<uint64_t>(n) << stride_shift);
+              float new_feature_value = scale * *lw * lfx * rfx;
+              right_fs.add_feature_raw(new_feature_index, new_feature_value);
 
               if (all.output_config.audit || all.output_config.hash_inv)
               {
                 std::stringstream new_feature_buffer;
-                new_feature_buffer << right << '^' << right_fs.space_names[rfn].name << '^' << n;
-                right_fs.space_names.emplace_back("lrq", new_feature_buffer.str());
+                new_feature_buffer << right << '^' << right_fs.audit_info[rfn].feature_name << '^' << n;
+                right_fs.add_audit_string("lrq", new_feature_buffer.str());
               }
             }
           }
@@ -164,8 +182,8 @@ void predict_or_learn(lrq_state& lrq, learner& base, VW::example& ec)
 
     for (std::string const& i : lrq.lrpairs)
     {
-      unsigned char right = i[(which + 1) % 2];
-      ec.feature_space[right].truncate_to(lrq.orig_size[right]);
+      VW::namespace_index right = VW::namespace_string_to_index(all, std::string{i[(which + 1) % 2]});
+      ec[right].truncate_to(lrq.orig_size[right]);
     }
   }  // end for(max_iter)
 }
@@ -189,6 +207,7 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::lrq_setup(VW::setup_base_i
   for (const auto& name : lrq_names)
   {
     if (name.find(':') != std::string::npos) { THROW("--lrq does not support wildcards ':'"); }
+    if (name.find('|') != std::string::npos) { THROW("--lrq only supports single character namespaces"); }
   }
 
   for (auto& lrq_name : lrq_names) { lrq_name = VW::decode_inline_hex(lrq_name, all.logger); }
@@ -216,8 +235,8 @@ std::shared_ptr<VW::LEARNER::learner> VW::reductions::lrq_setup(VW::setup_base_i
 
     unsigned int k = atoi(i.c_str() + 2);
 
-    lrq->lrindices[static_cast<int>(i[0])] = true;
-    lrq->lrindices[static_cast<int>(i[1])] = true;
+    lrq->lrindices.insert(i[0]);
+    lrq->lrindices.insert(i[1]);
 
     maxk = std::max(maxk, k);
   }

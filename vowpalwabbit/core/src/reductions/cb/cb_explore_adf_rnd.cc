@@ -147,6 +147,8 @@ public:
   inline float operator[](uint64_t index) const { return VW::details::merand48_boxmuller(index); }
   // get() is only needed for sparse_weights, same as operator[] for lazy_gaussian
   inline float get(uint64_t index) const { return operator[](index); }
+  // dummy function because we want to use lazy_gaussian as weights in VW::foreach_feature
+  inline uint32_t feature_hash_bits() const { return 32; }
 };
 
 inline void vec_add_with_norm(std::pair<float, float>& p, float fx, float fw)
@@ -163,8 +165,7 @@ float cb_explore_adf_rnd::get_initial_prediction(VW::example* ec)
 
   std::pair<float, float> dotwithnorm(0.f, 0.f);
   VW::foreach_feature<std::pair<float, float>, float, vec_add_with_norm, lazy_gaussian>(w,
-      _all->feature_tweaks_config.ignore_some_linear, _all->feature_tweaks_config.ignore_linear,
-      _all->feature_tweaks_config.interactions, _all->feature_tweaks_config.extent_interactions,
+      _all->feature_tweaks_config.ignore_linear, _all->feature_tweaks_config.interactions,
       _all->feature_tweaks_config.permutations, *ec, dotwithnorm,
       _all->runtime_state.generate_interactions_object_cache_state);
 

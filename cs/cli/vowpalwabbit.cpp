@@ -8,7 +8,7 @@
 #include "vw/core/best_constant.h"
 #include "vw/core/parser.h"
 #include "vw/core/learner.h"
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 #include "vw_example.h"
 #include "vw_builder.h"
 #include "clr_io.h"
@@ -139,7 +139,7 @@ uint64_t VowpalWabbit::HashSpaceNative(String^ s)
   auto handle = GCHandle::Alloc(bytes, GCHandleType::Pinned);
 
   try
-  { return VW::hash_space(*m_vw, reinterpret_cast<char*>(handle.AddrOfPinnedObject().ToPointer()));
+  { return VW::hash_namespace(*m_vw, reinterpret_cast<char*>(handle.AddrOfPinnedObject().ToPointer()));
   }
   CATCHRETHROW
   finally
@@ -833,7 +833,7 @@ void VowpalWabbit::ReturnExampleToPool(VowpalWabbitExample^ ex)
 }
 
 cli::array<List<VowpalWabbitFeature^>^>^ VowpalWabbit::GetTopicAllocation(int top)
-{ uint64_t length = (uint64_t)1 << m_vw->initial_weights_config.num_bits;
+{ uint64_t length = (uint64_t)1 << m_vw->initial_weights_config.feature_width_bits;
   // using jagged array to enable LINQ
   auto K = (int)m_vw->reduction_state.lda;
   auto allocation = gcnew cli::array<List<VowpalWabbitFeature^>^>(K);
@@ -858,7 +858,7 @@ cli::array<List<VowpalWabbitFeature^>^>^ VowpalWabbit::GetTopicAllocation(int to
 template<typename T>
 cli::array<cli::array<float>^>^ VowpalWabbit::FillTopicAllocation(T& weights)
 {
-	uint64_t length = (uint64_t)1 << m_vw->initial_weights_config.num_bits;
+	uint64_t length = (uint64_t)1 << m_vw->initial_weights_config.feature_width_bits;
 
 	// using jagged array to enable LINQ
 	auto K = (int)m_vw->reduction_state.lda;

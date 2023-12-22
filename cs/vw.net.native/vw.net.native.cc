@@ -1,6 +1,6 @@
 #include "vw.net.native.h"
 
-#include "vw/common/hash.h"
+#include "vw/common/uniform_hash.h"
 
 #include <cstdlib>
 

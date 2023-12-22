@@ -514,7 +514,7 @@ TEST(Automl, OneDiffImplUnittestWIterations)
             false, ns_counter, oracle._interaction_type, exclusions, interactions);
         EXPECT_EQ(champ_interactions.size(), 3);
 
-        const interaction_vec_t expected = {
+        const VW::interaction_spec_type expected = {
             {'A', 'A'},
             {'A', 'B'},
             {'B', 'B'},
@@ -656,7 +656,7 @@ TEST(Automl, QbaseUnittestWIterations)
             false, ns_counter, oracle._interaction_type, exclusions, interactions);
         EXPECT_EQ(champ_interactions.size(), 6);
 
-        const interaction_vec_t expected = {
+        const VW::interaction_spec_type expected = {
             {'A', 'A'},
             {'A', 'B'},
             {'A', 'C'},
@@ -697,7 +697,7 @@ TEST(Automl, QbaseUnittestWIterations)
         }
         EXPECT_EQ(prio_queue.size(), 0);
         EXPECT_EQ(estimators.size(), 11);
-        interaction_vec_t expected2 = {
+        VW::interaction_spec_type expected2 = {
             {'B', 'C', 'C'},
             {'A', 'A'},
             {'A', 'B'},
@@ -770,19 +770,19 @@ TEST(Automl, ExcInclUnitTest)
 
   std::map<VW::namespace_index, uint64_t> ns_counter{{'A', 5}, {'B', 4}, {'C', 3}};
 
-  interaction_vec_t interactions;
+  VW::interaction_spec_type interactions;
 
   ns_based_config test_config_interaction(set_ns_list_t{{'A', 'A'}, {'A', 'B'}}, 4000, config_type::Interaction);
   ns_based_config::apply_config_to_interactions(false, ns_counter, "", test_config_interaction, interactions);
 
-  const interaction_vec_t expected{{'A', 'A'}, {'A', 'B'}};
+  const VW::interaction_spec_type expected{{'A', 'A'}, {'A', 'B'}};
   EXPECT_EQ(interactions.size(), 2);
   EXPECT_EQ(interactions, expected);
 
   ns_based_config test_config_exclusion(set_ns_list_t{{'A', 'A'}, {'A', 'B'}}, 4000, config_type::Exclusion);
   ns_based_config::apply_config_to_interactions(false, ns_counter, "quadratic", test_config_exclusion, interactions);
 
-  const interaction_vec_t expected2{{'A', 'C'}, {'B', 'B'}, {'B', 'C'}, {'C', 'C'}};
+  const VW::interaction_spec_type expected2{{'A', 'C'}, {'B', 'B'}, {'B', 'C'}, {'C', 'C'}};
   EXPECT_EQ(interactions.size(), 4);
   EXPECT_EQ(interactions, expected2);
 }
@@ -793,14 +793,14 @@ TEST(Automl, QuadcubicUnitTest)
 
   std::map<VW::namespace_index, uint64_t> ns_counter{{'A', 5}, {'B', 4}, {'C', 3}};
 
-  interaction_vec_t interactions;
+  VW::interaction_spec_type interactions;
 
   ns_based_config test_config_exclusion(
       set_ns_list_t{{'A', 'A', 'A'}, {'B', 'B', 'B'}, {'C', 'C', 'C'}}, 4000, config_type::Interaction);
   ns_based_config::apply_config_to_interactions(false, ns_counter, "both", test_config_exclusion, interactions);
 
-  interaction_vec_t expected2{{'A', 'A', 'A'}, {'B', 'B', 'B'}, {'C', 'C', 'C'}, {'A', 'A'}, {'A', 'B'}, {'A', 'C'},
-      {'B', 'B'}, {'B', 'C'}, {'C', 'C'}};
+  VW::interaction_spec_type expected2{{'A', 'A', 'A'}, {'B', 'B', 'B'}, {'C', 'C', 'C'}, {'A', 'A'}, {'A', 'B'},
+      {'A', 'C'}, {'B', 'B'}, {'B', 'C'}, {'C', 'C'}};
   std::sort(expected2.begin(), expected2.end(), VW::details::sort_interactions_comparator);
 
   EXPECT_EQ(interactions, expected2);

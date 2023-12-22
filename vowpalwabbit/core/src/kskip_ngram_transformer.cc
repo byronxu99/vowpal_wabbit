@@ -4,6 +4,7 @@
 
 #include "vw/core/kskip_ngram_transformer.h"
 
+#include "vw/core/hash.h"
 #include "vw/io/logger.h"
 
 #include <memory>
@@ -13,85 +14,114 @@ void add_grams(size_t ngram, size_t skip_gram, VW::features& fs, size_t initial_
 {
   if (ngram == 0 && gram_mask.back() < initial_length)
   {
+    // In this branch, gram_mask has been filled completely
+
+    // Get last index of features that will not exceed the final increment in gram_mask
+    // Iterate through all features to last index
     size_t last = initial_length - gram_mask.back();
     for (size_t i = 0; i < last; i++)
     {
+      // Generate the new index by hashing the indices in gram_mask
       uint64_t new_index = fs.indices[i];
       for (size_t n = 1; n < gram_mask.size(); n++)
       {
         new_index = new_index * VW::details::QUADRATIC_CONSTANT + fs.indices[i + gram_mask[n]];
       }
 
-      fs.push_back(1., new_index);
-      if (!fs.space_names.empty())
+      // Add new feature with index we just computed and feature value 1
+      fs.add_feature_raw(new_index, 1.f);
+
+      // Add the new feature name to the list of feature names
+      if (!fs.audit_info.empty())
       {
-        std::string feature_name(fs.space_names[i].name);
+        std::string feature_name(fs.audit_info[i].feature_name);
         for (size_t n = 1; n < gram_mask.size(); n++)
         {
           feature_name += std::string("^");
-          feature_name += std::string(fs.space_names[i + gram_mask[n]].name);
+          feature_name += std::string(fs.audit_info[i + gram_mask[n]].feature_name);
         }
-        fs.space_names.emplace_back(fs.space_names[i].ns, feature_name);
+        fs.add_audit_string(feature_name);
       }
     }
   }
   if (ngram > 0)
   {
+    // Add current value of skips to the gram_mask and generate (n-1)-grams
     gram_mask.push_back(gram_mask.back() + 1 + skips);
     add_grams(ngram - 1, skip_gram, fs, initial_length, gram_mask, 0);
     gram_mask.pop_back();
   }
-  if (skip_gram > 0 && ngram > 0) { add_grams(ngram, skip_gram - 1, fs, initial_length, gram_mask, skips + 1); }
+  if (skip_gram > 0 && ngram > 0)
+  {
+    // Increment the value of skips and call function again
+    add_grams(ngram, skip_gram - 1, fs, initial_length, gram_mask, skips + 1);
+  }
 }
 
-void compile_gram(const std::vector<std::string>& grams, std::array<uint32_t, VW::NUM_NAMESPACES>& dest,
-    const std::string& descriptor, bool /*quiet*/, VW::io::logger& logger)
+void compile_gram(const std::vector<std::string>& grams, std::unordered_map<VW::namespace_index, uint32_t>& dest,
+    uint32_t& default_dest, const std::string& descriptor, uint64_t hash_seed, bool /*quiet*/, VW::io::logger& logger)
 {
   for (const auto& gram : grams)
   {
-    if (isdigit(gram[0]) != 0)
+    auto sep = gram.find('|');
+    if (sep == std::string::npos)
     {
-      int n = atoi(gram.c_str());
-      logger.err_info("Generating {0}-{1} for all namespaces.", n, descriptor);
-      for (size_t j = 0; j < VW::NUM_NAMESPACES; j++) { dest[j] = n; }
+      // Assume single character namespace
+      if (isdigit(gram[0]) != 0)
+      {
+        int n = atoi(gram.c_str());
+        logger.err_info("Generating {0}-{1} for all namespaces.", n, descriptor);
+        default_dest = n;
+      }
+      else if (gram.size() == 1) { logger.out_error("The namespace must be specified before the n"); }
+      else
+      {
+        VW::namespace_index ns_index = VW::namespace_string_to_index(gram.substr(0, 1), hash_seed);
+        int n = atoi(gram.c_str() + 1);
+        dest[ns_index] = n;
+        logger.err_info("Generating {0}-{1} for {2} namespaces.", n, descriptor, gram[0]);
+      }
     }
-    else if (gram.size() == 1) { logger.out_error("The namespace index must be specified before the n"); }
     else
     {
-      int n = atoi(gram.c_str() + 1);
-      dest[static_cast<uint32_t>(static_cast<unsigned char>(*gram.c_str()))] = n;
-      logger.err_info("Generating {0}-{1} for {2} namespaces.", n, descriptor, gram[0]);
+      // Use full namespace
+      VW::namespace_index ns_index = VW::namespace_string_to_index(gram.substr(0, sep), hash_seed);
+      int n = atoi(gram.c_str() + sep + 1);
+      dest[ns_index] = n;
+      logger.err_info("Generating {0}-{1} for {2} namespaces.", n, descriptor, gram.substr(0, sep));
     }
   }
 }
 
 void VW::kskip_ngram_transformer::generate_grams(example* ex)
 {
-  for (namespace_index index : ex->indices)
+  for (namespace_index index : *ex)
   {
-    size_t length = ex->feature_space[index].size();
-    for (size_t n = 1; n < ngram_definition[index]; n++)
+    size_t length = (*ex)[index].size();
+    uint32_t ngram_def = ngram_default;
+    if (ngram_definition.find(index) != ngram_definition.end()) { ngram_def = ngram_definition[index]; }
+    for (size_t n = 1; n < ngram_def; n++)
     {
       gram_mask.clear();
       gram_mask.push_back(0);
-      add_grams(n, skip_definition[index], ex->feature_space[index], length, gram_mask, 0);
+      uint32_t skip_def = skip_default;
+      if (skip_definition.find(index) != skip_definition.end()) { skip_def = skip_definition[index]; }
+      add_grams(n, skip_def, (*ex)[index], length, gram_mask, 0);
     }
   }
 }
 
-VW::kskip_ngram_transformer VW::kskip_ngram_transformer::build(
-    const std::vector<std::string>& grams, const std::vector<std::string>& skips, bool quiet, VW::io::logger& logger)
+VW::kskip_ngram_transformer VW::kskip_ngram_transformer::build(const std::vector<std::string>& grams,
+    const std::vector<std::string>& skips, uint64_t hash_seed, bool quiet, VW::io::logger& logger)
 {
   kskip_ngram_transformer transformer(grams, skips);
 
-  compile_gram(grams, transformer.ngram_definition, "grams", quiet, logger);
-  compile_gram(skips, transformer.skip_definition, "skips", quiet, logger);
+  compile_gram(grams, transformer.ngram_definition, transformer.ngram_default, "grams", hash_seed, quiet, logger);
+  compile_gram(skips, transformer.skip_definition, transformer.skip_default, "skips", hash_seed, quiet, logger);
   return transformer;
 }
 
 VW::kskip_ngram_transformer::kskip_ngram_transformer(std::vector<std::string> grams, std::vector<std::string> skips)
     : initial_ngram_definitions(std::move(grams)), initial_skip_definitions(std::move(skips))
 {
-  ngram_definition.fill(0);
-  skip_definition.fill(0);
 }

@@ -44,7 +44,7 @@ cb_explore_adf_softmax::cb_explore_adf_softmax(float epsilon, float lambda) : _e
 template <bool is_learn>
 void cb_explore_adf_softmax::predict_or_learn_impl(VW::LEARNER::learner& base, VW::multi_ex& examples)
 {
-  VW::LEARNER::multiline_learn_or_predict<is_learn>(base, examples, examples[0]->ft_offset);
+  VW::LEARNER::multiline_learn_or_predict<is_learn>(base, examples, examples[0]->ft_index_offset);
 
   VW::v_array<VW::action_score>& preds = examples[0]->pred.a_s;
   VW::explore::generate_softmax(

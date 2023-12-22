@@ -95,27 +95,21 @@ bool two_pass_svd_impl::generate_Y(const multi_ex& examples, const std::vector<f
     {
       if (_all->weights.sparse)
       {
-        Y_triplet_constructor tc(_all->weights.sparse_weights.mask(), row_index, col, _seed, _triplets,
+        Y_triplet_constructor tc(_all->weights.sparse_weights.weight_mask(), row_index, col, _seed, _triplets,
             max_non_zero_col, non_zero_rows, shrink_factors);
         VW::foreach_feature<Y_triplet_constructor, uint64_t, triplet_construction, sparse_parameters>(
-            _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_some_linear,
-            _all->feature_tweaks_config.ignore_linear,
+            _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
-            (red_features.generated_extent_interactions ? *red_features.generated_extent_interactions
-                                                        : *ex->extent_interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);
       }
       else
       {
-        Y_triplet_constructor tc(_all->weights.dense_weights.mask(), row_index, col, _seed, _triplets, max_non_zero_col,
-            non_zero_rows, shrink_factors);
+        Y_triplet_constructor tc(_all->weights.dense_weights.weight_mask(), row_index, col, _seed, _triplets,
+            max_non_zero_col, non_zero_rows, shrink_factors);
         VW::foreach_feature<Y_triplet_constructor, uint64_t, triplet_construction, dense_parameters>(
-            _all->weights.dense_weights, _all->feature_tweaks_config.ignore_some_linear,
-            _all->feature_tweaks_config.ignore_linear,
+            _all->weights.dense_weights, _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
-            (red_features.generated_extent_interactions ? *red_features.generated_extent_interactions
-                                                        : *ex->extent_interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);
       }
@@ -156,25 +150,19 @@ void two_pass_svd_impl::generate_B(const multi_ex& examples, const std::vector<f
       float final_dot_prod = 0.f;
       if (_all->weights.sparse)
       {
-        B_triplet_constructor tc(_all->weights.sparse_weights.mask(), col, Y, final_dot_prod);
+        B_triplet_constructor tc(_all->weights.sparse_weights.weight_mask(), col, Y, final_dot_prod);
         VW::foreach_feature<B_triplet_constructor, uint64_t, triplet_construction, sparse_parameters>(
-            _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_some_linear,
-            _all->feature_tweaks_config.ignore_linear,
+            _all->weights.sparse_weights, _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
-            (red_features.generated_extent_interactions ? *red_features.generated_extent_interactions
-                                                        : *ex->extent_interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);
       }
       else
       {
-        B_triplet_constructor tc(_all->weights.dense_weights.mask(), col, Y, final_dot_prod);
+        B_triplet_constructor tc(_all->weights.dense_weights.weight_mask(), col, Y, final_dot_prod);
         VW::foreach_feature<B_triplet_constructor, uint64_t, triplet_construction, dense_parameters>(
-            _all->weights.dense_weights, _all->feature_tweaks_config.ignore_some_linear,
-            _all->feature_tweaks_config.ignore_linear,
+            _all->weights.dense_weights, _all->feature_tweaks_config.ignore_linear,
             (red_features.generated_interactions ? *red_features.generated_interactions : *ex->interactions),
-            (red_features.generated_extent_interactions ? *red_features.generated_extent_interactions
-                                                        : *ex->extent_interactions),
             _all->feature_tweaks_config.permutations, *ex, tc,
             _all->runtime_state.generate_interactions_object_cache_state);
       }

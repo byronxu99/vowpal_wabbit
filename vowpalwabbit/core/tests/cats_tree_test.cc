@@ -52,7 +52,7 @@ public:
   {
     labels.emplace_back(ec.l.simple);
     weights.emplace_back(ec.weight);
-    learner_offset.emplace_back(ec.ft_offset);
+    learner_offset.emplace_back(ec.ft_index_offset);
   }
 
   static void predict(reduction_test_harness& test_reduction, VW::example& ec) { test_reduction.test_predict(ec); }
@@ -122,7 +122,7 @@ TEST(CatsTree, OtcAlgoLearn1ActionTillRoot)
   tree.init(4, 0);
 
   VW::example ec;
-  ec.ft_offset = 0;
+  ec.ft_index_offset = 0;
   ec.debug_current_reduction_depth = 0;
   ec.l.cb = VW::cb_label();
   ec.l.cb.costs.push_back(VW::cb_class{3.5f, 2, 0.5f});
@@ -150,7 +150,7 @@ TEST(CatsTree, OtcAlgoLearn1Action)
   tree.init(4, 0);
 
   VW::example ec;
-  ec.ft_offset = 0;
+  ec.ft_index_offset = 0;
   ec.debug_current_reduction_depth = 0;
   ec.l.cb = VW::cb_label();
   ec.l.cb.costs.push_back(VW::cb_class{3.5f, 2, 0.5f});
@@ -172,7 +172,7 @@ TEST(CatsTree, OtcAlgoLearn1Action)
 TEST(CatsTree, OtcAlgoLearn2ActionSiblings)
 {
   VW::example ec;
-  ec.ft_offset = 0;
+  ec.ft_index_offset = 0;
   ec.debug_current_reduction_depth = 0;
   ec.l.cb = VW::cb_label();
   ec.l.cb.costs.push_back(VW::cb_class{3.5f, 3, 0.5f});
@@ -202,7 +202,7 @@ TEST(CatsTree, OtcAlgoLearn2ActionSiblings)
 TEST(CatsTree, OtcAlgoLearn2ActionNotSiblings)
 {
   VW::example ec;
-  ec.ft_offset = 0;
+  ec.ft_index_offset = 0;
   ec.debug_current_reduction_depth = 0;
   ec.l.cb = VW::cb_label();
   ec.l.cb.costs.push_back(VW::cb_class{3.5f, 2, 0.5f});
@@ -232,7 +232,7 @@ TEST(CatsTree, OtcAlgoLearn2ActionNotSiblings)
 TEST(CatsTree, OtcAlgoLearn2ActionNotSiblingsBandwidth1)
 {
   VW::example ec;
-  ec.ft_offset = 0;
+  ec.ft_index_offset = 0;
   ec.debug_current_reduction_depth = 0;
   ec.l.cb = VW::cb_label();
   ec.l.cb.costs.push_back(VW::cb_class{3.5f, 2, 0.5f});
@@ -266,7 +266,7 @@ TEST(CatsTree, OtcAlgoLearn2ActionNotSiblingsBandwidth1)
 TEST(CatsTree, OtcAlgoLearn2ActionSeparate)
 {
   VW::example ec;
-  ec.ft_offset = 0;
+  ec.ft_index_offset = 0;
   ec.debug_current_reduction_depth = 0;
   ec.l.cb = VW::cb_label();
   ec.l.cb.costs.push_back(VW::cb_class{3.5f, 3, 0.5f});
@@ -296,7 +296,7 @@ TEST(CatsTree, OtcAlgoLearn2ActionSeparate)
 TEST(CatsTree, OtcAlgoLearn2ActionSeparate2)
 {
   VW::example ec;
-  ec.ft_offset = 0;
+  ec.ft_index_offset = 0;
   ec.debug_current_reduction_depth = 0;
   ec.l.cb = VW::cb_label();
   ec.l.cb.costs.push_back(VW::cb_class{3.5f, 3, 0.5f});
@@ -326,7 +326,7 @@ TEST(CatsTree, OtcAlgoLearn2ActionSeparate2)
 TEST(CatsTree, OtcAlgoLearn2ActionSeparateBandwidth2)
 {
   VW::example ec;
-  ec.ft_offset = 0;
+  ec.ft_index_offset = 0;
   ec.debug_current_reduction_depth = 0;
   ec.l.cb = VW::cb_label();
   ec.l.cb.costs.push_back(VW::cb_class{3.5f, 3, 0.5f});
@@ -356,7 +356,7 @@ TEST(CatsTree, OtcAlgoLearn2ActionSeparateBandwidth2)
 TEST(CatsTree, OtcAlgoLearn2ActionSeparate2Bandwidth2)
 {
   VW::example ec;
-  ec.ft_offset = 0;
+  ec.ft_index_offset = 0;
   ec.debug_current_reduction_depth = 0;
   ec.l.cb = VW::cb_label();
   ec.l.cb.costs.push_back(VW::cb_class{3.5f, 3, 0.5f});
@@ -386,7 +386,7 @@ TEST(CatsTree, OtcAlgoLearn2ActionSeparate2Bandwidth2)
 TEST(CatsTree, OtcAlgoLearn2ActionSeparateBandwidth1Asym)
 {
   VW::example ec;
-  ec.ft_offset = 0;
+  ec.ft_index_offset = 0;
   ec.debug_current_reduction_depth = 0;
   ec.l.cb = VW::cb_label();
   ec.l.cb.costs.push_back(VW::cb_class{3.5f, 2, 0.5f});

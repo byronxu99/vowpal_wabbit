@@ -245,7 +245,7 @@ void VW::reductions::cb_adf::learn(learner& base, VW::multi_ex& ec_seq)
 {
   if (VW::test_cb_adf_sequence(ec_seq) != nullptr)
   {
-    _offset = ec_seq[0]->ft_offset;
+    _offset = ec_seq[0]->ft_index_offset;
     _offset_index = _offset / _all->weights.stride();
     _gen_cs_dr.known_cost = VW::get_observed_cost_or_default_cb_adf(ec_seq);  // need to set for test case
     switch (_cb_type)
@@ -273,7 +273,7 @@ void VW::reductions::cb_adf::learn(learner& base, VW::multi_ex& ec_seq)
 
 void VW::reductions::cb_adf::predict(learner& base, VW::multi_ex& ec_seq)
 {
-  _offset = ec_seq[0]->ft_offset;
+  _offset = ec_seq[0]->ft_index_offset;
   _offset_index = _offset / _all->weights.stride();
   _gen_cs_dr.known_cost = VW::get_observed_cost_or_default_cb_adf(ec_seq);  // need to set for test case
   details::gen_cs_test_example(ec_seq, _cs_labels);                         // create test labels.
